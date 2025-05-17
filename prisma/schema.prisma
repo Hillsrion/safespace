@@ -66,7 +66,7 @@ enum AuditAction {
 model User {
   id            String    @id @default(uuid()) @db.Uuid
   email         String    @unique
-  passwordHash  String
+  password      String
   name          String
   isSuperAdmin  Boolean   @default(false) // Global flag for super admin access
   createdAt     DateTime  @default(now())

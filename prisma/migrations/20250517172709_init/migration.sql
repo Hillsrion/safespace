@@ -17,7 +17,7 @@ CREATE TYPE "AuditAction" AS ENUM ('user_invite', 'user_kick', 'user_role_change
 CREATE TABLE "User" (
     "id" UUID NOT NULL,
     "email" TEXT NOT NULL,
-    "passwordHash" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "isSuperAdmin" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
