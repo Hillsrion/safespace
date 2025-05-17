@@ -14,12 +14,61 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Enums for post-related statuses and severities
+enum PostStatus {
+  active    // Post is visible and active
+  hidden    // Post is hidden from public view but still exists
+}
+
+enum PostSeverity {
+  low       // Minor issue
+  medium    // Moderate issue
+  high      // Serious issue
+}
+
+enum PostVerificationStatus {
+  unverified  // Report has not been verified
+  pending     // Report is under review
+  verified    // Report has been verified
+  disputed    // Report is disputed
+}
+
+enum PostFlagStatus {
+  pending_review  // Flag is awaiting review
+  resolved        // Flag has been reviewed and resolved
+  rejected        // Flag was found invalid and rejected
+}
+
+// AuditLog actions represent different types of user/system actions
+enum AuditAction {
+  user_invite     // User invited another user
+  user_kick       // User was kicked from space
+  user_role_change // User role changed
+  post_create     // Post created
+  post_update     // Post updated
+  post_delete     // Post deleted
+  post_flag       // Post flagged
+  flag_resolve    // Flag resolved
+  entity_add      // Reported entity added
+  entity_update   // Reported entity updated
+  space_create    // Space created
+  space_update    // Space updated
+  space_delete    // Space deleted
+}
+
+// User model represents platform users with different roles
+// Users can belong to multiple spaces with different roles in each space
+// SuperAdmins have global access while other roles are space-specific
+
+// User model represents platform users with different roles
+// Users can belong to multiple spaces with different roles in each space
+// SuperAdmins have global access while other roles are space-specific
 model User {
   id            String    @id @default(uuid()) @db.Uuid
   email         String    @unique
   passwordHash  String
   name          String
-  isSuperAdmin  Boolean   @default(false)
+  isSuperAdmin  Boolean   @default(false) // Global flag for super admin access
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
 
@@ -35,6 +84,9 @@ model User {
   addedEntities ReportedEntity[] @relation("EntityAdders")
 }
 
+// Space model represents a community/organization within the platform
+// Each space is an independent community with its own members and posts
+// Users can belong to multiple spaces
 model Space {
   id          String    @id @default(uuid()) @db.Uuid
   name        String    @unique
@@ -118,6 +170,9 @@ model ReportedEntityHandle {
   @@index([handle])
 }
 
+// Post model represents reports about reported entities
+// Posts must target a specific entity (name + one or more Instagram identifiers)
+// If a targeted entity is not in the database, they are auto-added
 model Post {
   id                 String    @id @default(uuid()) @db.Uuid
   spaceId            String    @db.Uuid
@@ -126,9 +181,9 @@ model Post {
   description        String    @db.Text
   isAnonymous        Boolean   @default(false)
   isAdminOnly        Boolean   @default(false)
-  status             String    @default("active")
-  severity           String?
-  verificationStatus String?
+  status             PostStatus @default(active) // Post visibility status: active, hidden, deleted
+  severity           PostSeverity? // Severity level of the reported issue: low, medium, high
+  verificationStatus PostVerificationStatus? // Verification status of the report: unverified, pending, verified, disputed
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @default(now()) @updatedAt
 
@@ -162,12 +217,15 @@ model Media {
   @@index([postId])
 }
 
+// PostFlag model represents user reports about posts
+// Users can flag posts for moderation review
+// Flags can be resolved by admins or moderators
 model PostFlag {
   id              String    @id @default(uuid()) @db.Uuid
   postId          String    @db.Uuid
   flaggerUserId   String    @db.Uuid
   reason          String?   @db.Text
-  status          String    @default("pending_review")
+  status          PostFlagStatus @default(pending_review) // Flag processing status: pending_review, resolved, rejected
   resolvedByUserId String?   @db.Uuid
   resolvedAt      DateTime?
   createdAt       DateTime  @default(now())
@@ -184,12 +242,11 @@ model PostFlag {
 model AuditLog {
   id               String    @id @default(uuid()) @db.Uuid
   actorUserId      String?   @db.Uuid
-  action           String
+  action           AuditAction // Type of action performed by the actor
   targetEntityType String?
   targetEntityId   String?   @db.Uuid
   spaceId          String?   @db.Uuid
   details          Json?
-  ipAddress        String?
   createdAt        DateTime  @default(now())
 
   // Relations
@@ -198,7 +255,7 @@ model AuditLog {
 
   @@index([createdAt])
   @@index([actorUserId])
-  @@index([action])
+  @@index([action]) // Index for filtering by action type
   @@index([targetEntityId])
   @@index([spaceId])
 }
