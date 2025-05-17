@@ -13,3 +13,192 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique
+  passwordHash  String
+  name          String
+  isSuperAdmin  Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  // Relations
+  memberships   UserSpaceMembership[]
+  createdSpaces Space[]   @relation("SpaceCreators")
+  authoredPosts Post[]    @relation("AuthoredPosts")
+  sentInvites   Invite[]  @relation("SentInvites")
+  uploadedMedia Media[]   @relation("MediaUploaders")
+  postedFlags   PostFlag[] @relation("PostFlaggers")
+  resolvedFlags PostFlag[] @relation("FlagResolvers")
+  auditLogs     AuditLog[] @relation("AuditActors")
+  addedEntities ReportedEntity[] @relation("EntityAdders")
+}
+
+model Space {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @unique
+  description String?   @db.Text
+  createdBy   String    @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  // Relations
+  creator     User      @relation("SpaceCreators", fields: [createdBy], references: [id])
+  memberships UserSpaceMembership[]
+  posts       Post[]
+  invites     Invite[]
+  auditLogs   AuditLog[]
+  reportedEntities ReportedEntity[]
+
+  @@index([name])
+}
+
+// Join table for User and Space
+model UserSpaceMembership {
+  userId    String   @db.Uuid
+  spaceId   String   @db.Uuid
+  role      String   // 'Admin', 'Moderator', 'Editor', 'Read-only'
+  joinedAt  DateTime @default(now())
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  space     Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, spaceId])
+
+}
+
+model Invite {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String
+  token           String    @unique
+  spaceId         String    @db.Uuid
+  roleToAssign    String
+  invitedByUserId String    @db.Uuid
+  expiresAt       DateTime
+  isUsed          Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  space           Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  inviter         User      @relation("SentInvites", fields: [invitedByUserId], references: [id])
+
+  @@index([email, spaceId])
+}
+
+model ReportedEntity {
+  id            String    @id @default(uuid()) @db.Uuid
+  name          String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+  addedByUserId String    @db.Uuid
+  spaceId       String    @db.Uuid
+
+  // Relations
+  addedBy       User      @relation("EntityAdders", fields: [addedByUserId], references: [id])
+  space         Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  handles       ReportedEntityHandle[]
+  posts         Post[]
+
+  @@index([name])
+}
+
+model ReportedEntityHandle {
+  id               String    @id @default(uuid()) @db.Uuid
+  reportedEntityId String    @db.Uuid
+  platform         String    @default("Instagram")
+  handle           String
+  createdAt        DateTime  @default(now())
+
+  // Relations
+  reportedEntity   ReportedEntity @relation(fields: [reportedEntityId], references: [id], onDelete: Cascade)
+
+  @@unique([reportedEntityId, handle])
+  @@index([handle])
+}
+
+model Post {
+  id                 String    @id @default(uuid()) @db.Uuid
+  spaceId            String    @db.Uuid
+  authorId           String?   @db.Uuid
+  reportedEntityId   String    @db.Uuid
+  description        String    @db.Text
+  isAnonymous        Boolean   @default(false)
+  isAdminOnly        Boolean   @default(false)
+  status             String    @default("active")
+  severity           String?
+  verificationStatus String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now()) @updatedAt
+
+  // Relations
+  space              Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  author             User?     @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: SetNull)
+  reportedEntity     ReportedEntity @relation(fields: [reportedEntityId], references: [id])
+  media              Media[]
+  flags              PostFlag[]
+
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model Media {
+  id               String    @id @default(uuid()) @db.Uuid
+  postId           String    @db.Uuid
+  uploaderId       String    @db.Uuid
+  storageKey       String    @unique
+  fileName         String
+  mimeType         String
+  fileSize         Int
+  metadataStripped Boolean   @default(false)
+  isBlurred        Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+
+  // Relations
+  post             Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  uploader         User      @relation("MediaUploaders", fields: [uploaderId], references: [id])
+
+  @@index([postId])
+}
+
+model PostFlag {
+  id              String    @id @default(uuid()) @db.Uuid
+  postId          String    @db.Uuid
+  flaggerUserId   String    @db.Uuid
+  reason          String?   @db.Text
+  status          String    @default("pending_review")
+  resolvedByUserId String?   @db.Uuid
+  resolvedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  flagger         User      @relation("PostFlaggers", fields: [flaggerUserId], references: [id])
+  resolver        User?     @relation("FlagResolvers", fields: [resolvedByUserId], references: [id])
+
+  @@index([postId])
+  @@index([status])
+}
+
+model AuditLog {
+  id               String    @id @default(uuid()) @db.Uuid
+  actorUserId      String?   @db.Uuid
+  action           String
+  targetEntityType String?
+  targetEntityId   String?   @db.Uuid
+  spaceId          String?   @db.Uuid
+  details          Json?
+  ipAddress        String?
+  createdAt        DateTime  @default(now())
+
+  // Relations
+  actor            User?     @relation("AuditActors", fields: [actorUserId], references: [id])
+  space            Space?    @relation(fields: [spaceId], references: [id])
+
+  @@index([createdAt])
+  @@index([actorUserId])
+  @@index([action])
+  @@index([targetEntityId])
+  @@index([spaceId])
+}
