@@ -15,7 +15,7 @@ async function login(email: string, password: string): Promise<User> {
     throw new Error("User not found");
   }
 
-  const isValidPassword = await bcrypt.compare(password, user.password);
+  const isValidPassword = await bcrypt.compare(password, user.passwordHash);
   if (!isValidPassword) {
     throw new Error("Invalid password");
   }
