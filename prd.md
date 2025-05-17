@@ -190,17 +190,20 @@ SafeSpace is a secure, invite-only platform designed to protect models, photogra
 
 #### Core Infrastructure
 
-| Component      | Technology                                | Notes                                                                                                                    |
-| -------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Framework      | React Router 7                            | For server and client-side rendering                                                                                     |
-| Authentication | Remix Auth + Prisma                       | Session management (2FA planned for future)                                                                              |
-| Database       | PostgreSQL + Prisma ORM                   | With row-level security policies. Tables: users, posts, reported_entities (handles), spaces, invites, media, audit_logs. |
-| File Storage   | Cloudflare R2                             | With signed URLs and content verification (managed service, not self-hosted initially)                                   |
-| Email          | Resend                                    | For invitations, templating, scheduled delivery.                                                                         |
-| UI             | Tailwind CSS 4.1 + ShadCN UI              | With accessibility compliance and responsive design. Minimalist, privacy-first design language.                          |
-| Hosting        | Netlify (demo) + Coolify VPS (production) | With auto-scaling configuration.                                                                                         |
-| Monitoring     | Sentry + Custom Audit Logs                | With privacy-focused event filtering.                                                                                    |
-| Search         | PostgreSQL full-text search               | With future migration path to Meilisearch. Low-latency search, denormalized indices.                                     |
+| Component      | Technology                                | Notes                                                                                                                   |
+| -------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Component      | Technology                                | Notes                                                                                                                   |
+| -------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Framework      | React Router 7 with TypeScript            | For type-safe server and client-side rendering                                                                          |
+| Language       | TypeScript 5.x                            | Strict mode enabled for type safety                                                                                     |
+| Authentication | Remix Auth + Prisma                       | Session management with TypeScript types (2FA planned for future)                                                       |
+| Database       | PostgreSQL + Prisma ORM                   | With row-level security policies and TypeScript type generation. Tables: users, posts, reported_entities, spaces, etc.  |
+| File Storage   | Cloudflare R2                             | With signed URLs, content verification, and TypeScript type definitions                                                 |
+| Email          | Resend with TypeScript types              | For type-safe email templates and delivery                                                                              |
+| UI             | Tailwind CSS 4.1 + ShadCN UI              | With TypeScript components and accessibility compliance. Minimalist, privacy-first design language.                     |
+| Hosting        | Netlify (demo) + Coolify VPS (production) | With auto-scaling configuration.                                                                                        |
+| Monitoring     | Sentry + Custom Audit Logs                | With privacy-focused event filtering.                                                                                   |
+| Search         | PostgreSQL full-text search               | With future migration path to Meilisearch. Low-latency search, denormalized indices.                                    |
 
 #### System Integration Points
 
