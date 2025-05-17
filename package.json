@@ -1,0 +1,11 @@
+{
+  "name": "safespace",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:Hillsrion/safespace.git",
+  "author": "Ismaël Sebbane <ismael.sebbane@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "task-master-ai": "^0.13.2"
+  }
+}
