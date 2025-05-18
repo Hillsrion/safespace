@@ -136,9 +136,9 @@ export default function Register() {
   return (
     <div className="container mx-auto px-4 py-8">
       <Card className="w-full max-w-md mx-auto">
-        <div className="flex flex-col items-center justify-center space-y-4 p-6">
+        <div className="flex flex-col items-center justify-center p-6">
           <h2 className="text-2xl font-bold tracking-tight">Register</h2>
-          <p className="text-sm text-muted-foreground">Create your account</p>
+          <p className="text-sm text-muted-foreground mt-1">Create your account</p>
         </div>
         <CardContent>
           {actionData?.errors?.formErrors?.map((error, index) => (
@@ -223,13 +223,13 @@ export default function Register() {
                 )}
               />
 
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full mt-6">
                 Register
               </Button>
             </RemixForm>
           </Form>
 
-          <p className="text-center text-sm mt-4">
+          <p className="text-center text-sm mt-3">
             Already have an account?{" "}
             <a href="/login" className="text-blue-500 hover:underline">
               Log in
