@@ -93,6 +93,7 @@ export async function action({ request }: { request: Request }) {
       },
     });
   } catch (error) {
+    console.log(error)
     return data(
       {
         errors: {
@@ -150,7 +151,7 @@ export default function Register() {
             </div>
           ))}
           <Form {...form}>
-              <RemixForm method="post" className="space-y-4">
+            <RemixForm method="post" className="space-y-4">
               <FormField
                 control={form.control}
                 name="email"
