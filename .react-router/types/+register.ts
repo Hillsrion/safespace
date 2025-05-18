@@ -12,4 +12,5 @@ declare module "react-router" {
 
 type Params = {
   "/": {};
+  "/register": {};
 };

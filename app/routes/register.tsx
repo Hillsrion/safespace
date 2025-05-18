@@ -1,117 +1,240 @@
-import { redirect, data } from "@remix-run/node";
-import { Form, useActionData } from "react-router";
+import { data, redirect } from "@remix-run/node";
+import { useActionData, Form as RemixForm } from "react-router";
 import { z } from "zod";
-import { PrismaClient } from "@prisma/client";
-import { validatePassword, hashPassword } from "~/lib/password";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { PrismaClient, type User } from "@prisma/client";
+import { getSession, commitSession } from "~/services/session.server";
+
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "~/components/ui/form";
+import { Input } from "~/components/ui/input";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
+import { hashPassword } from "~/lib/password";
 
 const prisma = new PrismaClient();
 
-const registrationSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  confirmPassword: z.string(),
-});
+const registerSchema = z
+  .object({
+    email: z.string().email("Invalid email address"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string(),
+    name: z.string().optional(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+type RegisterFormData = z.infer<typeof registerSchema>;
 
 export async function action({ request }: { request: Request }) {
-  const formData = await request.formData();
-  const { email, password, confirmPassword } = registrationSchema.parse({
-    email: formData.get("email"),
-    password: formData.get("password"),
-    confirmPassword: formData.get("confirmPassword"),
-  });
+  try {
+    const formData = await request.formData();
+    const dataObj = Object.fromEntries(formData);
 
-  // Verify password match
-  if (password !== confirmPassword) {
-    return data({ error: "Passwords do not match" }, { status: 400 });
+    const parsedData = registerSchema.safeParse(dataObj);
+    if (!parsedData.success) {
+      const errors = parsedData.error.flatten();
+      return data(
+        {
+          errors: {
+            fieldErrors: errors.fieldErrors,
+            formErrors: errors.formErrors,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    const { email, password, name } = parsedData.data;
+
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return data(
+        {
+          errors: {
+            fieldErrors: {},
+            formErrors: ["Email already in use"],
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name: name || "",
+      },
+    });
+
+    const session = await getSession(request);
+    const userForSession: Pick<User, "id" | "email" | "name"> = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    };
+    session.set("user", userForSession);
+
+    return redirect("/dashboard", {
+      headers: {
+        "Set-Cookie": await commitSession(session),
+      },
+    });
+  } catch (error) {
+    return data(
+      {
+        errors: {
+          fieldErrors: {},
+          formErrors: ["An unexpected error occurred"],
+        },
+      },
+      { status: 500 }
+    );
   }
-
-  // Validate password strength
-  const passwordError = validatePassword(password);
-  if (passwordError) {
-    return data({ error: passwordError }, { status: 400 });
-  }
-
-  // Check if user already exists
-  const existingUser = await prisma.user.findUnique({ where: { email } });
-  if (existingUser) {
-    return data({ error: "User with this email already exists" }, { status: 400 });
-  }
-
-  // Create user
-  const hashedPassword = await hashPassword(password);
-  const user = await prisma.user.create({
-    data: {
-      email,
-      passwordHash: hashedPassword,
-      name: "", // Can be updated later
-    },
-  });
-
-  // Create session
-  return redirect("/welcome", {
-    headers: {
-      "Set-Cookie": `auth=${user.id}; Path=/; HttpOnly; Secure; SameSite=Lax`,
-    },
-  });
 }
 
-export default function RegisterRoute() {
-  const actionData = useActionData<typeof action>();
+export async function loader({ request }: { request: Request }) {
+  const session = await getSession(request);
+  const user = session.get("user");
+  if (user) return redirect("/dashboard");
+  return null;
+}
+
+type ActionData = {
+  errors?: {
+    fieldErrors?: Partial<Record<keyof RegisterFormData, string[]>>;
+    formErrors?: string[];
+  };
+};
+
+export default function Register() {
+  const actionData = useActionData<ActionData>();
+
+  const form = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+      confirmPassword: "",
+      name: "",
+    },
+    
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
       <Card className="w-full max-w-md mx-auto">
         <div className="flex flex-col items-center justify-center space-y-4 p-6">
           <h2 className="text-2xl font-bold tracking-tight">Register</h2>
-          <p className="text-sm text-muted-foreground">
-            Create your account
-          </p>
+          <p className="text-sm text-muted-foreground">Create your account</p>
         </div>
         <CardContent>
-          {actionData?.error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {actionData.error}
+          {actionData?.errors?.formErrors?.map((error, index) => (
+            <div
+              key={index}
+              className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
+            >
+              {error}
             </div>
-          )}
-          <Form method="post" className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                type="email"
+          ))}
+          <Form {...form}>
+              <RemixForm method="post" className="space-y-4">
+              <FormField
+                control={form.control}
                 name="email"
-                id="email"
-                required
-                placeholder="name@example.com"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="name@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage>
+                      {actionData?.errors?.fieldErrors?.email?.[0]}
+                    </FormMessage>
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                type="password"
+
+              <FormField
+                control={form.control}
                 name="password"
-                id="password"
-                required
-                placeholder="Enter your password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Enter your password"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage>
+                      {actionData?.errors?.fieldErrors?.password?.[0]}
+                    </FormMessage>
+                  </FormItem>
+                )}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                type="password"
+
+              <FormField
+                control={form.control}
                 name="confirmPassword"
-                id="confirmPassword"
-                required
-                placeholder="Confirm your password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Confirm your password"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage>
+                      {actionData?.errors?.fieldErrors?.confirmPassword?.[0]}
+                    </FormMessage>
+                  </FormItem>
+                )}
               />
-            </div>
-            <Button type="submit" className="w-full">
-              Register
-            </Button>
+
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John Doe" {...field} />
+                    </FormControl>
+                    <FormMessage>
+                      {actionData?.errors?.fieldErrors?.name?.[0]}
+                    </FormMessage>
+                  </FormItem>
+                )}
+              />
+
+              <Button type="submit" className="w-full">
+                Register
+              </Button>
+            </RemixForm>
           </Form>
+
+          <p className="text-center text-sm mt-4">
+            Already have an account?{" "}
+            <a href="/login" className="text-blue-500 hover:underline">
+              Log in
+            </a>
+          </p>
         </CardContent>
       </Card>
     </div>
