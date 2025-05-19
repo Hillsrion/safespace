@@ -16,6 +16,7 @@ import {
 } from "~/components/ui/form";
 import { Input } from "~/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
+import { Check, HelpCircle } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { hashPassword } from "~/lib/password";
@@ -24,12 +25,6 @@ import { getSession, commitSession } from "~/services/session.server";
 
 import { validatePassword, checkPasswordRequirements } from "~/lib/password";
 import type { PasswordRequirement } from "~/lib/password";
-
-interface PasswordFieldProps {
-  field: {
-    value: string;
-  };
-}
 
 const registerSchema = z
   .object({
@@ -193,19 +188,21 @@ export default function Register() {
                       <TooltipProvider>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className="text-gray-500 hover:text-gray-700 cursor-help">?</span>
+                            <HelpCircle className="w-4 h-4 text-gray-500 hover:text-gray-700 cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Password requirements:</p>
-                            <div className="space-y-1 mt-1">
+                            <p className="text-gray-600 mb-3">Password requirements:</p>
+                            <div className="space-y-2">
                               {checkPasswordRequirements(field.value).map((requirement: PasswordRequirement, index: number) => (
-                                <div key={index} className="flex items-center gap-2">
-                                  <span className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                                <div key={index} className="flex items-center gap-3">
+                                  <span className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
                                     requirement.valid ? 'bg-green-500' : 'bg-gray-300'
                                   }`}>
-                                    <span className="text-white">✓</span>
+                                    <Check className="w-4 h-4 text-white" />
                                   </span>
-                                  <span className={requirement.valid ? 'text-green-700' : 'text-gray-500'}>
+                                  <span className={`font-medium transition-colors duration-300 ${
+                                    requirement.valid ? 'text-green-700' : 'text-gray-500'
+                                  }`}>
                                     {requirement.message}
                                   </span>
                                 </div>
