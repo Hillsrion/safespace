@@ -15,6 +15,7 @@ import {
   FormMessage,
 } from "~/components/ui/form";
 import { Input } from "~/components/ui/input";
+import { PasswordInput } from "~/components/ui/password-input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { Check, HelpCircle } from "lucide-react";
 import { Button } from "~/components/ui/button";
@@ -145,137 +146,137 @@ export default function Register() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Card className="w-full max-w-md mx-auto">
-        <div className="flex flex-col items-center justify-center p-6">
-          <h2 className="text-2xl font-bold tracking-tight">Register</h2>
-          <p className="text-sm text-muted-foreground mt-1">Create your account</p>
-        </div>
-        <CardContent>
-          {actionData?.errors?.formErrors?.map((error, index) => (
-            <div
-              key={index}
-              className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
-            >
-              {error}
-            </div>
-          ))}
-          <Form {...form}>
-            <RemixForm method="post" className="space-y-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="name@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage>
-                      {actionData?.errors?.fieldErrors?.email?.[0]}
-                    </FormMessage>
-                  </FormItem>
-                )}
-              />
+    <div className="flex flex-col items-center justify-center min-h-screen">
+      <div className="container mx-auto px-4 py-8">
+        <Card className="w-full max-w-md mx-auto">
+          <div className="flex flex-col items-center justify-center p-6">
+            <h2 className="text-2xl font-bold tracking-tight">Register</h2>
+            <p className="text-sm text-muted-foreground mt-1">Create your account</p>
+          </div>
+          <CardContent>
+            {actionData?.errors?.formErrors?.map((error, index) => (
+              <div
+                key={index}
+                className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
+              >
+                {error}
+              </div>
+            ))}
+            <Form {...form}>
+              <RemixForm method="post" className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input placeholder="name@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage>
+                        {actionData?.errors?.fieldErrors?.email?.[0]}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center gap-2">
-                      <FormLabel>Password</FormLabel>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <HelpCircle className="w-4 h-4 text-gray-500 hover:text-gray-700 cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-gray-600 mb-3">Password requirements:</p>
-                            <div className="space-y-2">
-                              {checkPasswordRequirements(field.value).map((requirement: PasswordRequirement, index: number) => (
-                                <div key={index} className="flex items-center gap-3">
-                                  <span className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
-                                    requirement.valid ? 'bg-green-500' : 'bg-gray-300'
-                                  }`}>
-                                    <Check className="w-4 h-4 text-white" />
-                                  </span>
-                                  <span className={`font-medium transition-colors duration-300 ${
-                                    requirement.valid ? 'text-green-700' : 'text-gray-500'
-                                  }`}>
-                                    {requirement.message}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Enter your password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage>
-                      {actionData?.errors?.fieldErrors?.password?.[0]}
-                    </FormMessage>
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center gap-2">
+                        <FormLabel>Password</FormLabel>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-4 h-4 text-gray-500 hover:text-gray-700 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-gray-600 mb-3">Password requirements:</p>
+                              <div className="space-y-2">
+                                {checkPasswordRequirements(field.value).map((requirement: PasswordRequirement, index: number) => (
+                                  <div key={index} className="flex items-center gap-3">
+                                    <span className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
+                                      requirement.valid ? 'bg-green-500' : 'bg-gray-300'
+                                    }`}>
+                                      <Check className="w-4 h-4 text-white" />
+                                    </span>
+                                    <span className={`font-medium transition-colors duration-300 ${
+                                      requirement.valid ? 'text-green-700' : 'text-gray-500'
+                                    }`}>
+                                      {requirement.message}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <FormControl>
+                        <PasswordInput
+                          field={field}
+                          placeholder="Enter your password"
+                        />
+                      </FormControl>
+                      <FormMessage>
+                        {actionData?.errors?.fieldErrors?.password?.[0]}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Confirm your password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage>
-                      {actionData?.errors?.fieldErrors?.confirmPassword?.[0]}
-                    </FormMessage>
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password</FormLabel>
+                      <FormControl>
+                        <PasswordInput
+                          field={field}
+                          placeholder="Confirm your password"
+                        />
+                      </FormControl>
+                      <FormMessage>
+                        {actionData?.errors?.fieldErrors?.confirmPassword?.[0]}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage>
-                      {actionData?.errors?.fieldErrors?.name?.[0]}
-                    </FormMessage>
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John Doe" {...field} />
+                      </FormControl>
+                      <FormMessage>
+                        {actionData?.errors?.fieldErrors?.name?.[0]}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
 
-              <Button type="submit" className="w-full mt-6">
-                Register
-              </Button>
-            </RemixForm>
-          </Form>
+                <Button type="submit" className="w-full mt-6">
+                  Register
+                </Button>
+              </RemixForm>
+            </Form>
 
-          <p className="text-center text-sm mt-3">
-            Already have an account?{" "}
-            <a href="/login" className="text-blue-500 hover:underline">
-              Log in
-            </a>
-          </p>
-        </CardContent>
-      </Card>
+            <p className="text-center text-sm mt-3">
+              Already have an account?{" "}
+              <a href="/login" className="text-blue-500 hover:underline">
+                Log in
+              </a>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
