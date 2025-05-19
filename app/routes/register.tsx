@@ -3,7 +3,7 @@ import { useActionData, Form as RemixForm } from "react-router";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { prisma } from "~/lib/prisma";
+import prisma from "~/lib/prisma";
 import type { User } from "@prisma/client";
 
 import {

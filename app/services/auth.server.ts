@@ -1,6 +1,6 @@
 import { Authenticator } from "remix-auth";
 import { FormStrategy } from "remix-auth-form";
-import { prisma } from "~/lib/prisma";
+import prisma from "~/lib/prisma";
 import bcrypt from "bcryptjs";
 import type { User } from "@prisma/client";
 

@@ -28,5 +28,5 @@ node_modules/
 tasks.json
 tasks/ 
 
-generated/prisma/
+app/generated/prisma/
 .react-router/
