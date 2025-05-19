@@ -3,8 +3,8 @@ import { useActionData, Form as RemixForm } from "react-router";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { PrismaClient, type User } from "@prisma/client";
-import { getSession, commitSession } from "~/services/session.server";
+import { prisma } from "~/lib/prisma";
+import type { User } from "@prisma/client";
 
 import {
   Form,
@@ -19,7 +19,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { hashPassword } from "~/lib/password";
 
-const prisma = new PrismaClient();
+import { getSession, commitSession } from "~/services/session.server";
 
 const registerSchema = z
   .object({

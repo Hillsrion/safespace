@@ -1,9 +1,8 @@
 import { Authenticator } from "remix-auth";
 import { FormStrategy } from "remix-auth-form";
-import { PrismaClient, type User } from "@prisma/client";
+import { prisma } from "~/lib/prisma";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import type { User } from "@prisma/client";
 
 // Create an instance of the authenticator
 export const authenticator = new Authenticator<User>();
