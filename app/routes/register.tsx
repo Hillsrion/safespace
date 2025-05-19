@@ -21,10 +21,17 @@ import { hashPassword } from "~/lib/password";
 
 import { getSession, commitSession } from "~/services/session.server";
 
+import { validatePassword } from "~/lib/password";
+
 const registerSchema = z
   .object({
     email: z.string().email("Invalid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    password: z.string().min(8, "Password must be at least 8 characters")
+      .refine((password) => {
+        return validatePassword(password);
+      }, {
+        message: "Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character"
+      }),
     confirmPassword: z.string(),
     name: z.string().optional(),
   })
