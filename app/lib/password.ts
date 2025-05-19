@@ -1,17 +1,37 @@
 import bcrypt from "bcryptjs";
 
-// ==============================
-// Password Validation
-// ==============================
+export interface PasswordRequirement {
+  valid: boolean;
+  message: string;
+}
+
+export function checkPasswordRequirements(password: string): PasswordRequirement[] {
+  return [
+    {
+      valid: password.length >= 8,
+      message: "At least 8 characters"
+    },
+    {
+      valid: /[A-Z]/.test(password),
+      message: "At least one uppercase letter"
+    },
+    {
+      valid: /[a-z]/.test(password),
+      message: "At least one lowercase letter"
+    },
+    {
+      valid: /[0-9]/.test(password),
+      message: "At least one number"
+    },
+    {
+      valid: /[^a-zA-Z0-9]/.test(password),
+      message: "At least one special character"
+    }
+  ];
+}
 
 export function validatePassword(password: string): boolean {
-  return (
-    password.length >= 8 &&
-    /[A-Z]/.test(password) &&
-    /[a-z]/.test(password) &&
-    /[0-9]/.test(password) &&
-    /[^a-zA-Z0-9]/.test(password)
-  );
+  return Object.values(checkPasswordRequirements(password)).every(requirement => requirement);
 }
 
 // ==============================

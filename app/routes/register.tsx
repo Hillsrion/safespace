@@ -15,13 +15,21 @@ import {
   FormMessage,
 } from "~/components/ui/form";
 import { Input } from "~/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { hashPassword } from "~/lib/password";
 
 import { getSession, commitSession } from "~/services/session.server";
 
-import { validatePassword } from "~/lib/password";
+import { validatePassword, checkPasswordRequirements } from "~/lib/password";
+import type { PasswordRequirement } from "~/lib/password";
+
+interface PasswordFieldProps {
+  field: {
+    value: string;
+  };
+}
 
 const registerSchema = z
   .object({
@@ -180,7 +188,33 @@ export default function Register() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <div className="flex items-center gap-2">
+                      <FormLabel>Password</FormLabel>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="text-gray-500 hover:text-gray-700 cursor-help">?</span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Password requirements:</p>
+                            <div className="space-y-1 mt-1">
+                              {checkPasswordRequirements(field.value).map((requirement: PasswordRequirement, index: number) => (
+                                <div key={index} className="flex items-center gap-2">
+                                  <span className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                                    requirement.valid ? 'bg-green-500' : 'bg-gray-300'
+                                  }`}>
+                                    <span className="text-white">✓</span>
+                                  </span>
+                                  <span className={requirement.valid ? 'text-green-700' : 'text-gray-500'}>
+                                    {requirement.message}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     <FormControl>
                       <Input
                         type="password"
