@@ -15,6 +15,7 @@ import { PasswordInput } from "~/components/ui/password-input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
+import { cn } from "~/lib/utils";
 import {
   checkPasswordRequirements,
   type PasswordRequirement,
@@ -86,14 +87,16 @@ export default function Register() {
                               <div className="space-y-2">
                                 {checkPasswordRequirements(field.value).map((requirement: PasswordRequirement, index: number) => (
                                   <div key={index} className="flex items-center gap-3">
-                                    <span className={`rounded-full flex items-center justify-center transition-colors duration-300 ${
+                                    <span className={cn(
+                                      "rounded-full flex items-center justify-center transition-colors duration-300",
                                       requirement.valid ? 'bg-green-500' : 'bg-gray-300'
-                                    }`}>
+                                    )}>
                                       <Check className="w-4 h-4 text-white" />
                                     </span>
-                                    <span className={`font-medium transition-colors duration-300 ${
+                                    <span className={cn(
+                                      "font-medium transition-colors duration-300",
                                       requirement.valid ? 'text-green-700' : 'text-gray-500'
-                                    }`}>
+                                    )}>
                                       {requirement.message}
                                     </span>
                                   </div>
