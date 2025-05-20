@@ -15,9 +15,12 @@ import {
 } from "~/components/ui/sidebar"
 import { useSidebarNav } from "./useSidebarNav"
 import { APP_NAME } from "~/lib/constants"
+import { useUser } from "~/hooks/useUser"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data } = useSidebarNav();
+  const user = useUser();
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -40,7 +43,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   )

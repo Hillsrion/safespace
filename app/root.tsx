@@ -5,12 +5,14 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
 } from "react-router";
 
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 import { SidebarProvider } from "./components/ui/sidebar";
 import { Toaster } from "./components/ui/toaster";
+import { getSession } from "./services/session.server";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -26,7 +28,14 @@ export const links: Route.LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
 ];
 
+export const loader = async ({ request }: { request: Request }) => {
+  const session = await getSession(request);
+  const user = session.get("user");
+  return { user };
+};
+
 export function Layout({ children }: { children: React.ReactNode }) {
+  const loaderData = useLoaderData<typeof loader>();
   return (
     <html lang="en">
       <head>
