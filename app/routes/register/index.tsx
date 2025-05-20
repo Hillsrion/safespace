@@ -9,6 +9,7 @@ import {
   FormLabel,
   FormMessage,
 } from "~/components/ui/form";
+import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Input } from "~/components/ui/input";
 import { PasswordInput } from "~/components/ui/password-input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
@@ -21,7 +22,6 @@ import {
 import { getSession } from "~/services/session.server";
 import { useRegister } from "~/hooks/useRegister";
 import { action as registerAction } from "./action";
-
 
 export async function action({ request }: { request: Request }) {
   return await registerAction({ request });
@@ -47,12 +47,9 @@ export default function Register() {
           </div>
           <CardContent>
             {actionData?.errors?.formErrors?.map((error, index) => (
-              <div
-                key={index}
-                className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
-              >
-                {error}
-              </div>
+              <Alert key={index} variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             ))}
             <Form {...form}>
               <RemixForm method="post" className="space-y-4">
