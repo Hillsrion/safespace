@@ -3,7 +3,7 @@ import { getSession, commitSession } from "~/services/session.server";
 import { login } from "~/services/auth.server";
 
 async function redirectToLogin(session: any): Promise<Response> {
-  return redirect("/login", {
+  return redirect("/auth/login", {
     status: 400,
     headers: {
       "Set-Cookie": await commitSession(session),

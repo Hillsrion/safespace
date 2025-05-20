@@ -22,7 +22,7 @@ import {
 } from "~/lib/password";
 import { getSession } from "~/services/session.server";
 import { useRegister } from "~/hooks/useRegister";
-import { action as registerAction } from "./action";
+import { action as registerAction } from "../register/action";
 
 export async function action({ request }: { request: Request }) {
   return await registerAction({ request });
@@ -196,7 +196,7 @@ export default function Register() {
 
             <p className="text-center text-sm mt-3">
               Already have an account?{" "}
-              <Link to="/login" className="text-blue-500 hover:underline">
+              <Link to="/auth/login" className="text-blue-500 hover:underline">
                 Log in
               </Link>
             </p>

@@ -16,7 +16,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { getSession, getError } from "~/services/session.server";
 import { useLogin } from "~/hooks/useLogin";
-import { action as loginAction } from "./action";
+import { action as loginAction } from "../login/action";
 
 export async function action({ request }: { request: Request }) {
   return await loginAction({ request });
@@ -103,7 +103,7 @@ export default function Login() {
 
             <p className="text-center text-sm mt-3">
               Don't have an account?{" "}
-              <Link to="/register" className="text-blue-500 hover:underline">
+              <Link to="/auth/register" className="text-blue-500 hover:underline">
                 Register
               </Link>
             </p>
