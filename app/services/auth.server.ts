@@ -7,16 +7,17 @@ import type { User } from "@prisma/client";
 // Create an instance of the authenticator
 export const authenticator = new Authenticator<User>();
 
-// Login function to verify user credentials
-async function login(email: string, password: string): Promise<User> {
+const errorMessage = "Invalid credentials";
+
+export async function login(email: string, password: string): Promise<User> {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    throw new Error("User not found");
+    throw new Error(errorMessage);
   }
 
   const isValidPassword = await bcrypt.compare(password, user.password);
   if (!isValidPassword) {
-    throw new Error("Invalid password");
+    throw new Error(errorMessage);
   }
 
   return user;
@@ -29,7 +30,7 @@ authenticator.use(
     const password = form.get("password") as string;
 
     if (!email || !password) {
-      throw new Error("Email and password are required");
+      throw new Error(errorMessage);
     }
 
     // Authenticate user

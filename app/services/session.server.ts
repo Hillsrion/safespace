@@ -22,3 +22,10 @@ export async function commitSession(session: any) {
 export async function destroySession(session: any) {
   return sessionStorage.destroySession(session);
 }
+
+export async function getError(request: Request) {
+  const session = await getSession(request);
+  const error = session.get("error") as string | null;
+  session.unset("error");
+  return error;
+}
