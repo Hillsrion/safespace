@@ -58,6 +58,54 @@ export default function Register() {
               <RemixForm method="post" className="space-y-4">
                 <FormField
                   control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John" {...field} />
+                      </FormControl>
+                      <FormMessage>
+                        {actionData?.errors?.fieldErrors?.firstName?.[0]}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Doe" {...field} />
+                      </FormControl>
+                      <FormMessage>
+                        {actionData?.errors?.fieldErrors?.lastName?.[0]}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="instagram"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Instagram</FormLabel>
+                      <FormControl>
+                        <Input placeholder="@john_doe" {...field} />
+                      </FormControl>
+                      <FormMessage>
+                        {actionData?.errors?.fieldErrors?.instagram?.[0]}
+                      </FormMessage>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="email"
                   render={({ field }) => (
                     <FormItem>
@@ -135,22 +183,6 @@ export default function Register() {
                       </FormControl>
                       <FormMessage>
                         {actionData?.errors?.fieldErrors?.confirmPassword?.[0]}
-                      </FormMessage>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John Doe" {...field} />
-                      </FormControl>
-                      <FormMessage>
-                        {actionData?.errors?.fieldErrors?.name?.[0]}
                       </FormMessage>
                     </FormItem>
                   )}

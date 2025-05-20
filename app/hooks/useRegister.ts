@@ -29,7 +29,9 @@ export const registerSchema = z
         }
       ),
     confirmPassword: z.string(),
-    name: z.string().optional(),
+    firstName: z.string().min(1, "First name is required"),
+    lastName: z.string().min(1, "Last name is required"),
+    instagram: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -47,7 +49,9 @@ export function useRegister() {
       email: "",
       password: "",
       confirmPassword: "",
-      name: "",
+      firstName: "",
+      lastName: "",
+      instagram: "",
     },
   });
 

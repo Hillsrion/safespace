@@ -24,7 +24,7 @@ export async function action({ request }: { request: Request }) {
       );
     }
 
-    const { email, password, name } = parsedData.data;
+    const { email, password, firstName, lastName, instagram } = parsedData.data;
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -45,15 +45,21 @@ export async function action({ request }: { request: Request }) {
       data: {
         email,
         password: hashedPassword,
-        name: name || "",
+        firstName,
+        lastName,
+        instagram,
       },
     });
 
     const session = await getSession(request);
-    const userForSession: Pick<User, "id" | "email" | "name"> = {
+    const userForSession: Pick<
+      User,
+      "id" | "email" | "firstName" | "lastName"
+    > = {
       id: user.id,
       email: user.email,
-      name: user.name,
+      firstName: user.firstName,
+      lastName: user.lastName,
     };
     session.set("user", userForSession);
 
