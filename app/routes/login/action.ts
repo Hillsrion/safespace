@@ -1,6 +1,15 @@
 import { redirect } from "@remix-run/node";
 import { getSession, commitSession } from "~/services/session.server";
-import { authenticator, login } from "~/services/auth.server";
+import { login } from "~/services/auth.server";
+
+async function redirectToLogin(session: any): Promise<Response> {
+  return redirect("/login", {
+    status: 400,
+    headers: {
+      "Set-Cookie": await commitSession(session),
+    },
+  });
+}
 
 export async function action({ request }: { request: Request }) {
   const session = await getSession(request);
@@ -14,12 +23,7 @@ export async function action({ request }: { request: Request }) {
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {
-    return redirect("/login", {
-      status: 400,
-      headers: {
-        "Set-Cookie": await commitSession(session),
-      },
-    });
+    return redirectToLogin(session);
   }
 
   try {
@@ -34,11 +38,6 @@ export async function action({ request }: { request: Request }) {
     if (error instanceof Error) {
       session.flash("error", error.message);
     }
-    return redirect("/login", {
-      status: 400,
-      headers: {
-        "Set-Cookie": await commitSession(session),
-      },
-    });
+    return redirectToLogin(session);
   }
 }
