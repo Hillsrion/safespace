@@ -8,5 +8,5 @@ export default [
   index("routes/home.tsx"),
   route(REGISTER_PATH, "routes/auth/register/index.tsx"),
   route(LOGIN_PATH, "routes/auth/login/index.tsx"),
-  route(DASHBOARD_PATH, "layouts/dashboard.tsx"),
+  route(DASHBOARD_PATH, "routes/dashboard.tsx"),
 ] satisfies RouteConfig;

@@ -30,3 +30,4 @@ tasks/
 
 app/generated/prisma/
 .react-router/
+.aider*

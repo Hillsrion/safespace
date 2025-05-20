@@ -9,3 +9,9 @@ export async function baseAuthRedirect(request: Request) {
     return redirect("/auth/login");
   }
 }
+export async function loginRedirect(request: Request) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    return redirect("/auth/login");
+  }
+}

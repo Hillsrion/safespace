@@ -29,7 +29,7 @@ export async function action({ request }: { request: Request }) {
   try {
     const user = await login(email, password);
     session.set("user", user);
-    return redirect(DASHBOARD_PATH, {
+    return redirect(`/${DASHBOARD_PATH}`, {
       headers: {
         "Set-Cookie": await commitSession(session),
       },
