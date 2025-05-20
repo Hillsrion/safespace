@@ -6,6 +6,7 @@ interface PasswordInputProps {
   field: {
     value: string;
     onChange: (value: string) => void;
+    name: string;
   };
   placeholder?: string;
   className?: string;
@@ -20,6 +21,7 @@ export function PasswordInput({ field, placeholder, className }: PasswordInputPr
         type={showPassword ? "text" : "password"}
         placeholder={placeholder}
         value={field.value}
+        name={field.name}
         onChange={(e) => field.onChange(e.target.value)}
         className={className}
       />
