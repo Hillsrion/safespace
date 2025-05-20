@@ -1,4 +1,5 @@
 import * as React from "react"
+import { Link } from "react-router"
 import {
   ArrowUpCircleIcon,
   BarChartIcon,
@@ -12,8 +13,10 @@ import {
   HelpCircleIcon,
   LayoutDashboardIcon,
   ListIcon,
+  LogOutIcon,
   SearchIcon,
   SettingsIcon,
+  UserIcon,
   UsersIcon,
 } from "lucide-react"
 
@@ -114,19 +117,14 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Settings",
-      url: "#",
-      icon: SettingsIcon,
+      title: "Account",
+      url: "/account",
+      icon: UserIcon,
     },
     {
-      title: "Get Help",
-      url: "#",
-      icon: HelpCircleIcon,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: SearchIcon,
+      title: "Logout",
+      url: "/logout",
+      icon: LogOutIcon,
     },
   ],
   documents: [
@@ -158,10 +156,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="#">
-                <ArrowUpCircleIcon className="h-5 w-5" />
-                <span className="text-base font-semibold">Acme Inc.</span>
-              </a>
+              <Link to="/dashboard">
+                <span className="text-base font-semibold">SafeSpace</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
