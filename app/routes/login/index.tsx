@@ -1,5 +1,5 @@
 import { redirect } from "@remix-run/node";
-import { Form as RemixForm, useLoaderData } from "react-router";
+import { Form as RemixForm, Link, useLoaderData } from "react-router";
 import { AlertCircle } from "lucide-react";
 import {
   Form,
@@ -103,9 +103,9 @@ export default function Login() {
 
             <p className="text-center text-sm mt-3">
               Don't have an account?{" "}
-              <a href="/register" className="text-blue-500 hover:underline">
+              <Link to="/register" className="text-blue-500 hover:underline">
                 Register
-              </a>
+              </Link>
             </p>
           </CardContent>
         </Card>
