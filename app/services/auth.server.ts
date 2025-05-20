@@ -1,8 +1,8 @@
 import { Authenticator } from "remix-auth";
 import { FormStrategy } from "remix-auth-form";
-import prisma from "~/lib/prisma";
+import { prisma } from "~/db/client.server";
 import bcrypt from "bcryptjs";
-import type { User } from "@prisma/client";
+import type { User } from "~/generated/prisma";
 import { getSession } from "./session.server";
 import { redirect } from "react-router";
 

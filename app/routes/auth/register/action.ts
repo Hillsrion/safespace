@@ -1,6 +1,6 @@
 import { data, redirect } from "@remix-run/node";
-import type { User } from "@prisma/client";
-import prisma from "~/lib/prisma";
+import type { User } from "~/generated/prisma";
+import { prisma } from "~/db/client.server";
 import { hashPassword } from "~/lib/password";
 import { getSession, commitSession } from "~/services/session.server";
 import { registerSchema } from "~/hooks/useRegister";

@@ -10,6 +10,6 @@ export default [
   route(LOGIN_PATH, "routes/auth/login/index.tsx"),
   route("auth/logout", "routes/auth/logout.tsx"),
   route(DASHBOARD_PATH, "layouts/dashboard.tsx", [
-    index("routes/dashboard.tsx"),
+    index("routes/dashboard/index.tsx"),
   ]),
 ] satisfies RouteConfig;
