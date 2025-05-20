@@ -19,8 +19,8 @@ export function NavSecondary({
   items: {
     title: string
     url: string
-    icon: LucideIcon,
-    callback?: (e: React.MouseEvent<HTMLButtonElement>) => boolean | void
+    icon: LucideIcon
+    callback?: (e: React.MouseEvent<HTMLButtonElement>) => void | boolean | Promise<void>
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (

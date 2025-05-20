@@ -33,7 +33,6 @@ export async function loader({ request }: { request: Request }) {
 export default function Login() {
   const { form, actionData } = useLogin();
   const loaderData = useLoaderData<typeof loader>();
-  console.log(loaderData);
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">
       <div className="container mx-auto px-4 py-8">
