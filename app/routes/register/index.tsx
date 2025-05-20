@@ -1,6 +1,6 @@
 import { redirect } from "@remix-run/node";
 import { Form as RemixForm } from "react-router";
-import { Check, HelpCircle } from "lucide-react";
+import { Check, HelpCircle, AlertCircle } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -9,7 +9,7 @@ import {
   FormLabel,
   FormMessage,
 } from "~/components/ui/form";
-import { Alert, AlertDescription } from "~/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Input } from "~/components/ui/input";
 import { PasswordInput } from "~/components/ui/password-input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
@@ -49,6 +49,8 @@ export default function Register() {
           <CardContent>
             {actionData?.errors?.formErrors?.map((error, index) => (
               <Alert key={index} variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             ))}
