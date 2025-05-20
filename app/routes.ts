@@ -8,6 +8,7 @@ export default [
   index("routes/home.tsx"),
   route(REGISTER_PATH, "routes/auth/register/index.tsx"),
   route(LOGIN_PATH, "routes/auth/login/index.tsx"),
+  route("auth/logout", "routes/auth/logout.tsx"),
   route(DASHBOARD_PATH, "layouts/dashboard.tsx", [
     index("routes/dashboard.tsx"),
   ]),

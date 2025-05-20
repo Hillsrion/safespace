@@ -14,5 +14,6 @@ type Params = {
   "/": {};
   "/auth/register": {};
   "/auth/login": {};
+  "/auth/logout": {};
   "/dashboard": {};
 };

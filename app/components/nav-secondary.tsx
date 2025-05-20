@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { type LucideIcon } from "lucide-react"
-import { Link } from "react-router"
+import { Link, Form } from "react-router"
 
 import {
   SidebarGroup,
@@ -29,7 +29,16 @@ export function NavSecondary({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              {item.url ? (
+              {item.url === "/logout" ? (
+                <Form method="post" action="/auth/logout" className="w-full">
+                  <SidebarMenuButton asChild>
+                    <button type="submit" className="w-full text-left">
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </button>
+                  </SidebarMenuButton>
+                </Form>
+              ) : item.url ? (
                 <SidebarMenuButton asChild>
                   <Link to={item.url}>
                     <item.icon />
