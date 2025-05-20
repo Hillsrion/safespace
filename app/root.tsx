@@ -35,9 +35,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <SidebarProvider>
           {children}
-        </SidebarProvider>
         <ScrollRestoration />
         <Scripts />
       </body>

@@ -1,17 +1,19 @@
-import { AppSidebar } from "~/components/app-sidebar";
-import type { Route } from "./+types/home";
+import type { Route } from "./+types/dashboard";
 import { loginRedirect } from "~/lib/redirects";
 
 export function meta({}: Route.MetaArgs) {
-  return [
-    { title: "SafeSpace" },
-  ];
+  return [{ title: "SafeSpace" }];
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request }: { request: Request }) {
   return loginRedirect(request);
-} 
+}
 
-export default function Home() {
-  return <AppSidebar>Dashboard</AppSidebar>;
+export default function Dashboard() {
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold mb-6">Dashboard</h1>
+      {/* Your dashboard content goes here */}
+    </div>
+  );
 }
