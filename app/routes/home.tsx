@@ -1,13 +1,16 @@
 import type { Route } from "./+types/home";
-import { Welcome } from "../welcome/welcome";
+import { baseAuthRedirect } from "~/lib/redirects";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "New React Router App" },
-    { name: "description", content: "Welcome to React Router!" },
+    { title: "SafeSpace" },
   ];
 }
 
+export async function loader({ request }: Route.LoaderArgs) {
+  return baseAuthRedirect(request);
+} 
+
 export default function Home() {
-  return <Welcome />;
+  return <div></div>;
 }

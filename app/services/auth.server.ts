@@ -3,6 +3,8 @@ import { FormStrategy } from "remix-auth-form";
 import prisma from "~/lib/prisma";
 import bcrypt from "bcryptjs";
 import type { User } from "@prisma/client";
+import { getSession } from "./session.server";
+import { redirect } from "react-router";
 
 // Create an instance of the authenticator
 export const authenticator = new Authenticator<User>();
@@ -21,6 +23,32 @@ export async function login(email: string, password: string): Promise<User> {
   }
 
   return user;
+}
+
+export async function isAuthenticated(request: Request) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    return false;
+  }
+
+  return true;
+}
+
+export async function getCurrentUser(request: Request) {
+  const session = await getSession(request);
+  const user = session.get("user") as User | null;
+
+  if (!user) {
+    return null;
+  }
+
+  return user;
+}
+
+export async function logout(request: Request) {
+  const session = await getSession(request);
+  session.unset("user");
+  return redirect("/auth/login");
 }
 
 // Configure FormStrategy for email/password authentication

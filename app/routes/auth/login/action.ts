@@ -1,9 +1,10 @@
 import { redirect } from "@remix-run/node";
-import { getSession, commitSession } from "~/services/session.server";
-import { login } from "~/services/auth.server";
+import { commitSession, getSession } from "~/services/session.server";
+import { login, isAuthenticated } from "~/services/auth.server";
+import { DASHBOARD_PATH, LOGIN_PATH } from "~/routes";
 
 async function redirectToLogin(session: any): Promise<Response> {
-  return redirect("/auth/login", {
+  return redirect(LOGIN_PATH, {
     status: 400,
     headers: {
       "Set-Cookie": await commitSession(session),
@@ -13,9 +14,8 @@ async function redirectToLogin(session: any): Promise<Response> {
 
 export async function action({ request }: { request: Request }) {
   const session = await getSession(request);
-  const user = session.get("user");
-  if (user) {
-    return redirect("/dashboard");
+  if (await isAuthenticated(request)) {
+    return redirect(DASHBOARD_PATH);
   }
 
   const formData = await request.formData();
@@ -29,7 +29,7 @@ export async function action({ request }: { request: Request }) {
   try {
     const user = await login(email, password);
     session.set("user", user);
-    return redirect("/dashboard", {
+    return redirect(DASHBOARD_PATH, {
       headers: {
         "Set-Cookie": await commitSession(session),
       },
