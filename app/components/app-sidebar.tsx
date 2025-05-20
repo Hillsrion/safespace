@@ -1,23 +1,17 @@
 import * as React from "react"
 import { Link } from "react-router"
 import {
-  ArrowUpCircleIcon,
-  BarChartIcon,
   CameraIcon,
   ClipboardListIcon,
   DatabaseIcon,
   FileCodeIcon,
   FileIcon,
   FileTextIcon,
-  FolderIcon,
-  HelpCircleIcon,
-  LayoutDashboardIcon,
   ListIcon,
   LogOutIcon,
-  SearchIcon,
-  SettingsIcon,
   UserIcon,
   UsersIcon,
+  ShieldIcon,
 } from "lucide-react"
 
 import { NavDocuments } from "~/components/nav-documents"
@@ -42,29 +36,24 @@ const data = {
   },
   navMain: [
     {
-      title: "Dashboard",
-      url: "#",
-      icon: LayoutDashboardIcon,
-    },
-    {
-      title: "Lifecycle",
-      url: "#",
+      title: "Mes posts",
+      url: "/dashboard/posts",
       icon: ListIcon,
     },
     {
-      title: "Analytics",
-      url: "#",
-      icon: BarChartIcon,
+      title: "Contributions",
+      url: "/dashboard/contributions",
+      icon: ListIcon,
     },
     {
-      title: "Projects",
-      url: "#",
-      icon: FolderIcon,
-    },
-    {
-      title: "Team",
-      url: "#",
+      title: "Blacklist",
+      url: "/dashboard/blacklist",
       icon: UsersIcon,
+    },
+    {
+      title: "Modération",
+      url: "/dashboard/moderation",
+      icon: ShieldIcon,
     },
   ],
   navClouds: [
@@ -117,12 +106,12 @@ const data = {
   ],
   navSecondary: [
     {
-      title: "Account",
+      title: "Compte",
       url: "/account",
       icon: UserIcon,
     },
     {
-      title: "Logout",
+      title: "Déconnexion",
       url: "/logout",
       icon: LogOutIcon,
     },
