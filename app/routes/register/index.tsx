@@ -61,7 +61,7 @@ export default function Register() {
                   name="firstName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>First Name</FormLabel>
+                      <FormLabel>First Name *</FormLabel>
                       <FormControl>
                         <Input placeholder="John" {...field} />
                       </FormControl>
@@ -77,7 +77,7 @@ export default function Register() {
                   name="lastName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name</FormLabel>
+                      <FormLabel>Last Name *</FormLabel>
                       <FormControl>
                         <Input placeholder="Doe" {...field} />
                       </FormControl>
@@ -109,7 +109,7 @@ export default function Register() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>Email *</FormLabel>
                       <FormControl>
                         <Input placeholder="name@example.com" {...field} />
                       </FormControl>
@@ -126,7 +126,7 @@ export default function Register() {
                   render={({ field }) => (
                     <FormItem>
                       <div className="flex items-center gap-2">
-                        <FormLabel>Password</FormLabel>
+                        <FormLabel>Password *</FormLabel>
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -174,7 +174,7 @@ export default function Register() {
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Confirm Password</FormLabel>
+                      <FormLabel>Confirm Password *</FormLabel>
                       <FormControl>
                         <PasswordInput
                           field={field}
