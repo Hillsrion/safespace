@@ -1,20 +1,14 @@
 import * as React from "react"
 import { Link } from "react-router"
 import {
-  CameraIcon,
-  ClipboardListIcon,
-  DatabaseIcon,
-  FileCodeIcon,
-  FileIcon,
-  FileTextIcon,
-  ListIcon,
   LogOutIcon,
   UserIcon,
   UsersIcon,
   ShieldIcon,
+  FolderIcon
 } from "lucide-react"
 
-import { NavDocuments } from "~/components/nav-documents"
+import { NavSpaces } from "~/components/nav-spaces"
 import { NavMain } from "~/components/nav-main"
 import { NavSecondary } from "~/components/nav-secondary"
 import { NavUser } from "~/components/nav-user"
@@ -38,12 +32,12 @@ const data = {
     {
       title: "Mes posts",
       url: "/dashboard/posts",
-      icon: ListIcon,
+      icon: FolderIcon,
     },
     {
       title: "Contributions",
       url: "/dashboard/contributions",
-      icon: ListIcon,
+      icon: FolderIcon,
     },
     {
       title: "Blacklist",
@@ -54,54 +48,6 @@ const data = {
       title: "Modération",
       url: "/dashboard/moderation",
       icon: ShieldIcon,
-    },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: CameraIcon,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: FileTextIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: FileCodeIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
     },
   ],
   navSecondary: [
@@ -116,21 +62,18 @@ const data = {
       icon: LogOutIcon,
     },
   ],
-  documents: [
+  spaces: [
     {
-      name: "Data Library",
+      name: "Lyon",
       url: "#",
-      icon: DatabaseIcon,
     },
     {
-      name: "Reports",
+      name: "Paris",
       url: "#",
-      icon: ClipboardListIcon,
     },
     {
-      name: "Word Assistant",
+      name: "Model Agency Elitel",
       url: "#",
-      icon: FileIcon,
     },
   ],
 }
@@ -154,7 +97,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
+        <NavSpaces items={data.spaces} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

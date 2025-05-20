@@ -3,7 +3,7 @@
 import {
   FolderIcon,
   MoreHorizontalIcon,
-  ShareIcon,
+  UsersIcon,
   type LucideIcon,
 } from "lucide-react"
 
@@ -23,26 +23,26 @@ import {
   useSidebar,
 } from "~/components/ui/sidebar"
 
-export function NavDocuments({
+export function NavSpaces({
   items,
 }: {
   items: {
     name: string
     url: string
-    icon: LucideIcon
+    icon?: LucideIcon
   }[]
 }) {
   const { isMobile } = useSidebar()
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-      <SidebarGroupLabel>Documents</SidebarGroupLabel>
+      <SidebarGroupLabel>Espaces</SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => (
           <SidebarMenuItem key={item.name}>
             <SidebarMenuButton asChild>
               <a href={item.url}>
-                <item.icon />
+                {item.icon && <item.icon />}
                 <span>{item.name}</span>
               </a>
             </SidebarMenuButton>
@@ -53,7 +53,7 @@ export function NavDocuments({
                   className="rounded-sm data-[state=open]:bg-accent"
                 >
                   <MoreHorizontalIcon />
-                  <span className="sr-only">More</span>
+                  <span className="sr-only">Plus</span>
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -62,12 +62,12 @@ export function NavDocuments({
                 align={isMobile ? "end" : "start"}
               >
                 <DropdownMenuItem>
-                  <FolderIcon />
-                  <span>Open</span>
+                  <UsersIcon />
+                  <span>Utilisateurs</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <ShareIcon />
-                  <span>Share</span>
+                  <FolderIcon />
+                  <span>Posts</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -76,7 +76,7 @@ export function NavDocuments({
         <SidebarMenuItem>
           <SidebarMenuButton className="text-sidebar-foreground/70">
             <MoreHorizontalIcon className="text-sidebar-foreground/70" />
-            <span>More</span>
+            <span>Plus</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
