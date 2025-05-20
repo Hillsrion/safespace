@@ -21,6 +21,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "~/components/ui/sidebar"
+import { logout } from "~/lib/api"
 
 const data = {
   user: {
@@ -60,6 +61,14 @@ const data = {
       title: "Déconnexion",
       url: "/logout",
       icon: LogOutIcon,
+      callback: (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.preventDefault();
+        logout().catch(error => {
+          console.error('Logout failed:', error);
+          window.location.href = '/auth/login';
+        });  
+        return false;
+      },
     },
   ],
   spaces: [

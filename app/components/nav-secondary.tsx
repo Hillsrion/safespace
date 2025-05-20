@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { type LucideIcon } from "lucide-react"
-import { Link, Form } from "react-router"
+import { Link } from "react-router"
 
 import {
   SidebarGroup,
@@ -20,7 +20,7 @@ export function NavSecondary({
     title: string
     url: string
     icon: LucideIcon,
-    callback?: () => void
+    callback?: (e: React.MouseEvent<HTMLButtonElement>) => boolean | void
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (
@@ -29,30 +29,30 @@ export function NavSecondary({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              {item.url === "/logout" ? (
-                <Form method="post" action="/auth/logout" className="w-full">
-                  <SidebarMenuButton asChild>
-                    <button type="submit" className="w-full text-left">
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </button>
-                  </SidebarMenuButton>
-                </Form>
-              ) : item.url ? (
-                <SidebarMenuButton asChild>
-                  <Link to={item.url}>
+              <SidebarMenuButton asChild>
+                {item.url ? (
+                  <Link 
+                    to={item.url}
+                    onClick={(e) => {
+                      if (item.callback) {
+                        e.preventDefault();
+                        item.callback(e as unknown as React.MouseEvent<HTMLButtonElement>);
+                      }
+                    }}
+                  >
                     <item.icon />
                     <span>{item.title}</span>
                   </Link>
-                </SidebarMenuButton>
-              ) : (
-                <SidebarMenuButton asChild>
-                  <button onClick={item.callback} className="w-full text-left">
+                ) : (
+                  <button 
+                    onClick={item.callback} 
+                    className="w-full text-left"
+                  >
                     <item.icon />
                     <span>{item.title}</span>
                   </button>
-                </SidebarMenuButton>
-              )}
+                )}
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
