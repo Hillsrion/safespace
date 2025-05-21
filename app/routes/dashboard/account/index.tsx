@@ -27,6 +27,10 @@ import { loader } from "./loader";
 
 export { action, loader };
 
+export const handle = {
+  crumb: "Mon compte"
+};
+
 export default function AccountPage() {
   const { form, actionData } = useAccount();
   const user = useLoaderData<typeof loader>();

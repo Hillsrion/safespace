@@ -8,6 +8,10 @@ export function meta() {
   return [{ title: "Dashboard" }];
 }
 
+export const handle = {
+  crumb: "Tableau de bord"
+};
+
 export async function loader({ request }: { request: Request }) {
   const user = await getCurrentUser(request);
   if (!user) {
