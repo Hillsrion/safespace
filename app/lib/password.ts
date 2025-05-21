@@ -11,23 +11,23 @@ export function checkPasswordRequirements(
   return [
     {
       valid: password.length >= 8,
-      message: "At least 8 characters",
+      message: "Au moins 8 caractères",
     },
     {
       valid: /[A-Z]/.test(password),
-      message: "At least one uppercase letter",
+      message: "Au moins une majuscule",
     },
     {
       valid: /[a-z]/.test(password),
-      message: "At least one lowercase letter",
+      message: "Au moins une minuscule",
     },
     {
       valid: /[0-9]/.test(password),
-      message: "At least one number",
+      message: "Au moins un chiffre",
     },
     {
       valid: /[^a-zA-Z0-9]/.test(password),
-      message: "At least one special character",
+      message: "Au moins un caractère spécial",
     },
   ];
 }

@@ -39,7 +39,7 @@ export const useSidebarNav = () => {
     navSecondary: [
       {
         title: "Compte",
-        url: "/account",
+        url: "/dashboard/account",
         icon: UserIcon,
       },
       {
