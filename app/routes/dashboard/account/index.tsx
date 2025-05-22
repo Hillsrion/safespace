@@ -1,5 +1,16 @@
 import { Form as RemixForm, Link, useLoaderData } from "react-router";
 import { Check, HelpCircle, AlertCircle, CheckCircle } from "lucide-react";
+import * as React from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "~/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -34,6 +45,8 @@ export const handle = {
 export default function AccountPage() {
   const { form, actionData } = useAccount();
   const user = useLoaderData<typeof loader>();
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
+  const [confirmationText, setConfirmationText] = React.useState("");
   
   return (
     <div className="space-y-6">
@@ -285,6 +298,58 @@ export default function AccountPage() {
           </Form>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Zone de Danger</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              Supprimer votre compte et toutes les données associées.
+            </p>
+            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
+              Supprimer le compte
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer le compte</DialogTitle>
+            <DialogDescription>
+              Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible. Pour confirmer, veuillez taper 'CONFIRMER' dans le champ ci-dessous.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <Input 
+              type="text" 
+              placeholder="Tapez 'CONFIRMER' pour continuer" 
+              value={confirmationText}
+              onChange={(e) => setConfirmationText(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <RemixForm method="post" className="flex items-center gap-2">
+              <input type="hidden" name="intent" value="deleteAccount" />
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Annuler
+                </Button>
+              </DialogClose>
+              <Button 
+                type="submit" 
+                variant="destructive" 
+                disabled={confirmationText !== 'CONFIRMER'}
+              >
+                Supprimer le compte
+              </Button>
+            </RemixForm>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
