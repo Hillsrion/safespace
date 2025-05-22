@@ -4,6 +4,7 @@ import {
   UsersIcon,
   ShieldIcon,
   FolderIcon,
+  SparkleIcon,
 } from "lucide-react";
 import { logout } from "~/lib/api";
 
@@ -34,6 +35,11 @@ export const useSidebarNav = () => {
         title: "Modération",
         url: "/dashboard/moderation",
         icon: ShieldIcon,
+      },
+      {
+        title: "Chat AI",
+        url: "/dashboard/ai",
+        icon: SparkleIcon,
       },
     ],
     navSecondary: [
