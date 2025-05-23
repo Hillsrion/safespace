@@ -10,8 +10,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 // Enums for post-related statuses and severities
@@ -24,6 +24,7 @@ enum PostSeverity {
   low       // Minor issue
   medium    // Moderate issue
   high      // Serious issue
+  very_high // Very serious issue
 }
 
 enum PostVerificationStatus {
@@ -64,7 +65,7 @@ enum AuditAction {
 // Users can belong to multiple spaces with different roles in each space
 // SuperAdmins have global access while other roles are space-specific
 model User {
-  id            String    @id @default(uuid()) @db.Uuid
+  id            String    @id @default(uuid())
   email         String    @unique
   password      String
   firstName     String
@@ -90,10 +91,10 @@ model User {
 // Each space is an independent community with its own members and posts
 // Users can belong to multiple spaces
 model Space {
-  id          String    @id @default(uuid()) @db.Uuid
+  id          String    @id @default(uuid())
   name        String    @unique
-  description String?   @db.Text
-  createdBy   String    @db.Uuid
+  description String?
+  createdBy   String
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @default(now()) @updatedAt
 
@@ -110,8 +111,8 @@ model Space {
 
 // Join table for User and Space
 model UserSpaceMembership {
-  userId    String   @db.Uuid
-  spaceId   String   @db.Uuid
+  userId    String
+  spaceId   String
   role      String   // 'Admin', 'Moderator', 'Editor', 'Read-only'
   joinedAt  DateTime @default(now())
 
@@ -124,12 +125,12 @@ model UserSpaceMembership {
 }
 
 model Invite {
-  id              String    @id @default(uuid()) @db.Uuid
+  id              String    @id @default(uuid())
   email           String
   token           String    @unique
-  spaceId         String    @db.Uuid
+  spaceId         String
   roleToAssign    String
-  invitedByUserId String    @db.Uuid
+  invitedByUserId String
   expiresAt       DateTime
   isUsed          Boolean   @default(false)
   createdAt       DateTime  @default(now())
@@ -142,12 +143,12 @@ model Invite {
 }
 
 model ReportedEntity {
-  id            String    @id @default(uuid()) @db.Uuid
+  id            String    @id @default(uuid())
   name          String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
-  addedByUserId String    @db.Uuid
-  spaceId       String    @db.Uuid
+  addedByUserId String
+  spaceId       String
 
   // Relations
   addedBy       User      @relation("EntityAdders", fields: [addedByUserId], references: [id])
@@ -159,8 +160,8 @@ model ReportedEntity {
 }
 
 model ReportedEntityHandle {
-  id               String    @id @default(uuid()) @db.Uuid
-  reportedEntityId String    @db.Uuid
+  id               String    @id @default(uuid())
+  reportedEntityId String
   platform         String    @default("Instagram")
   handle           String
   createdAt        DateTime  @default(now())
@@ -176,11 +177,11 @@ model ReportedEntityHandle {
 // Posts must target a specific entity (name + one or more Instagram identifiers)
 // If a targeted entity is not in the database, they are auto-added
 model Post {
-  id                 String    @id @default(uuid()) @db.Uuid
-  spaceId            String    @db.Uuid
-  authorId           String?   @db.Uuid
-  reportedEntityId   String    @db.Uuid
-  description        String    @db.Text
+  id                 String    @id @default(uuid())
+  spaceId            String
+  authorId           String?
+  reportedEntityId   String
+  description        String
   isAnonymous        Boolean   @default(false)
   isAdminOnly        Boolean   @default(false)
   status             PostStatus @default(active) // Post visibility status: active, hidden, deleted
@@ -201,9 +202,9 @@ model Post {
 }
 
 model Media {
-  id               String    @id @default(uuid()) @db.Uuid
-  postId           String    @db.Uuid
-  uploaderId       String    @db.Uuid
+  id               String    @id @default(uuid())
+  postId           String
+  uploaderId       String
   storageKey       String    @unique
   fileName         String
   mimeType         String
@@ -223,12 +224,12 @@ model Media {
 // Users can flag posts for moderation review
 // Flags can be resolved by admins or moderators
 model PostFlag {
-  id              String    @id @default(uuid()) @db.Uuid
-  postId          String    @db.Uuid
-  flaggerUserId   String    @db.Uuid
-  reason          String?   @db.Text
+  id              String    @id @default(uuid())
+  postId          String
+  flaggerUserId   String
+  reason          String?
   status          PostFlagStatus @default(pending_review) // Flag processing status: pending_review, resolved, rejected
-  resolvedByUserId String?   @db.Uuid
+  resolvedByUserId String?
   resolvedAt      DateTime?
   createdAt       DateTime  @default(now())
 
@@ -242,12 +243,12 @@ model PostFlag {
 }
 
 model AuditLog {
-  id               String    @id @default(uuid()) @db.Uuid
-  actorUserId      String?   @db.Uuid
+  id               String    @id @default(uuid())
+  actorUserId      String?
   action           AuditAction // Type of action performed by the actor
   targetEntityType String?
-  targetEntityId   String?   @db.Uuid
-  spaceId          String?   @db.Uuid
+  targetEntityId   String?
+  spaceId          String?
   details          Json?
   createdAt        DateTime  @default(now())
 

@@ -31,3 +31,13 @@ tasks/
 app/generated/prisma/
 .react-router/
 .aider*
+
+# SQLite database files
+dev.db
+dev.db-journal
+*.db-wal
+*.db-shm
+
+# Temporary scripts
+install_nvm.script
+install_nvm.sh
