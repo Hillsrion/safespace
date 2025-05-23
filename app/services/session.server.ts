@@ -7,7 +7,7 @@ export const sessionStorage = createCookieSessionStorage({
     httpOnly: true,
     path: "/",
     sameSite: "lax",
-    secrets: [process.env.SESSION_SECRET],
+    secrets: [process.env.SESSION_SECRET!], 
     secure: process.env.NODE_ENV === "production",
   },
 });
@@ -26,7 +26,13 @@ export async function destroySession(session: any) {
 
 export async function getError(request: Request) {
   const session = await getSession(request);
-  const error = session.get("error") as string | null;
+  const error = session.get("error") as string | null; 
   session.unset("error");
+  // Consider committing session here if unset should persist immediately:
+  // await commitSession(session); 
   return error;
 }
+
+// This is the crucial part for remix-themes:
+// It uses the `sessionStorage` defined above.
+export const themeSessionResolver = createThemeSessionResolver(sessionStorage);
