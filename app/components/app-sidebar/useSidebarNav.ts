@@ -7,8 +7,11 @@ import {
   SparkleIcon,
 } from "lucide-react";
 import { logout } from "~/lib/api";
+import { useSpaces, type SpaceNavItem } from '~/hooks/useSpaces';
 
 export const useSidebarNav = () => {
+  const { spaces } = useSpaces();
+
   const data = {
     user: {
       name: "shadcn",
@@ -58,20 +61,7 @@ export const useSidebarNav = () => {
         },
       },
     ],
-    spaces: [
-      {
-        name: "Lyon",
-        url: "#",
-      },
-      {
-        name: "Paris",
-        url: "#",
-      },
-      {
-        name: "Model Agency Elitel",
-        url: "#",
-      },
-    ],
+    spaces: spaces,
   };
 
   return { data };
