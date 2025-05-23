@@ -11,9 +11,9 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "~/components/ui/breadcrumb";
-import { ModeToggle } from "~/components/mode-toggle"; // Added import
+import { ModeToggle } from "~/components/mode-toggle";
 
-interface BreadcrumbItemType { // Renamed to avoid conflict with BreadcrumbItem component
+interface BreadcrumbItemType {
   path: string;
   name: string;
 }
@@ -21,14 +21,13 @@ interface BreadcrumbItemType { // Renamed to avoid conflict with BreadcrumbItem 
 interface RouteMatch {
   pathname: string;
   handle?: {
-    crumb?: string; // Made crumb optional as it might not always be present
+    crumb?: string;
   };
 }
 
 export default function DashboardLayout() {
-  const { title } = useMeta(); // title is declared but not used, consider removing if not needed.
+  const { title } = useMeta();
   const matches = useMatches() as unknown as RouteMatch[];
-  // Only show breadcrumb for dashboard routes
   const isDashboardRoute = matches.some(match => match.pathname.startsWith('/dashboard'));
   
   if (!isDashboardRoute) { 
@@ -45,7 +44,6 @@ export default function DashboardLayout() {
   }
 
   const currentRoute = matches[matches.length - 1];
-  // console.log(currentRoute.pathname); // Original console.log
 
   return (
     <SidebarProvider>
@@ -53,16 +51,13 @@ export default function DashboardLayout() {
         <AppSidebar />
         <main className="flex-1 overflow-auto p-4">
           <div className="flex flex-col w-full mb-6 border-b border-gray-200 pb-4">
-            {/* Header section with SidebarTrigger, Breadcrumbs, and ModeToggle */}
-            <div className="flex items-center"> {/* Main flex container for header items */}
+            <div className="flex items-center">
               <SidebarTrigger />
-              <div className="h-5 w-px bg-gray-300 mx-3" /> {/* Separator with margin */}
+              <div className="h-5 w-px bg-gray-300 mx-3" />
               
-              {/* Breadcrumb container */}
-              <div className="flex-grow"> {/* Allow breadcrumb to take available space */}
+              <div className="flex-grow">
                 <Breadcrumb>
                   <BreadcrumbList>
-                    {/* Case 1: Not on /dashboard or /dashboard/ (i.e., a subpage like /dashboard/settings) */}
                     {currentRoute.pathname !== '/dashboard' && currentRoute.pathname !== '/dashboard/' && (
                       <>
                         <BreadcrumbItem>
@@ -72,12 +67,10 @@ export default function DashboardLayout() {
                             </Link>
                           </BreadcrumbLink>
                         </BreadcrumbItem>
-                        {/* Show separator only if there's a crumb for the current sub-page */}
                         {currentRoute.handle?.crumb && <BreadcrumbSeparator />}
                       </>
                     )}
                     
-                    {/* Current Page Name (from crumb) - shows on subpages or if /dashboard has a crumb */}
                     {currentRoute.handle?.crumb && (
                       <BreadcrumbItem>
                         <BreadcrumbPage className="text-sm font-medium">
@@ -86,7 +79,6 @@ export default function DashboardLayout() {
                       </BreadcrumbItem>
                     )}
 
-                    {/* Case 2: On /dashboard or /dashboard/ AND no specific crumb (is the dashboard index itself) */}
                     {(currentRoute.pathname === '/dashboard' || currentRoute.pathname === '/dashboard/') && !currentRoute.handle?.crumb && (
                        <BreadcrumbItem>
                          <BreadcrumbPage className="text-sm font-medium">
@@ -98,8 +90,7 @@ export default function DashboardLayout() {
                 </Breadcrumb>
               </div>
 
-              {/* ModeToggle pushed to the right */}
-              <div className="ml-4"> {/* Margin to separate from breadcrumbs/flex-grow */}
+              <div className="ml-4">
                 <ModeToggle />
               </div>
             </div>

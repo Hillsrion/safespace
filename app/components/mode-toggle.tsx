@@ -1,13 +1,13 @@
 import { Moon, Sun } from "lucide-react";
 import { Theme, useTheme } from "remix-themes";
 
-import { Button } from "~/components/ui/button"; // Adjusted path
+import { Button } from "~/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu"; // Adjusted path
+} from "~/components/ui/dropdown-menu";
 
 export function ModeToggle() {
   const [, setTheme] = useTheme();
@@ -28,11 +28,9 @@ export function ModeToggle() {
         <DropdownMenuItem onClick={() => setTheme(Theme.DARK)}>
           Dark
         </DropdownMenuItem>
-        {/* Optional: Add system theme option if desired, following shadcn example if they have it
         <DropdownMenuItem onClick={() => setTheme(Theme.SYSTEM)}>
           System
         </DropdownMenuItem>
-        */}
       </DropdownMenuContent>
     </DropdownMenu>
   );
