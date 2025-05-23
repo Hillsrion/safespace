@@ -1,4 +1,5 @@
 import { createCookieSessionStorage } from "@remix-run/node";
+import { createThemeSessionResolver } from "remix-themes"; // Added
 
 export const sessionStorage = createCookieSessionStorage({
   cookie: {
