@@ -3031,6 +3031,11 @@ remix-auth@^4.2.0:
   resolved "https://registry.yarnpkg.com/remix-auth/-/remix-auth-4.2.0.tgz#4a8476c6fc7bb7f4bfb827f320a7e0592291678f"
   integrity sha512-3LSfWEvSgG2CgbG/p4ge5hbV8tTXWNnnYIGbTr9oSSiHz9dD7wh6S0MEyo3pwh7MlKezB2WIlevGeyqUZykk7g==
 
+remix-themes@^2.0.4:
+  version "2.0.4"
+  resolved "https://registry.yarnpkg.com/remix-themes/-/remix-themes-2.0.4.tgz#7954a7d4fb38e1ca9d8abb1c4a6b7ec3b4a4d11f"
+  integrity sha512-S1vIx86xdsMv+ceaWGWtlVZBMhU4tmZeBOBzOiZnhbHnGBbd5YeyIlZ5EL3BSEhZq35oEcINeTrMrVju9GPYEA==
+
 resolve-pkg-maps@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/resolve-pkg-maps/-/resolve-pkg-maps-1.0.0.tgz#616b3dc2c57056b5588c31cdf4b3d64db133720f"
