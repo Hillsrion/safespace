@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "@remix-run/react";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router";
 import {
   Command,
   CommandInput,
@@ -8,12 +8,9 @@ import {
   CommandEmpty,
   CommandGroup,
 } from "~/components/ui/command";
-import { FileText, User, ShieldAlert, Loader2, Search as SearchIcon } from "lucide-react";
+import { FileText, ShieldAlert, Loader2 } from "lucide-react";
 import { useSearch } from "~/hooks/useSearch"; // Import the new hook
 
-// Define types for results based on the API response structure
-// These types should ideally come from useSearch.ts or a shared types file if they are identical.
-// For now, defining them here to match what useSearch hook expects/returns if not already globally available.
 interface SearchResultItemData {
   id: string;
   description?: string; 
@@ -28,11 +25,10 @@ interface SearchResult {
   type: string; 
   data: SearchResultItemData;
 }
-// End of type definitions that might be duplicated from useSearch.ts
 
 export function SearchBar() {
   const { searchTerm, setSearchTerm, results, loading } = useSearch();
-  const [isOpen, setIsOpen] = useState(false); // isOpen state is local to the SearchBar for UI presentation
+  const [isOpen, setIsOpen] = useState(false);
 
   const navigate = useNavigate();
   const commandRef = useRef<HTMLDivElement>(null);
@@ -67,12 +63,9 @@ export function SearchBar() {
       return;
     }
     let path = "";
-    // Note: The `useSearch` hook currently does not return 'user' type results.
-    // If user search is re-added to the API, this switch should handle it.
     switch (result.type) {
       case "post": path = `/posts/${result.data.id}`; break;
       case "reportedEntity": path = `/reported-entities/${result.data.id}`; break;
-      // case "user": path = `/users/${result.data.id}`; break; // User search was removed from API
       default: console.warn("Unknown result type for navigation:", result.type); return;
     }
     
@@ -89,9 +82,6 @@ export function SearchBar() {
         return { text: result.data.description || "Untitled Post", icon: <FileText className={iconClass} /> };
       case "reportedEntity":
         return { text: result.data.name || "Unnamed Entity", icon: <ShieldAlert className={iconClass} /> };
-      // case "user": // User search was removed from API
-      //   const name = `${result.data.firstName || ""} ${result.data.lastName || ""}`.trim();
-      //   return { text: name || result.data.instagram || "Unnamed User", icon: <User className={iconClass} /> };
       default:
         // Handle potentially unknown types gracefully if API changes or returns unexpected data
         return { text: result.data.name || result.data.description || "Unknown item", icon: null };
@@ -99,7 +89,6 @@ export function SearchBar() {
   };
   
   const handleInputFocus = () => {
-    // Open if there's already a search term or if there are results/loading
     if (searchTerm.trim() || results.length > 0 || loading) {
       setIsOpen(true);
     }
@@ -122,7 +111,6 @@ export function SearchBar() {
     <div ref={commandRef} className="relative w-full max-w-xl mx-auto">
       <Command shouldFilter={false} className="rounded-lg border shadow-md bg-card text-card-foreground">
         <div className="flex items-center border-b px-3" cmdk-input-wrapper="">
-          <SearchIcon className="mr-2 h-4 w-4 shrink-0 opacity-50" />
           <CommandInput
             ref={inputRef}
             value={searchTerm}

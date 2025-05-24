@@ -1,8 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { loader } from './api.search'; // Adjust path as necessary
-// import { prisma } from '~/db/client.server'; // This line will be problematic
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // This object will hold our mock functions.
 // It's defined outside the vi.mock factory so it can be referenced in tests.
@@ -24,7 +20,7 @@ vi.mock('~/db/client.server', () => ({
 
 // Now that the mock is set up (Vitest hoists vi.mock calls),
 // we can import the loader function that uses the mocked prisma client.
-import { loader } from './api.search';
+import { loader } from './search';
 
 // Make sure all imports are here, especially if types are needed from prisma/client or other places
 // For example: import type { Post, User } from '@prisma/client';

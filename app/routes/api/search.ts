@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import { data } from "@remix-run/node";
 import { prisma } from "~/db/client.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -7,7 +7,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const q = url.searchParams.get("q");
 
   if (!q) {
-    return json([]);
+    return data({
+      ok: false,
+      error: "No query provided",
+    });
   }
 
   try {
@@ -42,13 +45,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
           mode: "insensitive",
         },
       },
-      include: { 
+      include: {
         reportedEntity: {
           include: {
             handles: true, // Also include other handles of the parent entity
-          }
-        } 
-      }
+          },
+        },
+      },
     });
 
     // User search removed as per requirements
@@ -67,13 +70,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
       })),
       // User results mapping removed
     ];
-    
-    // Deduplicate results based on type and ID
-    const uniqueResults = Array.from(new Map(results.map(item => [`${item.type}-${item.data.id}`, item])).values());
 
-    return json(uniqueResults);
+    // Deduplicate results based on type and ID
+    const uniqueResults = Array.from(
+      new Map(
+        results.map((item) => [`${item.type}-${item.data.id}`, item])
+      ).values()
+    );
+
+    return data(uniqueResults);
   } catch (error) {
     console.error("Search error:", error);
-    return json({ error: "Search failed" }, { status: 500 });
+    return data({
+      ok: false,
+      error: process.env.NODE_ENV === "production" ? "Search failed" : error,
+    });
   }
 }
