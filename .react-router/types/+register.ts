@@ -17,4 +17,6 @@ type Params = {
   "/auth/logout": {};
   "/dashboard": {};
   "/dashboard/account": {};
+  "/api": {};
+  "/api/search": {};
 };
