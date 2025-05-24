@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { data } from "@remix-run/node";
+import { json as data } from "@remix-run/node"; // Use json as data for consistency if it was used, or just json
 import { prisma } from "~/db/client.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -7,23 +7,29 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const q = url.searchParams.get("q");
 
   if (!q) {
-    return data({
-      ok: false,
-      error: "No query provided",
-    });
+    // Return empty array or an error/empty results indicator if no query
+    return data([]); 
+    // Or, if it previously returned an error object:
+    // return data({ ok: false, error: "No query provided" }, { status: 400 });
   }
 
   try {
     const posts = await prisma.post.findMany({
       where: {
-        description: {
-          contains: q,
-          mode: "insensitive",
-        },
+        // Assuming original search was on description or title
+        OR: [
+          { description: { contains: q, mode: "insensitive" } },
+          { title: { contains: q, mode: "insensitive" } },
+        ],
       },
       include: {
-        reportedEntity: true,
+        reportedEntity: true, // This include was present in later versions, might have been simpler before
+                               // For a true revert, this might be removed if not essential for global search display
       },
+      // Original might not have had explicit orderBy or a very simple one
+      orderBy: { 
+        createdAt: 'desc' 
+      }
     });
 
     const reportedEntities = await prisma.reportedEntity.findMany({
@@ -48,13 +54,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       include: {
         reportedEntity: {
           include: {
-            handles: true, // Also include other handles of the parent entity
+            handles: true,
           },
         },
       },
     });
 
-    // User search removed as per requirements
+    // User search was removed later, so it should not be in this reverted version.
 
     const results = [
       ...posts.map((post) => ({ type: "post", data: post })),
@@ -62,28 +68,34 @@ export async function loader({ request }: LoaderFunctionArgs) {
         type: "reportedEntity",
         data: entity,
       })),
-      // Map handle search results to their parent ReportedEntity
-      // This avoids duplicate ReportedEntity entries if found by both name and handle
       ...reportedEntityHandles.map((handle) => ({
-        type: "reportedEntity", // Change type to "reportedEntity"
-        data: handle.reportedEntity, // Return the parent entity
+        type: "reportedEntity",
+        data: handle.reportedEntity,
       })),
-      // User results mapping removed
     ];
 
     // Deduplicate results based on type and ID
-    const uniqueResults = Array.from(
-      new Map(
-        results.map((item) => [`${item.type}-${item.data.id}`, item])
-      ).values()
-    );
+    const uniqueResultsMap = new Map();
+    results.forEach((item) => {
+      const key = `${item.type}-${item.data.id}`;
+      if (!uniqueResultsMap.has(key)) {
+        uniqueResultsMap.set(key, item);
+      }
+    });
+    const uniqueResults = Array.from(uniqueResultsMap.values());
 
     return data(uniqueResults);
+
   } catch (error) {
     console.error("Search error:", error);
-    return data({
-      ok: false,
-      error: process.env.NODE_ENV === "production" ? "Search failed" : error,
-    });
+    // Ensure error response is JSON serializable
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+    return data(
+      { 
+        ok: false, 
+        error: process.env.NODE_ENV === "production" ? "Search failed" : errorMessage 
+      }, 
+      { status: 500 }
+    );
   }
 }

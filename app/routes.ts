@@ -14,5 +14,8 @@ export default [
     index("routes/dashboard/index.tsx"),
     route("account", "routes/dashboard/account/index.tsx"),
   ]),
-  route(API_PATH, "layouts/api.tsx", [route("search", "routes/api/search.ts")]),
+  route(API_PATH, "layouts/api.tsx", [
+    route("search", "routes/api/search.ts"),
+    route("dashboard-filter", "routes/api/dashboard-filter.ts"), // Added new route
+  ]),
 ] satisfies RouteConfig;
