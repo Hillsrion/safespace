@@ -46,6 +46,10 @@ export async function getUserPosts(
   });
 }
 
+export async function getTotalPosts() {
+  return prisma.post.count();
+}
+
 export async function getSpacePosts(
   userId: string,
   options: GetSpacePostsOptions = {}
