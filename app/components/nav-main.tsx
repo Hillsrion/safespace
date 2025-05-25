@@ -1,4 +1,6 @@
-import { MailIcon, PlusCircleIcon, type LucideIcon } from "lucide-react"
+import { MailIcon, PlusCircleIcon, ShieldCheckIcon, type LucideIcon } from "lucide-react"
+import { useRouteLoaderData } from "@remix-run/react"
+import type { User } from "~/generated/prisma"
 
 import { Button } from "~/components/ui/button"
 import {
@@ -18,6 +20,8 @@ export function NavMain({
     icon?: LucideIcon
   }[]
 }) {
+  const { user } = useRouteLoaderData("root") as { user: User }
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -33,9 +37,17 @@ export function NavMain({
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
+          {user && user.isSuperAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton tooltip="SuperAdmin Dashboard" href="/dashboard/superadmin">
+                <ShieldCheckIcon />
+                <span>SuperAdmin Dashboard</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title}>
+              <SidebarMenuButton tooltip={item.title} href={item.url}>
                 {item.icon && <item.icon />}
                 <span>{item.title}</span>
               </SidebarMenuButton>

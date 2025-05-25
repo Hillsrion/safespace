@@ -24,3 +24,7 @@ export async function getUserSpaces(userId: string): Promise<UserSpace[]> {
     role: membership.role,
   }));
 }
+
+export async function getTotalSpaces() {
+  return prisma.space.count();
+}
