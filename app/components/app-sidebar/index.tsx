@@ -39,7 +39,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavSpaces items={data.spaces} />
+        {data.spaces && data.spaces.length > 0 && (
+          <NavSpaces items={data.spaces} />
+        )}
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
