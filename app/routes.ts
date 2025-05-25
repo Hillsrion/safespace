@@ -13,4 +13,5 @@ export default [
     index("routes/dashboard/index.tsx"),
     route("account", "routes/dashboard/account/index.tsx"),
   ]),
+  route("resources/api/spaces", "routes/api.spaces.ts"),
 ] satisfies RouteConfig;

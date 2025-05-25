@@ -17,4 +17,5 @@ type Params = {
   "/auth/logout": {};
   "/dashboard": {};
   "/dashboard/account": {};
+  "/resources/api/spaces": {};
 };

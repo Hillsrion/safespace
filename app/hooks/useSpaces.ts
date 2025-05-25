@@ -1,6 +1,16 @@
-import { useEffect, useState } from "react";
-import { spaceRepository } from "~/db";
+import { useEffect, useState, useCallback } from "react";
 import { useUser } from "~/hooks/useUser";
+
+interface Space {
+  id: string;
+  name: string;
+  role: string;
+}
+
+interface ApiResponse {
+  spaces: Space[];
+  error?: string;
+}
 
 export interface SpaceNavItem {
   id: string;
@@ -11,32 +21,66 @@ export interface SpaceNavItem {
 export const useSpaces = () => {
   const [spaces, setSpaces] = useState<SpaceNavItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const user = useUser();
 
-  useEffect(() => {
-    if (user && user.id) {
-      setIsLoading(true);
-      spaceRepository.getUserSpaces(user.id)
-        .then(userSpaces => {
-          const formattedSpaces = userSpaces.map(space => ({
-            id: space.id,
-            name: space.name,
-            url: `/dashboard/spaces/${space.id}`,
-          }));
-          setSpaces(formattedSpaces);
-        })
-        .catch(error => {
-          console.error("Failed to fetch user spaces:", error);
-          setSpaces([]);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } else {
+  const fetchSpaces = useCallback(async () => {
+    if (!user?.id) {
       setSpaces([]);
       setIsLoading(false);
+      return;
     }
-  }, [user, user?.id]);
 
-  return { spaces, isLoading };
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/resources/api/spaces", {
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: ApiResponse = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const formattedSpaces = data.spaces.map((space) => ({
+        id: space.id,
+        name: space.name,
+        url: `/dashboard/spaces/${space.id}`,
+      }));
+
+      setSpaces(formattedSpaces);
+    } catch (err) {
+      console.error("Failed to fetch spaces:", err);
+      setError(err instanceof Error ? err.message : "Failed to fetch spaces");
+      setSpaces([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchSpaces();
+  }, [fetchSpaces]);
+
+  // Function to manually refresh spaces if needed
+  const refresh = useCallback(() => {
+    return fetchSpaces();
+  }, [fetchSpaces]);
+
+  return {
+    spaces,
+    isLoading,
+    error,
+    refresh,
+  };
 };
