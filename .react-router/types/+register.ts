@@ -18,4 +18,6 @@ type Params = {
   "/dashboard": {};
   "/dashboard/account": {};
   "/resources/api/spaces": {};
+  "/api": {};
+  "/api/search": {};
 };
