@@ -17,6 +17,7 @@ type Params = {
   "/auth/logout": {};
   "/dashboard": {};
   "/dashboard/account": {};
+  "/dashboard/superadmin": {};
   "/resources/api/spaces": {};
   "/api": {};
   "/api/search": {};

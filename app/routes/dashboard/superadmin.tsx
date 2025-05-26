@@ -9,12 +9,8 @@ import {
   CardDescription,
   CardContent,
 } from "~/components/ui/card";
-import { redirect, useLoaderData } from "remix-router";
-import type { LoaderFunction, MetaFunction } from "@remix-run/node";
-
-export const meta: MetaFunction = () => ({
-  title: "SuperAdmin Dashboard",
-});
+import { redirect, useLoaderData } from "react-router";
+import type { LoaderFunction } from "@remix-run/node";
 
 export const handle = {
   crumb: "SuperAdmin Dashboard",
