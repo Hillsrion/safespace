@@ -85,8 +85,6 @@ export function Post({
         variant = "outline";
         text = "En Attente";
         break;
-      case "published":
-        return <Badge variant="default" className="mr-2">Publié</Badge>;
       default:
         return null; 
     }
@@ -102,17 +100,17 @@ export function Post({
             <AvatarFallback>{author.name ? author.name.charAt(0) : 'U'}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-2">
               <span className="font-semibold">{author.name}</span>
               <span className="text-sm text-muted-foreground">@{author.username}</span>
-              <span className="text-sm text-muted-foreground">·</span>
+              <span className="text-lg text-muted-foreground">·</span>
               <span className="text-sm text-muted-foreground">
                 {new Intl.DateTimeFormat("fr-FR", { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(createdAt))}
               </span>
             </div>
             <div>
-              {author.isAdmin && <Badge variant="outline" className="mr-1">Administrateur</Badge>}
-              {author.isModerator && <Badge variant="outline">Modérateur</Badge>}
+              {author.role === "admin" && <Badge variant="outline" className="mr-1">Administrateur</Badge>}
+              {author.role === "moderator" && <Badge variant="outline">Modérateur</Badge>}
             </div>
           </div>
         </div>
@@ -163,8 +161,8 @@ export function Post({
         </div>
       </CardHeader>
 
-      <CardContent>
-        <p className="mb-4 whitespace-pre-wrap">{content}</p>
+      <CardContent className="prose prose-p:mb-4 prose-p:whitespace-pre-wrap">
+        <p>{content}</p>
         
         {media && media.length > 0 && (
           <div className="mb-4">
