@@ -11,18 +11,8 @@ import {
   BreadcrumbSeparator,
 } from "~/components/ui/breadcrumb";
 import { ModeToggle } from "~/components/mode-toggle";
-import { useEffect } from "react";
-import { toast } from "~/hooks/use-toast";
-import { getSession } from "~/services/session.server";
-
-export async function loader({ request }: { request: Request }) {
-  const session = await getSession(request);
-  const toastMessage = session.get("toastMessage");
-  
-  return { 
-    toast: toastMessage ? { message: toastMessage, title: "Success" } : null 
-  };
-}
+import { useToastTrigger } from "~/hooks/use-toast-trigger";
+import { commitSession, getSession } from "~/services/session.server";
 
 interface RouteMatch {
   pathname: string;
@@ -31,17 +21,26 @@ interface RouteMatch {
   };
 }
 
+export async function loader({ request }: { request: Request }) {
+  const session = await getSession(request);
+  const toastData = session.get("toast");
+  
+  // Clear the toast after reading
+  if (toastData) {
+    session.unset("toast");
+  }
+
+  return { 
+    toast: toastData || null,
+    headers: {
+      "Set-Cookie": await commitSession(session),
+    },
+  };
+}
+
 export default function DashboardLayout() {
   const matches = useMatches() as unknown as RouteMatch[];
   const { toast: toastData } = useLoaderData<typeof loader>();
-  useEffect(() => {
-    if (toastData?.message) {
-      toast({
-        title: toastData.title,
-        description: toastData.message,
-      });
-    }
-  }, [toastData]);
   const isDashboardRoute = matches.some(match => match.pathname.startsWith('/dashboard'));
   
   if (!isDashboardRoute) { 
