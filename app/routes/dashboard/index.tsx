@@ -17,8 +17,10 @@ export async function loader({ request }: { request: Request }) {
   if (!user) {
     loginRedirect(request);
     throw new Error("User not found");
-  } 
-  const posts = await getSpacePosts(user.id) 
+  }
+  
+  const posts = await getSpacePosts(user.id);
+  
   return { posts };
 }
 
