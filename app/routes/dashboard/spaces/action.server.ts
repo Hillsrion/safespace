@@ -51,6 +51,8 @@ export async function action({ request }: ActionFunctionArgs) {
       title: `Création d'espace`,
       message: `L'espace "${newSpace.name}" a été créé avec succès !`,
     });
+
+    // Commit the session
     return redirect("/dashboard", {
       headers: {
         "Set-Cookie": await commitSession(session),
