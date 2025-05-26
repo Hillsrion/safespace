@@ -101,8 +101,10 @@ export function ErrorBoundary() {
       <head>
         <title>{message}</title>
         <Meta />
+      <ThemeProvider specifiedTheme={data.theme} themeAction="/action/set-theme">
         {data?.theme !== undefined && <PreventFlashOnWrongTheme ssrTheme={Boolean(data.theme)} />}
         <Links />
+      </ThemeProvider>
       </head>
       <body>
         <main className="pt-16 p-4 container mx-auto">
