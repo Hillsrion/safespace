@@ -92,7 +92,7 @@ export function Post({
   };
 
   return (
-    <Card className="w-full max-w-2xl">
+    <Card>
       <CardHeader className="flex flex-row items-start justify-between">
         <div className="flex items-center space-x-3">
           <Avatar>
@@ -269,7 +269,7 @@ export function Post({
       {space && (
         <CardFooter className="flex justify-end border-t pt-4">
           <Link to={space.url} className="text-sm text-blue-500 hover:underline">
-            Espace : {space.name}
+            {space.name}
           </Link>
         </CardFooter>
       )}

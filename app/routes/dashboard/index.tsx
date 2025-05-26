@@ -108,9 +108,9 @@ export default function Dashboard() {
   return (
     <div>
       <SearchBar />
-      <div className="mt-4 space-y-6 sm:p-4 md:p-6 flex flex-col items-center"> {/* Added some padding and spacing */}
+      <div className="mt-4 space-y-6 sm:p-4 md:p-6 flex flex-col items-center w-full max-w-2xl mx-auto">
         {mappedPosts.length === 0 && (
-          <p className="text-center text-muted-foreground">Aucun post à afficher pour le moment.</p>
+          <p className="text-center text-lg font-semibold text-muted-foreground">Aucun post à afficher pour le moment.</p>
         )}
         {mappedPosts.map((post) => (
           <Post key={post.id} {...post} />
