@@ -1,7 +1,7 @@
-import { getCurrentUser } from "~/services/auth.server.ts";
-import { getTotalUsers } from "~/db/repositories/users.server.ts";
-import { getTotalSpaces } from "~/db/repositories/spaces/queries.server.ts";
-import { getTotalPosts } from "~/db/repositories/posts/queries.server.ts";
+import { getCurrentUser } from "~/services/auth.server";
+import { getTotalUsers } from "~/db/repositories/users.server";
+import { getTotalSpaces } from "~/db/repositories/spaces/queries.server";
+import { getTotalPosts } from "~/db/repositories/posts/queries.server";
 import {
   Card,
   CardHeader,
