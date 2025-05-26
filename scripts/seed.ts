@@ -12,15 +12,33 @@ const removeAccents = (str: string): string => {
 const prisma = new PrismaClient();
 
 // --- Configuration ---
-const NUM_USERS = 20;
-const NUM_CITIES = 5; // e.g. Paris, Lyon, Marseille
-const SPACES_PER_CITY_MIN = 7; // Adjusted for ~20-30 spaces total
-const SPACES_PER_CITY_MAX = 10;
-const POSTS_PER_SPACE_MIN = 18;
-const POSTS_PER_SPACE_MAX = 22;
-const ADDITIONAL_POSTS_PER_USER = 3;
-const USERS_PER_SPACE_MIN = 3;
-const USERS_PER_SPACE_MAX = 7;
+const NUM_USERS = process.env.SEED_NUM_USERS
+  ? parseInt(process.env.SEED_NUM_USERS, 10)
+  : 20;
+const NUM_CITIES = process.env.SEED_NUM_CITIES
+  ? parseInt(process.env.SEED_NUM_CITIES, 10)
+  : 5; // e.g. Paris, Lyon, Marseille
+const SPACES_PER_CITY_MIN = process.env.SEED_SPACES_PER_CITY_MIN
+  ? parseInt(process.env.SEED_SPACES_PER_CITY_MIN, 10)
+  : 7; // Adjusted for ~20-30 spaces total
+const SPACES_PER_CITY_MAX = process.env.SEED_SPACES_PER_CITY_MAX
+  ? parseInt(process.env.SEED_SPACES_PER_CITY_MAX, 10)
+  : 10;
+const POSTS_PER_SPACE_MIN = process.env.SEED_POSTS_PER_SPACE_MIN
+  ? parseInt(process.env.SEED_POSTS_PER_SPACE_MIN, 10)
+  : 18;
+const POSTS_PER_SPACE_MAX = process.env.SEED_POSTS_PER_SPACE_MAX
+  ? parseInt(process.env.SEED_POSTS_PER_SPACE_MAX, 10)
+  : 22;
+const ADDITIONAL_POSTS_PER_USER = process.env.SEED_ADDITIONAL_POSTS_PER_USER
+  ? parseInt(process.env.SEED_ADDITIONAL_POSTS_PER_USER, 10)
+  : 3;
+const USERS_PER_SPACE_MIN = process.env.SEED_USERS_PER_SPACE_MIN
+  ? parseInt(process.env.SEED_USERS_PER_SPACE_MIN, 10)
+  : 3;
+const USERS_PER_SPACE_MAX = process.env.SEED_USERS_PER_SPACE_MAX
+  ? parseInt(process.env.SEED_USERS_PER_SPACE_MAX, 10)
+  : 7;
 
 const CITIES = [
   "Paris",
