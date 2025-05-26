@@ -15,6 +15,7 @@ export default [
     route("account", "routes/dashboard/account/index.tsx"),
     route("superadmin", "routes/dashboard/superadmin.tsx"),
     route("spaces/new", "routes/dashboard/spaces/new.tsx"),
+    route("posts-example", "routes/dashboard/posts-example.tsx"),
   ]),
   route("resources/api/spaces", "routes/api.spaces.ts"),
   route(API_PATH, "layouts/api.tsx", [route("search", "routes/api/search.ts")]),
