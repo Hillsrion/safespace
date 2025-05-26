@@ -113,7 +113,7 @@ async function main() {
   console.log(`🌱 Starting seeding process...`);
   console.log(`🎲 Using ${faker.seed()} as faker seed`);
 
-  console.log('🧹 Deleting existing data (order is important)...');
+  console.log("🧹 Deleting existing data (order is important)...");
   await prisma.userSpaceMembership.deleteMany({});
   await prisma.postFlag.deleteMany({}); // Added PostFlag
   await prisma.media.deleteMany({}); // Added Media
@@ -124,7 +124,7 @@ async function main() {
   await prisma.auditLog.deleteMany({}); // Added AuditLog
   await prisma.space.deleteMany({});
   await prisma.user.deleteMany({});
-  console.log('🗑️  Existing data deleted.');
+  console.log("🗑️  Existing data deleted.");
 
   // 1. Create Super Admin from environment variables
   const superAdminEmail = process.env.SUPERADMIN_EMAIL || "admin@example.com";
@@ -165,12 +165,9 @@ async function main() {
       password: await hashPassword("password123"),
       firstName,
       lastName,
-      instagram:
-        Math.random() > 0.5
-          ? `${removeAccents(firstName.toLowerCase())}.${removeAccents(
-              lastName.toLowerCase()
-            )}`
-          : null,
+      instagram: `${removeAccents(firstName.toLowerCase())}.${removeAccents(
+        lastName.toLowerCase()
+      )}.sf`,
       isSuperAdmin: false,
     });
   }
@@ -288,7 +285,9 @@ async function main() {
     const spaceUsers = spaceMemberRecords.map((ms) => ms.user);
 
     if (spaceUsers.length === 0) {
-      console.warn(`⚠️  Space ${space.name} (ID: ${space.id}) has no users, skipping post creation.`);
+      console.warn(
+        `⚠️  Space ${space.name} (ID: ${space.id}) has no users, skipping post creation.`
+      );
       continue;
     }
 

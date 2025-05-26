@@ -26,7 +26,7 @@ export type UserProfile = {
 
 // For authors, to determine if they have special roles
 export type AuthorProfile = UserProfile & {
-  role: UserRoles;
+  role: UserRoles | null;
 };
 
 // Represents an image or video evidence item in a post

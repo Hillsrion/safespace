@@ -12,6 +12,7 @@ import { getAllPosts } from "~/db/repositories/posts/queries.server";
 import { Post } from "~/components/post";
 import { type AuthorProfile, type SpaceInfo, type EvidenceMedia, type PostComponentProps, type EnhancedUser, USER_ROLES } from "~/lib/types";
 import { useUser } from "~/hooks/useUser";
+import { getUserIdentity } from "~/lib/utils";
 
 export function meta() {
   return [{ title: "Dashboard" }];
@@ -42,11 +43,11 @@ export async function loader({ request }: { request: Request }) {
 }
 
 // Helper function to map Prisma User to AuthorProfile (adjust based on actual PrismaUser structure)
-const mapPrismaUserToAuthor = (user: EnhancedUser /* Replace any with actual Prisma User type if available */): AuthorProfile => ({
+const mapPrismaUserToAuthor = (user: PrismaUser /* Replace any with actual Prisma User type if available */): AuthorProfile => ({
   id: user.id,
-  name: user.name || "Unknown Author",
+  name: getUserIdentity(user) || "Unknown Author",
   username: user.instagram || "unknown",
-  role: user.role,
+  role: null
 });
 
 // Helper function to map Prisma Media to EvidenceMedia
@@ -91,7 +92,7 @@ export default function Dashboard() {
       id: "unknown",
       name: "Unknown Author",
       username: "unknown",
-      role: "user",
+      role: null,
     },
     createdAt: post.createdAt ? new Date(post.createdAt).toISOString() : new Date().toISOString(),
     content: post.description || "", // Assuming 'description' field holds the content
@@ -103,6 +104,7 @@ export default function Dashboard() {
     onDeletePost: mockOnDeletePost,
     onHidePost: mockOnHidePost,
     onUnhidePost: mockOnUnhidePost,
+    post
   }));
   return (
     <div>
