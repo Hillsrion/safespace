@@ -1,9 +1,12 @@
-import { type ActionFunctionArgs, data, redirect } from '@remix-run/node';
+import { type ActionFunctionArgs, data, redirect } from "react-router";
 
-import { createSpaceSchema } from '~/lib/schemas/spaceSchemas';
-import { getCurrentUser } from '~/services/auth.server';
-import { getSession, commitSession } from '~/services/session.server';
-import { createSpace, addUserToSpace } from '~/db/repositories/spaces';
+import { createSpaceSchema } from "~/lib/schemas/spaceSchemas";
+import { getCurrentUser } from "~/services/auth.server";
+import { getSession, commitSession } from "~/services/session.server";
+import {
+  createSpace,
+  addUserToSpace,
+} from "~/db/repositories/spaces/queries.server";
 
 export type ActionData = {
   errors?: {
@@ -16,7 +19,10 @@ export type ActionData = {
 export async function action({ request }: ActionFunctionArgs) {
   const user = await getCurrentUser(request);
   if (!user) {
-    return data<ActionData>({ message: 'Utilisateur non authentifié.' }, { status: 401 });
+    return data<ActionData>(
+      { message: "Utilisateur non authentifié." },
+      { status: 401 }
+    );
   }
 
   const formData = await request.formData();
@@ -27,7 +33,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return data<ActionData>(
       {
         errors: validatedFields.error.flatten().fieldErrors,
-        message: 'Validation échouée.',
+        message: "Validation échouée.",
       },
       { status: 400 }
     );
@@ -38,20 +44,25 @@ export async function action({ request }: ActionFunctionArgs) {
     const userId = user.id;
 
     const newSpace = await createSpace(name, description || null, userId);
-    await addUserToSpace(userId, newSpace.id, 'ADMIN');
+    await addUserToSpace(userId, newSpace.id, "ADMIN");
 
-    const session = await getSession(request.headers.get('Cookie'));
-    session.flash('toastMessage', `L'espace "${newSpace.name}" a été créé avec succès !`);
+    const session = await getSession(request.headers.get("Cookie"));
+    session.flash(
+      "toastMessage",
+      `L'espace "${newSpace.name}" a été créé avec succès !`
+    );
 
-    return redirect('/dashboard', {
+    return redirect("/dashboard", {
       headers: {
-        'Set-Cookie': await commitSession(session),
+        "Set-Cookie": await commitSession(session),
       },
     });
   } catch (error) {
-    console.error('Erreur lors de la création de l’espace:', error);
+    console.error("Erreur lors de la création de l’espace:", error);
     return data<ActionData>(
-      { message: "Erreur lors de la création de l'espace. Veuillez réessayer." },
+      {
+        message: "Erreur lors de la création de l'espace. Veuillez réessayer.",
+      },
       { status: 500 }
     );
   }
