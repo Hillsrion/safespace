@@ -5,9 +5,10 @@ import {
   ShieldIcon,
   FolderIcon,
   SparkleIcon,
+  PlusIcon,
 } from "lucide-react";
 import { logout } from "~/lib/api";
-import { useSpaces, type SpaceNavItem } from '~/hooks/useSpaces';
+import { useSpaces, type SpaceNavItem } from "~/hooks/useSpaces";
 
 export const useSidebarNav = () => {
   const { spaces } = useSpaces();
@@ -20,24 +21,14 @@ export const useSidebarNav = () => {
     },
     navMain: [
       {
-        title: "Mes posts",
-        url: "/dashboard/posts",
-        icon: FolderIcon,
-      },
-      {
-        title: "Contributions",
-        url: "/dashboard/contributions",
-        icon: FolderIcon,
+        title: "Créer un espace",
+        url: "/dashboard/spaces/new",
+        icon: PlusIcon,
       },
       {
         title: "Blacklist",
         url: "/dashboard/blacklist",
         icon: UsersIcon,
-      },
-      {
-        title: "Modération",
-        url: "/dashboard/moderation",
-        icon: ShieldIcon,
       },
       {
         title: "Chat AI",
