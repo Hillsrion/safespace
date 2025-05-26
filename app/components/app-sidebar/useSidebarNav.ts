@@ -2,13 +2,11 @@ import {
   LogOutIcon,
   UserIcon,
   UsersIcon,
-  ShieldIcon,
-  FolderIcon,
   SparkleIcon,
   PlusIcon,
 } from "lucide-react";
 import { logout } from "~/lib/api";
-import { useSpaces, type SpaceNavItem } from "~/hooks/useSpaces";
+import { useSpaces } from "~/hooks/useSpaces";
 
 export const useSidebarNav = () => {
   const { spaces } = useSpaces();
