@@ -6,6 +6,9 @@ import { getCurrentUser } from "~/services/auth.server";
 import { useToastTrigger } from "~/hooks/use-toast-trigger";
 import { useLoaderData } from "react-router";
 import { getSession } from "~/services/session.server";
+import type { ToastData } from "~/hooks/use-toast-trigger";
+import { getUserById } from "~/db/repositories/users.server";
+import { getAllPosts } from "~/db/repositories/posts/queries.server";
 
 export function meta() {
   return [{ title: "Dashboard" }];
@@ -18,28 +21,33 @@ export const handle = {
 export async function loader({ request }: { request: Request }) {
   const user = await getCurrentUser(request);
   const session = await getSession(request);
-  const toastData = session.get("toast");
-
+  const toastData = session.get("toast") as ToastData | null;
+  let posts: Post[] = [];
   if (!user) {
     loginRedirect(request);
     throw new Error("User not found");
   }
-  
-  const posts = await getSpacePosts(user.id);
-  
+  const completedUser = await getUserById(user.id, {
+    isSuperAdmin: true,
+  });
+  if(!completedUser?.isSuperAdmin){
+    posts = await getSpacePosts(user.id);
+  } else {
+    posts = await getAllPosts(user.id);
+  }
   return { posts, toastData };
 }
 
 
 
-export default function Dashboard({ posts = [] }: { posts: Post[] }) {
-  const { toastData } = useLoaderData<typeof loader>();
+export default function Dashboard() {
+  const { toastData, posts } = useLoaderData<typeof loader>();
   useToastTrigger(toastData);
   return (
     <div>
       <SearchBar />
       <div>
-        {posts.map((post) => (
+        {posts.map((post: Post) => (
           <div key={post.id}>{post.description}</div>
         ))}
       </div>
