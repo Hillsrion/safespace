@@ -2,6 +2,7 @@ import { useMatches } from "react-router";
 import { useMemo } from "react";
 import type { EnhancedUser } from "~/lib/types";
 import type { UIMatch } from "react-router";
+import { getRole } from "~/lib/utils";
 
 type RouteDataWithUser = {
   user: EnhancedUser | null;
@@ -32,6 +33,7 @@ export function useUser(): EnhancedUser {
   const user = {
     ...userData,
     name: `${userData.firstName} ${userData.lastName}`,
+    role: getRole(userData),
   };
 
   return user;

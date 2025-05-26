@@ -10,7 +10,8 @@ import type { ToastData } from "~/hooks/use-toast-trigger";
 import { getUserById } from "~/db/repositories/users.server";
 import { getAllPosts } from "~/db/repositories/posts/queries.server";
 import { Post } from "~/components/post";
-import { type AuthorProfile, type SpaceInfo, type EvidenceMedia, type PostComponentProps } from "~/lib/types";
+import { type AuthorProfile, type SpaceInfo, type EvidenceMedia, type PostComponentProps, type EnhancedUser, USER_ROLES } from "~/lib/types";
+import { useUser } from "~/hooks/useUser";
 
 export function meta() {
   return [{ title: "Dashboard" }];
@@ -24,7 +25,7 @@ export async function loader({ request }: { request: Request }) {
   const user = await getCurrentUser(request);
   const session = await getSession(request);
   const toastData = session.get("toast") as ToastData | null;
-  let posts: Post[] = [];
+  let posts: PrismaPost[] = [];
   if (!user) {
     loginRedirect(request);
     throw new Error("User not found");
@@ -37,17 +38,15 @@ export async function loader({ request }: { request: Request }) {
   } else {
     posts = await getAllPosts(user.id);
   }
-  return { posts, toastData };
+  return { posts, toastData, isSuperAdmin: completedUser?.isSuperAdmin };
 }
 
 // Helper function to map Prisma User to AuthorProfile (adjust based on actual PrismaUser structure)
-const mapPrismaUserToAuthor = (prismaUser: any /* Replace any with actual Prisma User type if available */): AuthorProfile => ({
-  id: prismaUser.id,
-  name: prismaUser.name || "Unknown Author",
-  username: prismaUser.username || "unknown",
-  avatarUrl: prismaUser.avatarUrl || undefined,
-  isAdmin: prismaUser.role === 'ADMIN', // Example mapping
-  isModerator: prismaUser.role === 'MODERATOR', // Example mapping
+const mapPrismaUserToAuthor = (user: EnhancedUser /* Replace any with actual Prisma User type if available */): AuthorProfile => ({
+  id: user.id,
+  name: user.name || "Unknown Author",
+  username: user.instagram || "unknown",
+  role: user.role,
 });
 
 // Helper function to map Prisma Media to EvidenceMedia
@@ -72,23 +71,29 @@ const mapPrismaSpaceToSpaceInfo = (prismaSpace: any /* Replace any with actual P
 };
 
 
-export default function Dashboard({ posts: prismaPosts = [], user }: { posts: PrismaPost[], user: any /* Replace any with actual User type from loader */ }) {
-    const { toastData, posts } = useLoaderData<typeof loader>();
+export default function Dashboard() {
+  const { toastData, posts, isSuperAdmin } = useLoaderData<typeof loader>();
+  const user = useUser();
   useToastTrigger(toastData);
   const currentUserInfo = {
-    id: user.id,
+    id: isSuperAdmin ? "superadmin" : user?.id,
     // Assuming user object from loader has a 'role' field e.g. 'ADMIN', 'MODERATOR', 'USER'
     // Adjust this based on the actual structure of your user object
-    role: user.role?.toLowerCase() as "admin" | "moderator" | "user" || "user",
+    role: user?.role?.toLowerCase() as "admin" | "moderator" | "user" || "user",
   };
 
   const mockOnDeletePost = (postId: string) => console.log(`FR: Supprimer le post: ${postId}`);
   const mockOnHidePost = (postId: string) => console.log(`FR: Masquer le post: ${postId}`);
   const mockOnUnhidePost = (postId: string) => console.log(`FR: Afficher le post: ${postId}`);
 
-  const mappedPosts: PostComponentProps[] = prismaPosts.map((post: any /* Replace any with PrismaPost & relations */) => ({
+  const mappedPosts: PostComponentProps[] = posts.map((post: any /* Replace any with PrismaPost & relations */) => ({
     id: post.id,
-    author: post.author ? mapPrismaUserToAuthor(post.author) : mapPrismaUserToAuthor({id: "unknown", name: "Unknown Author", username: "unknown"}), // Handle missing author
+    author: post.author ? mapPrismaUserToAuthor(post.author) : {
+      id: "unknown",
+      name: "Unknown Author",
+      username: "unknown",
+      role: "user",
+    },
     createdAt: post.createdAt ? new Date(post.createdAt).toISOString() : new Date().toISOString(),
     content: post.description || "", // Assuming 'description' field holds the content
     media: mapPrismaMediaToEvidence(post.media), // Assuming 'media' is an array relation
@@ -100,11 +105,10 @@ export default function Dashboard({ posts: prismaPosts = [], user }: { posts: Pr
     onHidePost: mockOnHidePost,
     onUnhidePost: mockOnUnhidePost,
   }));
-
   return (
     <div>
       <SearchBar />
-      <div className="mt-4 space-y-6 p-4 md:p-6"> {/* Added some padding and spacing */}
+      <div className="mt-4 space-y-6 sm:p-4 md:p-6 flex flex-col items-center"> {/* Added some padding and spacing */}
         {mappedPosts.length === 0 && (
           <p className="text-center text-muted-foreground">Aucun post à afficher pour le moment.</p>
         )}

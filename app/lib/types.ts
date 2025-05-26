@@ -1,7 +1,17 @@
 import type { User } from "~/generated/prisma";
 
+export const USER_ROLES = {
+  USER: "user",
+  MODERATOR: "moderator",
+  ADMIN: "admin",
+  SUPERADMIN: "superadmin",
+} as const;
+
+export type UserRoles = (typeof USER_ROLES)[keyof typeof USER_ROLES];
+
 export type EnhancedUser = User & {
   name: string;
+  role: UserRoles;
 };
 
 // User who created the post or is being reported
@@ -16,8 +26,7 @@ export type UserProfile = {
 
 // For authors, to determine if they have special roles
 export type AuthorProfile = UserProfile & {
-  isAdmin?: boolean;
-  isModerator?: boolean;
+  role: UserRoles;
 };
 
 // Represents an image or video evidence item in a post
@@ -69,10 +78,10 @@ export type Post = {
 };
 
 // Props for the Post component, combining Post data with UI-specific state/roles
-export type PostComponentProps = Omit<Post, 'permissions'> & {
+export type PostComponentProps = Omit<Post, "permissions"> & {
   currentUser: {
     id: string;
-    role: "admin" | "moderator" | "user"; // Role of the user viewing the post
+    role: UserRoles; // Role of the user viewing the post
   };
   // Actions - these would typically be functions passed down to the component
   onDeletePost?: (postId: string) => void;
