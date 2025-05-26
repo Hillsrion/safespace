@@ -47,7 +47,7 @@ function AppBody() {
   const data = useLoaderData<typeof loader>();
   const [theme] = useTheme();
   return (
-    <html lang="en" className={clsx(theme)}>
+    <html lang="en" className={clsx(theme || "null")}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -69,7 +69,7 @@ function AppBody() {
 export default function App() {
   const data = useLoaderData<typeof loader>();
   return (
-    <ThemeProvider specifiedTheme={data.theme} themeAction="/action/set-theme">
+    <ThemeProvider specifiedTheme={data?.theme} themeAction="/action/set-theme">
       <AppBody />
     </ThemeProvider>
   );
@@ -97,12 +97,12 @@ export function ErrorBoundary() {
   }
 
   return (
-    <html lang="en" className={clsx(data?.theme)}>
+    <html lang="en" className={clsx(data?.theme || "null")}>
       <head>
         <title>{message}</title>
         <Meta />
-      <ThemeProvider specifiedTheme={data.theme} themeAction="/action/set-theme">
-        {data?.theme !== undefined && <PreventFlashOnWrongTheme ssrTheme={Boolean(data.theme)} />}
+      <ThemeProvider specifiedTheme={data?.theme} themeAction="/action/set-theme">
+        {data?.theme !== undefined && <PreventFlashOnWrongTheme ssrTheme={Boolean(data?.theme)} />}
         <Links />
       </ThemeProvider>
       </head>

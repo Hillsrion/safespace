@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Form as RemixForm, useActionData } from '@remix-run/react';
-import { useForm, Controller } from 'react-hook-form';
+import { Form as RemixForm, useActionData } from 'react-router';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
@@ -12,23 +12,14 @@ import {
   FormLabel,
   FormMessage,
 } from "~/components/ui/form"; // Based on AccountPage
-import { ComboboxTextfield, Person } from '@/components/ui/combobox-textfield';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
+import { ComboboxTextfield, Person } from '~/components/ui/combobox-textfield';
+import { Textarea } from '~/components/ui/textarea';
+import { Button } from '~/components/ui/button';
 // Input from ~/components/ui/input is used by FormField in AccountPage, not directly here unless FormField requires it
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { PostSeverity } from '@/generated/prisma/client';
-import ImageUpload, { ImageUploadRef } from '@/components/ui/image-upload'; 
-
-// Zod Schemas (copied from app/routes/actions/posts.create.ts for client-side validation)
-// Ideally, these would be shared from a common location.
-const fileMetadataSchema = z.object({
-  key: z.string().min(1, "La clé du fichier est requise."),
-  name: z.string().min(1, "Le nom du fichier est requis."),
-  type: z.string().regex(/^image\/(jpeg|png|gif|webp)$/, "Type de fichier image invalide (JPG, PNG, GIF, WEBP)."),
-  size: z.number().positive("La taille du fichier doit être positive.").max(10 * 1024 * 1024, "Chaque fichier ne doit pas dépasser 10MB."),
-});
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~/components/ui/select';
+import { Switch } from '~/components/ui/switch';
+import { PostSeverity } from '~/generated/prisma';
+import ImageUpload, { type ImageUploadRef } from '~/components/ui/image-upload'; 
 
 // Client-side schema for react-hook-form.
 // evidenceFiles will be File[] from ImageUpload, then converted to metadata on server.
@@ -54,7 +45,7 @@ const mockPeople: Person[] = [
 ];
 
 export default function CreatePostPage() {
-  const actionData = useActionData<typeof import('~/routes/actions/posts.create').action>();
+  const actionData = useActionData<typeof import('~/routes/posts/new/action.server').action>();
   const imageUploadRef = useRef<ImageUploadRef>(null);
 
   const form = useForm<z.infer<typeof createPostSchemaClient>>({

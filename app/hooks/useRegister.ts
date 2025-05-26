@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useActionData } from "react-router";
+// Action data should be passed from the component using the hook
 import { validatePassword, type PasswordRequirement } from "~/lib/password";
 
 type RegisterFormData = z.infer<typeof registerSchema>;
@@ -40,9 +40,7 @@ export const registerSchema = z
 
 export type { PasswordRequirement };
 
-export function useRegister() {
-  const actionData = useActionData<ActionData>();
-
+export function useRegister(actionData?: ActionData) {
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {

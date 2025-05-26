@@ -30,6 +30,7 @@ export async function loader({ request }: { request: Request }) {
   const completedUser = await getUserById(user.id, {
     isSuperAdmin: true,
   });
+  console.log(completedUser);
   if(!completedUser?.isSuperAdmin){
     posts = await getSpacePosts(user.id);
   } else {
@@ -43,6 +44,7 @@ export async function loader({ request }: { request: Request }) {
 export default function Dashboard() {
   const { toastData, posts } = useLoaderData<typeof loader>();
   useToastTrigger(toastData);
+  console.log(posts);
   return (
     <div>
       <SearchBar />
