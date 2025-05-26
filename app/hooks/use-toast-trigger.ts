@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { toast } from "~/hooks/use-toast";
 
-interface ToastData {
+export interface ToastData {
   title?: string;
   message: string;
 }

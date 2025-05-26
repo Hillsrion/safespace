@@ -1,5 +1,6 @@
 import { prisma } from "~/db/client.server";
 import type { Post, PostStatus } from "~/generated/prisma";
+import { getUserById } from "../users.server";
 
 type GetUserPostsOptions = {
   status?: PostStatus;
@@ -115,4 +116,35 @@ export async function getSpacePosts(
     skip: cursor ? 1 : 0,
     cursor: cursor ? { id: cursor } : undefined,
   });
+}
+
+// NOTE: This function is so critical that it should be protected by a super admin check
+export async function getAllPosts(userId: string) {
+  const user = await getUserById(userId, {
+    isSuperAdmin: true,
+  });
+  if (user?.isSuperAdmin) {
+    return prisma.post.findMany({
+      include: {
+        reportedEntity: true,
+        media: true,
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        space: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  } else {
+    return [];
+  }
 }
