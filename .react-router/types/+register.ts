@@ -18,6 +18,7 @@ type Params = {
   "/dashboard": {};
   "/dashboard/account": {};
   "/dashboard/superadmin": {};
+  "/dashboard/spaces/new": {};
   "/resources/api/spaces": {};
   "/api": {};
   "/api/search": {};
