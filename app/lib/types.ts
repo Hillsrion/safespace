@@ -82,6 +82,7 @@ export type PostComponentProps = Omit<Post, "permissions"> & {
   currentUser: {
     id: string;
     role: UserRoles; // Role of the user viewing the post
+    isSuperAdmin: boolean;
   };
   // Actions - these would typically be functions passed down to the component
   onDeletePost?: (postId: string) => void;

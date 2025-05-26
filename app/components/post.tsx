@@ -31,7 +31,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "~/components/ui/dialog";
-import { MoreHorizontal } from "lucide-react"; // Icon for 3-dots menu
+import { MoreHorizontal, Trash2, Eye, EyeOff } from "lucide-react"; // Icons for actions
 import { Link } from "react-router-dom";
 import { 
   type PostComponentProps, 
@@ -123,38 +123,39 @@ export function Post({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {currentUser.role === "admin" && (
-                <>
-                  {onDeletePost && <DropdownMenuItem onClick={() => onDeletePost(id)}>Supprimer le post (Admin)</DropdownMenuItem>}
-                  {status === "hidden" ? (
-                    onUnhidePost && <DropdownMenuItem onClick={() => onUnhidePost(id)}>Afficher le post (Admin)</DropdownMenuItem>
-                  ) : (
-                    onHidePost && <DropdownMenuItem onClick={() => onHidePost(id)}>Masquer le post (Admin)</DropdownMenuItem>
-                  )}
-                </>
+              {/* Delete action - available to admins, super admins, and post authors */}
+              {((currentUser.role === "admin" || currentUser.isSuperAdmin || isCurrentUserAuthor) && onDeletePost) && (
+                <DropdownMenuItem onClick={() => onDeletePost(id)} className="text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  <span>Supprimer le post</span>
+                </DropdownMenuItem>
               )}
-              {currentUser.role === "moderator" && (
-                 <>
-                  {status === "hidden" ? (
-                    onUnhidePost && <DropdownMenuItem onClick={() => onUnhidePost(id)}>Afficher le post (Mod)</DropdownMenuItem>
-                  ) : (
-                    onHidePost && <DropdownMenuItem onClick={() => onHidePost(id)}>Masquer le post (Mod)</DropdownMenuItem>
-                  )}
-                 </>
+
+              {/* Toggle hide/show action - available to admins and moderators */}
+              {((currentUser.role === "admin" || currentUser.role === "moderator" || currentUser.isSuperAdmin) && (onHidePost || onUnhidePost)) && (
+                status === "hidden" ? (
+                  onUnhidePost && (
+                    <DropdownMenuItem onClick={() => onUnhidePost(id)}>
+                      <Eye className="mr-2 h-4 w-4" />
+                      <span>Afficher le post</span>
+                    </DropdownMenuItem>
+                  )
+                ) : (
+                  onHidePost && (
+                    <DropdownMenuItem onClick={() => onHidePost(id)}>
+                      <EyeOff className="mr-2 h-4 w-4" />
+                      <span>Masquer le post</span>
+                    </DropdownMenuItem>
+                  )
+                )
               )}
-              {isCurrentUserAuthor && onDeletePost && currentUser.role !== "admin" && (
-                <DropdownMenuItem onClick={() => onDeletePost(id)}>Supprimer le post</DropdownMenuItem>
-              )}
-              {/* Fallback for no specific actions - logic from previous attempt, carefully applied */}
-              {!(currentUser.role === "admin" || currentUser.role === "moderator") && 
-               !(isCurrentUserAuthor && onDeletePost) && 
-               !onHidePost && !onUnhidePost && (
-                 <DropdownMenuItem disabled>Aucune action disponible</DropdownMenuItem>
-              )}
-              { (currentUser.role === "admin" || currentUser.role === "moderator") &&
-                  !onDeletePost && !onHidePost && !onUnhidePost &&
-                  !(isCurrentUserAuthor && onDeletePost && currentUser.role !== "admin") && (
-                    <DropdownMenuItem disabled>Aucune action disponible</DropdownMenuItem>
+
+              {/* Fallback when no actions are available */}
+              {!((currentUser.role === "admin" || currentUser.role === "moderator" || currentUser.isSuperAdmin || isCurrentUserAuthor) && 
+                 (onDeletePost || onHidePost || onUnhidePost)) && (
+                <DropdownMenuItem disabled>
+                  <span>Aucune action disponible</span>
+                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

@@ -76,9 +76,8 @@ export default function Dashboard() {
   const user = useUser();
   useToastTrigger(toastData);
   const currentUserInfo = {
-    id: isSuperAdmin ? "superadmin" : user?.id,
-    // Assuming user object from loader has a 'role' field e.g. 'ADMIN', 'MODERATOR', 'USER'
-    // Adjust this based on the actual structure of your user object
+    id: user?.id,
+    isSuperAdmin: user?.isSuperAdmin,
     role: user?.role?.toLowerCase() as "admin" | "moderator" | "user" || "user",
   };
 
