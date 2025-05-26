@@ -102,6 +102,7 @@ export async function getSpacePosts(
           id: true,
           firstName: true,
           lastName: true,
+          instagram: true,
         },
       },
       space: {
@@ -133,6 +134,7 @@ export async function getAllPosts(userId: string) {
             id: true,
             firstName: true,
             lastName: true,
+            instagram: true,
           },
         },
         space: {
