@@ -9,7 +9,7 @@ import {
   FormLabel,
   FormMessage,
 } from "~/components/ui/form";
-import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
+import { FormAlert } from "~/components/ui/form-alert";
 import { Input } from "~/components/ui/input";
 import { PasswordInput } from "~/components/ui/password-input";
 import { Button } from "~/components/ui/button";
@@ -43,19 +43,17 @@ export default function Login() {
           </div>
           <CardContent>
             {loaderData?.error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{loaderData.error}</AlertDescription>
-              </Alert>
+              <FormAlert
+                type="error"
+                message={loaderData.error}
+              />
             )}
-            {actionData?.errors?.formErrors?.map((error, index) => (
-              <Alert key={index} variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            ))}
+            {actionData?.errors && (
+              <FormAlert
+                type="error"
+                errors={actionData.errors.fieldErrors}
+              />
+            )}
             <Form {...form}>
               <RemixForm method="post" className="space-y-4">
 

@@ -2,31 +2,30 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form as RemixForm, useActionData } from 'react-router';
-// ActionFunctionArgs, json, redirect are removed as action is now imported
-
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Textarea } from '~/components/ui/textarea';
-// Label import was present but not used directly in the provided snippet, keeping it for now.
-import { Label } from '~/components/ui/label';
 import {
-  // Form (shadcn) is imported but not used directly, FormField uses it.
+  Form,
   FormControl,
-  // FormDescription is imported but not used directly.
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from '~/components/ui/form';
 import { createSpaceSchema } from '~/lib/schemas/spaceSchemas';
-// getCurrentUser, prisma, getSession, commitSession are removed as they are used in the separated action.
 
-// Import the action from the new file and its associated type
 import { action, type ActionData } from './action.server';
+import { FormAlert } from '~/components/ui/form-alert';
+import { loginRedirect } from '~/lib/redirects';
 
-export { action }; // Re-export the action
+export async function loader({ request }: { request: Request }) {
+  return loginRedirect(request);
+}
 
-// Define the custom hook
+export { action };
+
 function useCreateSpaceForm() {
   return useForm<z.infer<typeof createSpaceSchema>>({
     resolver: zodResolver(createSpaceSchema),
@@ -38,32 +37,31 @@ function useCreateSpaceForm() {
 }
 
 export default function CreateSpacePage() {
-  const actionData = useActionData<ActionData>(); // Use imported ActionData type
+  const actionData = useActionData<ActionData>();
   const form = useCreateSpaceForm();
 
-  // React Hook Form's handleSubmit will validate your inputs before calling onSubmit
-  // The actual submission to the backend is handled by Remix's <Form method="post">
-  // so we don't need an explicit onSubmit handler here if we're just using Remix's action.
-  // function onSubmit(values: z.infer<typeof createSpaceSchema>) {
-  //   // This console.log is mostly for client-side debugging if needed.
-  //   // The actual data submission is via the Remix Form.
-  //   console.log('Valeurs soumises (côté client):', values);
-  // }
-
   return (
-    <div className="p-4 md:p-6">
-      <h1 className="text-2xl font-semibold mb-6">Créer un nouvel espace</h1>
-      {/* FormProvider removed */}
-      {/* Use RemixForm and rename it to avoid conflict with shadcn Form */}
-      <RemixForm method="post" className="space-y-6" onSubmit={(event) => {
-        // We need to manually trigger RHF validation before Remix submits
-          // This is because Remix's Form doesn't automatically integrate with RHF's onSubmit
-          // when we want to use RHF for client-side validation display.
-          form.handleSubmit(() => {
-            // If validation passes, this callback is executed.
-            // We don't need to do anything here as Remix will handle the actual submission.
-          })(event); // Pass the event to RHF's handleSubmit
-        }}>
+    <div className="p-4 md:p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Créer un nouvel espace</h1>
+        <p className="text-sm text-muted-foreground">
+          Configurez un nouvel espace de travail pour votre équipe
+        </p>
+      </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Nouvel espace</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RemixForm method="post" className="space-y-6">
+            <Form {...form}>
+            {actionData?.errors && (
+              <FormAlert
+                type="error"
+                errors={actionData.errors}
+              />
+            )}
           <FormField
             control={form.control}
             name="name"
@@ -73,7 +71,9 @@ export default function CreateSpacePage() {
                 <FormControl>
                   <Input id="name" placeholder="Entrez le nom de l'espace" {...field} />
                 </FormControl>
-                <FormMessage />
+                <FormMessage>
+                  {actionData?.errors?.name?.[0]}
+                </FormMessage>
               </FormItem>
             )}
           />
@@ -90,21 +90,19 @@ export default function CreateSpacePage() {
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage>
+                  {actionData?.errors?.description?.[0]}
+                </FormMessage>
               </FormItem>
             )}
           />
-          {actionData?.message && !actionData.errors && (
-            <p className="text-sm font-medium text-green-600">{actionData.message}</p>
-          )}
-          {actionData?.message && actionData.errors && (
-             <p className="text-sm font-medium text-red-600">{actionData.message}</p>
-          )}
           <Button type="submit" disabled={form.formState.isSubmitting}>
             Créer l'espace
           </Button>
+          </Form>
         </RemixForm>
-      {/* FormProvider removed */}
+        </CardContent>
+      </Card>
     </div>
   );
 }

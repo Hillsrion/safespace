@@ -46,7 +46,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const newSpace = await createSpace(name, description || null, userId);
     await addUserToSpace(userId, newSpace.id, "ADMIN");
 
-    const session = await getSession(request.headers.get("Cookie"));
+    const session = await getSession(request);
     session.flash(
       "toastMessage",
       `L'espace "${newSpace.name}" a été créé avec succès !`
