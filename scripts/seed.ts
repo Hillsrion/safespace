@@ -110,10 +110,10 @@ function interpolate(template: string, values: Record<string, string>): string {
 }
 
 async function main() {
-  console.log("Starting seeding process...");
-  console.log(`Will use ${faker.seed()} as faker seed`);
+  console.log(`🌱 Starting seeding process...`);
+  console.log(`🎲 Using ${faker.seed()} as faker seed`);
 
-  console.log("Deleting existing data (order is important)...");
+  console.log('🧹 Deleting existing data (order is important)...');
   await prisma.userSpaceMembership.deleteMany({});
   await prisma.postFlag.deleteMany({}); // Added PostFlag
   await prisma.media.deleteMany({}); // Added Media
@@ -124,7 +124,7 @@ async function main() {
   await prisma.auditLog.deleteMany({}); // Added AuditLog
   await prisma.space.deleteMany({});
   await prisma.user.deleteMany({});
-  console.log("Existing data deleted.");
+  console.log('🗑️  Existing data deleted.');
 
   // 1. Create Super Admin from environment variables
   const superAdminEmail = process.env.SUPERADMIN_EMAIL || "admin@example.com";
@@ -148,10 +148,10 @@ async function main() {
       isSuperAdmin: true,
     },
   });
-  console.log(`Super admin created/updated: ${superAdmin.email}`);
+  console.log(`👑 Super admin created/updated: ${superAdmin.email}`);
 
   // 2. Create Regular Users
-  console.log(`Creating ${NUM_USERS - 1} regular users...`);
+  console.log(`👥 Creating ${NUM_USERS - 1} regular users...`);
   const users: Prisma.UserCreateInput[] = [];
 
   for (let i = 0; i < NUM_USERS - 1; i++) {
@@ -175,10 +175,10 @@ async function main() {
     });
   }
   const createdUsers = await prisma.user.createManyAndReturn({ data: users });
-  console.log(`${createdUsers.length} users created.`);
+  console.log(`✅ ${createdUsers.length} users created.`);
 
   // 3. Create Spaces
-  console.log("Creating spaces...");
+  console.log("🏙️  Creating spaces...");
   const createdSpaces = [];
 
   for (const city of CITIES) {
@@ -205,10 +205,10 @@ async function main() {
       createdSpaces.push(space);
     }
   }
-  console.log(`${createdSpaces.length} spaces created.`);
+  console.log(`✅ ${createdSpaces.length} spaces created.`);
 
   // 4. Create UserSpaceMemberships
-  console.log("Creating user space memberships...");
+  console.log("🤝 Creating user space memberships...");
   const memberships: Array<{
     userId: string;
     spaceId: string;
@@ -275,10 +275,10 @@ async function main() {
       },
     });
   }
-  console.log(`${uniqueMemberships.length} user space memberships created.`);
+  console.log(`✅ ${uniqueMemberships.length} user space memberships created.`);
 
   // 4. Create Posts (20 per space)
-  console.log("Creating posts per space...");
+  console.log("📝 Creating posts per space...");
   let postsCreatedCount = 0;
   for (const space of createdSpaces) {
     const spaceMemberRecords = await prisma.userSpaceMembership.findMany({
@@ -288,9 +288,7 @@ async function main() {
     const spaceUsers = spaceMemberRecords.map((ms) => ms.user);
 
     if (spaceUsers.length === 0) {
-      console.warn(
-        `Space ${space.name} (ID: ${space.id}) has no users, skipping post creation.`
-      );
+      console.warn(`⚠️  Space ${space.name} (ID: ${space.id}) has no users, skipping post creation.`);
       continue;
     }
 
@@ -354,10 +352,10 @@ async function main() {
       postsCreatedCount++;
     }
   }
-  console.log(`${postsCreatedCount} posts created across spaces.`);
+  console.log(`✅ ${postsCreatedCount} posts created across spaces.`);
 
   // 5. Create Additional Posts (3 per user)
-  console.log("Creating additional posts per user...");
+  console.log("📝 Creating additional posts per user...");
   let additionalPostsCount = 0;
   for (const user of createdUsers) {
     const userMemberships = await prisma.userSpaceMembership.findMany({
@@ -409,9 +407,9 @@ async function main() {
       additionalPostsCount++;
     }
   }
-  console.log(`${additionalPostsCount} additional personal posts created.`);
+  console.log(`✅ ${additionalPostsCount} additional personal posts created.`);
 
-  console.log("Seeding finished successfully!");
+  console.log("🎉 Seeding finished successfully!");
 }
 
 main()
