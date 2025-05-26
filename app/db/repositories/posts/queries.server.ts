@@ -83,7 +83,7 @@ export async function getSpacePosts(
         {
           isAdminOnly: true,
           space: {
-            members: {
+            memberships: {
               some: {
                 userId,
                 role: { in: ["ADMIN", "MODERATOR"] },
