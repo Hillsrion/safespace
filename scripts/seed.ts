@@ -1,12 +1,19 @@
 // scripts/seed.ts
-import { PrismaClient, PostStatus, Prisma } from '../app/generated/prisma';
-import { fakerFR as faker } from '@faker-js/faker'; // Using French Faker
+import { PrismaClient, PostStatus, Prisma } from "../app/generated/prisma";
+import { fakerFR as faker } from "@faker-js/faker";
+import { hashPassword } from "~/lib/password";
+import "dotenv/config"; // Load environment variables
+
+// Function to remove accents from strings
+const removeAccents = (str: string): string => {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
 
 const prisma = new PrismaClient();
 
 // --- Configuration ---
 const NUM_USERS = 20;
-const NUM_CITIES = 3; // e.g. Paris, Lyon, Marseille
+const NUM_CITIES = 5; // e.g. Paris, Lyon, Marseille
 const SPACES_PER_CITY_MIN = 7; // Adjusted for ~20-30 spaces total
 const SPACES_PER_CITY_MAX = 10;
 const POSTS_PER_SPACE_MIN = 18;
@@ -15,73 +22,60 @@ const ADDITIONAL_POSTS_PER_USER = 3;
 const USERS_PER_SPACE_MIN = 3;
 const USERS_PER_SPACE_MAX = 7;
 
-const CITIES = ["Paris", "Lyon", "Marseille", "Lille", "Bordeaux", "Toulouse", "Nice"].slice(0, NUM_CITIES);
+const CITIES = [
+  "Paris",
+  "Lyon",
+  "Marseille",
+  "Lille",
+  "Bordeaux",
+  "Toulouse",
+  "Nice",
+].slice(0, NUM_CITIES);
 
 const POST_THEMES = [
   {
-    type: "theft",
-    templates: [
-      "Un individu m'a volé une somme d'argent considérable près de {location}. Soyez vigilants, il portait {clothing}.",
-      "J'ai été victime d'un vol de {item} dans le quartier de {area}. L'auteur semblait être {description} et s'est enfui vers {direction}.",
-      "Attention à vos affaires à {place_suggestion}, on m'y a dérobé {amount}€ hier soir. C'était un homme avec {distinguishing_feature}.",
-      "On m'a arraché mon sac contenant {valuable_item} à la station de métro {station_name}. L'agresseur avait un {tattoo_or_scar} visible."
-    ],
-    details: () => ({
-      location: faker.location.streetAddress(false),
-      clothing: faker.commerce.productAdjective() + " " + faker.color.human() + " " + faker.commerce.department().toLowerCase(),
-      item: faker.commerce.productName(),
-      area: faker.location.streetName(),
-      description: faker.person.jobDescriptor() + " " + faker.person.gender(),
-      direction: faker.location.direction({ abbreviated: false }),
-      place_suggestion: faker.company.name() + " " + faker.company.catchPhraseAdjective(),
-      amount: faker.finance.amount(50, 500, 0),
-      distinguishing_feature: faker.word.noun() + " " + faker.color.human(),
-      valuable_item: faker.commerce.productMaterial() + " " + faker.commerce.product(),
-      station_name: faker.location.city() + " Central" // Generic station
-    })
-  },
-  {
     type: "spiking",
     templates: [
-      "Je crois que quelqu'un a tenté de droguer mon verre au bar '{bar_name}'. J'ai ressenti {symptom} et une {sensation} peu après.",
-      "Méfiance à la soirée {event_name}, une amie s'est sentie très mal (nausées et {other_symptom}) après avoir laissé son verre sans surveillance.",
-      "Quelqu'un a mis quelque chose dans ma boisson à la discothèque '{club_name}'. Heureusement, j'ai pu partir à temps grâce à {helper}.",
-      "J'ai vu quelqu'un verser une substance dans le verre d'une fille au {venue_type} '{venue_name}'. J'ai prévenu la sécurité."
+      "Lors d’une soirée après un shooting à {venue_name}, j’ai accepté un verre proposé par {suspect_name}, un photographe présent sur place. Peu après, j’ai eu des vertiges et une sensation de flottement. Je suis partie précipitamment, mal à l’aise. D’autres personnes m’ont ensuite dit avoir eu un ressenti étrange à son contact.",
+      "Je veux signaler un incident qui m’est arrivé au {bar_name} après une expo photo. {suspect_name} m’a proposé un verre, que j’ai laissé quelques minutes sans surveillance. J’ai ensuite ressenti une forte désorientation. J’ai dû rentrer seule, paniquée. Faites attention à cette personne, plusieurs modèles m’ont partagé des expériences similaires.",
+      "Lors d’un after entre photographes et modèles à {event_location}, {suspect_name} m’a offert un verre. En moins de 15 minutes, j’étais confuse, j’avais du mal à tenir debout. Je ne bois presque jamais, donc c’était clairement anormal. J’ai fui sans trop comprendre ce qu’il m’arrivait. Je ne suis malheureusement pas la seule à avoir eu un malaise après un verre avec lui.",
     ],
     details: () => ({
-      bar_name: faker.company.name(),
-      symptom: faker.word.adjective() + " " + faker.word.noun(),
-      sensation: faker.word.noun(),
-      event_name: faker.company.bsBuzz() + " Party",
-      other_symptom: faker.word.noun(),
-      club_name: faker.company.name() + " Club",
-      helper: faker.person.firstName(),
-      venue_type: faker.word.noun(),
-      venue_name: faker.company.name()
-    })
+      venue_name: faker.company.name() + " Studio",
+      bar_name: faker.company.name() + " Bar",
+      event_location: faker.location.city() + ", " + faker.location.street(),
+      suspect_name: faker.person.fullName(),
+    }),
+  },
+  {
+    type: "misconduct",
+    templates: [
+      "Je me permets de relayer plusieurs témoignages que j’ai reçus concernant le photographe {photographer_name} (@{ig_handle}), connu dans la scène photo à {city}. Les retours concernent des comportements graves : cris pendant les shoots, propos dégradants comme 'ça c’est une pose de pute', insistance pour des nudes, non-paiement, et vol de contenu. Si vous avez eu une mauvaise expérience, n’hésitez pas à témoigner aussi.",
+      "J’ai travaillé avec {photographer_name} il y a quelques mois dans le cadre d’un projet. Sur place, il était seul, l’ambiance très oppressante, et il a verrouillé la porte une fois dans le studio. J’ai eu très peur. Il a tenté de me convaincre de faire des photos très explicites, en me disant que 'c’est comme ça qu’on perce'. Je suis partie dès que j’ai pu. Faites attention à vous.",
+      "Ce message s’adresse aux modèles travaillant à {city} : le photographe {photographer_name} m’a menacée de ne pas me remettre mes photos si je ne faisais pas une session 'plus hot' le lendemain. Il a aussi refusé que j’amène une amie au shooting. J’ai appris par la suite qu’il avait eu des comportements similaires avec d’autres modèles. Si vous avez aussi vécu des choses avec lui, je vous invite à en parler.",
+    ],
+    details: () => ({
+      photographer_name: faker.person.fullName(),
+      ig_handle: faker.internet.userName(),
+      city: faker.location.city(),
+      location: faker.location.streetAddress(true),
+    }),
   },
   {
     type: "coercion",
     templates: [
-      "Lors d'un shooting à {location_shoot}, le photographe {photographer_name} m'a fortement incitée à me déshabiller plus que prévu, c'était très limite.",
-      "Un {person_role} nommé {person_name} a essayé de me forcer la main pour des actes que je ne voulais pas faire lors de {event_type} à {city_event}.",
       "J'ai subi des pressions pour me déshabiller de la part de {contact_person_name}, qui se présentait comme {contact_person_role}, pendant un casting bidon à {address}.",
-      "Le directeur de {company_name} a eu un comportement déplacé et insistant pour que je {action_coerced} après un entretien."
+      "Le directeur de {company_name} a eu un comportement déplacé et insistant pour que je {action_coerced} après un entretien.",
     ],
     details: () => ({
-      location_shoot: faker.location.streetAddress(true),
-      photographer_name: faker.person.fullName(),
-      person_role: faker.person.jobTitle(),
-      person_name: faker.person.fullName(),
-      event_type: faker.word.noun() + " " + faker.company.catchPhraseNoun(),
-      city_event: faker.location.city(),
       contact_person_name: faker.person.fullName(),
       contact_person_role: faker.person.jobType(),
-      address: faker.location.secondaryAddress() + " " + faker.location.streetName(),
+      address:
+        faker.location.secondaryAddress() + " " + faker.location.street(),
       company_name: faker.company.name(),
-      action_coerced: faker.word.verb() + " " + faker.word.noun()
-    })
-  }
+      action_coerced: faker.word.verb() + " " + faker.word.noun(),
+    }),
+  },
 ];
 
 function getRandomElement<T>(arr: T[]): T {
@@ -114,65 +108,155 @@ async function main() {
   await prisma.user.deleteMany({});
   console.log("Existing data deleted.");
 
-  // 1. Create Users
-  console.log(`Creating ${NUM_USERS} users...`);
+  // 1. Create Super Admin from environment variables
+  const superAdminEmail = process.env.SUPERADMIN_EMAIL || "admin@example.com";
+  const superAdminPassword = process.env.SUPERADMIN_PASSWORD || "password";
+  const superAdminFirstName = process.env.SUPERADMIN_FIRSTNAME || "Admin";
+  const superAdminLastName = process.env.SUPERADMIN_LASTNAME || "User";
+
+  // Create or update super admin user
+  const superAdmin = await prisma.user.upsert({
+    where: { email: superAdminEmail },
+    update: {
+      firstName: superAdminFirstName,
+      lastName: superAdminLastName,
+      isSuperAdmin: true,
+    },
+    create: {
+      email: superAdminEmail,
+      password: await hashPassword(superAdminPassword),
+      firstName: superAdminFirstName,
+      lastName: superAdminLastName,
+      isSuperAdmin: true,
+    },
+  });
+  console.log(`Super admin created/updated: ${superAdmin.email}`);
+
+  // 2. Create Regular Users
+  console.log(`Creating ${NUM_USERS - 1} regular users...`);
   const users: Prisma.UserCreateInput[] = [];
-  for (let i = 0; i < NUM_USERS; i++) {
-    const firstName = faker.person.firstName('female'); // Explicitly female names
+
+  for (let i = 0; i < NUM_USERS - 1; i++) {
+    const firstName = faker.person.firstName("female");
     const lastName = faker.person.lastName();
+
     users.push({
-      email: faker.internet.email({ firstName, lastName, provider: 'fakemail.test' }),
-      password: 'password123', // Plain text, assuming hashing happens elsewhere or not needed for seed
+      email: faker.internet
+        .email({ firstName, lastName, provider: "fakemail.test" })
+        .toLowerCase(),
+      password: await hashPassword("password123"),
       firstName,
       lastName,
-      instagram: Math.random() > 0.5 ? `insta_${firstName.toLowerCase()}_${lastName.toLowerCase()}` : null,
-      isSuperAdmin: Math.random() < 0.05, // 5% chance of being super admin
+      instagram:
+        Math.random() > 0.5
+          ? `${removeAccents(firstName.toLowerCase())}.${removeAccents(
+              lastName.toLowerCase()
+            )}`
+          : null,
+      isSuperAdmin: false,
     });
   }
   const createdUsers = await prisma.user.createManyAndReturn({ data: users });
   console.log(`${createdUsers.length} users created.`);
 
-  // 2. Create Spaces
+  // 3. Create Spaces
   console.log("Creating spaces...");
-  const spaces: Prisma.SpaceCreateInput[] = [];
+  const createdSpaces = [];
+
   for (const city of CITIES) {
-    const numSpacesInCity = faker.number.int({ min: SPACES_PER_CITY_MIN, max: SPACES_PER_CITY_MAX });
+    const numSpacesInCity = faker.number.int({
+      min: SPACES_PER_CITY_MIN,
+      max: SPACES_PER_CITY_MAX,
+    });
+
     for (let i = 0; i < numSpacesInCity; i++) {
-      spaces.push({
-        name: `${city} - SafeZone ${faker.word.noun()} ${i + 1}`,
-        description: faker.lorem.sentence(),
-        creator: { connect: { id: getRandomElement(createdUsers).id } },
+      const creator = getRandomElement(createdUsers);
+
+      // First create the space with just the required fields
+      const space = await prisma.space.create({
+        data: {
+          name: `${city} - SafeZone ${faker.word.noun()} ${i + 1}`,
+          description: faker.lorem.sentence(),
+          createdBy: creator.id,
+        },
+        include: {
+          creator: true,
+        },
       });
+
+      createdSpaces.push(space);
     }
   }
-  const createdSpaces = await prisma.space.createManyAndReturn({ data: spaces });
   console.log(`${createdSpaces.length} spaces created.`);
 
-  // 3. Create UserSpaceMemberships
+  // 4. Create UserSpaceMemberships
   console.log("Creating user space memberships...");
-  const memberships: Prisma.UserSpaceMembershipCreateInput[] = [];
+  const memberships: Array<{
+    userId: string;
+    spaceId: string;
+    role: string;
+  }> = [];
+
   for (const space of createdSpaces) {
-    const spaceUsers = getRandomSubset(createdUsers, USERS_PER_SPACE_MIN, USERS_PER_SPACE_MAX);
-    // Ensure creator is admin
-    const creatorId = space.createdBy; // In createManyAndReturn, createdBy is just the ID
-    if (!spaceUsers.find(u => u.id === creatorId)) {
-        const creatorUser = createdUsers.find(u => u.id === creatorId);
-        if (creatorUser) spaceUsers.push(creatorUser); // Add if not already selected
+    const spaceUsers = getRandomSubset(
+      createdUsers,
+      USERS_PER_SPACE_MIN,
+      USERS_PER_SPACE_MAX
+    );
+    const creatorId = space.createdBy;
+    const creatorUser = createdUsers.find((u) => u.id === creatorId);
+
+    // Make sure creator is in the space and is an admin
+    if (creatorUser) {
+      // Remove creator from spaceUsers if they were already added
+      const creatorIndex = spaceUsers.findIndex((u) => u.id === creatorId);
+      if (creatorIndex !== -1) {
+        spaceUsers.splice(creatorIndex, 1);
+      }
+
+      // Add creator as admin
+      memberships.push({
+        userId: creatorId,
+        spaceId: space.id,
+        role: "Admin",
+      });
     }
 
+    // Add other users with random roles (but not Admin)
     for (const user of spaceUsers) {
       memberships.push({
-        user: { connect: { id: user.id } },
-        space: { connect: { id: space.id } },
-        role: user.id === creatorId ? 'Admin' : (Math.random() < 0.2 ? 'Moderator' : 'Member'),
+        userId: user.id,
+        spaceId: space.id,
+        role: Math.random() < 0.2 ? "Moderator" : "Member",
       });
     }
   }
   // Deduplicate memberships (in case a user was randomly selected and is also creator)
-  const uniqueMemberships = memberships.filter((ms, index, self) =>
-    index === self.findIndex((m) => m.user.connect.id === ms.user.connect.id && m.space.connect.id === ms.space.connect.id)
+  const uniqueMemberships = memberships.filter(
+    (ms, index, self) =>
+      index ===
+      self.findIndex((m) => m.userId === ms.userId && m.spaceId === ms.spaceId)
   );
-  await prisma.userSpaceMembership.createMany({ data: uniqueMemberships });
+
+  // Create memberships one by one since we're using a composite ID
+  for (const membership of uniqueMemberships) {
+    await prisma.userSpaceMembership.upsert({
+      where: {
+        userId_spaceId: {
+          userId: membership.userId,
+          spaceId: membership.spaceId,
+        },
+      },
+      update: {
+        role: membership.role,
+      },
+      create: {
+        userId: membership.userId,
+        spaceId: membership.spaceId,
+        role: membership.role,
+      },
+    });
+  }
   console.log(`${uniqueMemberships.length} user space memberships created.`);
 
   // 4. Create Posts (20 per space)
@@ -183,21 +267,29 @@ async function main() {
       where: { spaceId: space.id },
       include: { user: true },
     });
-    const spaceUsers = spaceMemberRecords.map(ms => ms.user);
+    const spaceUsers = spaceMemberRecords.map((ms) => ms.user);
 
     if (spaceUsers.length === 0) {
-      console.warn(`Space ${space.name} (ID: ${space.id}) has no users, skipping post creation.`);
+      console.warn(
+        `Space ${space.name} (ID: ${space.id}) has no users, skipping post creation.`
+      );
       continue;
     }
 
-    const numPostsInSpace = faker.number.int({ min: POSTS_PER_SPACE_MIN, max: POSTS_PER_SPACE_MAX });
+    const numPostsInSpace = faker.number.int({
+      min: POSTS_PER_SPACE_MIN,
+      max: POSTS_PER_SPACE_MAX,
+    });
     for (let i = 0; i < numPostsInSpace; i++) {
       const theme = getRandomElement(POST_THEMES);
       const contentDetails = theme.details();
-      const description = interpolate(getRandomElement(theme.templates), contentDetails);
-      
+      const description = interpolate(
+        getRandomElement(theme.templates),
+        contentDetails
+      );
+
       const isAnonymous = Math.random() < 0.15; // 15% chance
-      const isAdminOnly = Math.random() < 0.10; // 10% chance
+      const isAdminOnly = Math.random() < 0.1; // 10% chance
       const author = isAnonymous ? null : getRandomElement(spaceUsers);
 
       // Create Reported Entity
@@ -208,12 +300,19 @@ async function main() {
           addedBy: { connect: { id: getRandomElement(spaceUsers).id } }, // Can be any user in the space
           space: { connect: { id: space.id } },
           handles: {
-            create: [{
-              platform: "Instagram",
-              handle: `fake_${faker.internet.userName({firstName: reportedEntityName.split(' ')[0], lastName: reportedEntityName.split(' ')[1] || ''}).toLowerCase()}_${faker.string.alphanumeric(4)}`
-            }]
-          }
-        }
+            create: [
+              {
+                platform: "Instagram",
+                handle: `fake_${faker.internet
+                  .userName({
+                    firstName: reportedEntityName.split(" ")[0],
+                    lastName: reportedEntityName.split(" ")[1] || "",
+                  })
+                  .toLowerCase()}_${faker.string.alphanumeric(4)}`,
+              },
+            ],
+          },
+        },
       });
 
       await prisma.post.create({
@@ -225,8 +324,13 @@ async function main() {
           isAnonymous,
           isAdminOnly,
           status: getRandomElement(Object.values(PostStatus)),
-          severity: getRandomElement(['low', 'medium', 'high']), // Prisma enum values directly
-          verificationStatus: getRandomElement(['unverified', 'pending', 'verified', 'disputed']),
+          severity: getRandomElement(["low", "medium", "high"]), // Prisma enum values directly
+          verificationStatus: getRandomElement([
+            "unverified",
+            "pending",
+            "verified",
+            "disputed",
+          ]),
         },
       });
       postsCreatedCount++;
@@ -240,7 +344,7 @@ async function main() {
   for (const user of createdUsers) {
     const userMemberships = await prisma.userSpaceMembership.findMany({
       where: { userId: user.id },
-      select: { spaceId: true }
+      select: { spaceId: true },
     });
 
     if (userMemberships.length === 0) continue; // User might not be in any space
@@ -249,7 +353,10 @@ async function main() {
       const spaceId = getRandomElement(userMemberships).spaceId;
       const theme = getRandomElement(POST_THEMES);
       const contentDetails = theme.details();
-      const description = interpolate(getRandomElement(theme.templates), contentDetails);
+      const description = interpolate(
+        getRandomElement(theme.templates),
+        contentDetails
+      );
 
       const reportedEntityName = faker.person.fullName();
       const createdReportedEntity = await prisma.reportedEntity.create({
@@ -258,12 +365,16 @@ async function main() {
           addedBy: { connect: { id: user.id } },
           space: { connect: { id: spaceId } },
           handles: {
-            create: [{
-              platform: "Instagram",
-              handle: `fake_personal_${faker.internet.userName().toLowerCase()}_${faker.string.alphanumeric(3)}`
-            }]
-          }
-        }
+            create: [
+              {
+                platform: "Instagram",
+                handle: `fake_personal_${faker.internet
+                  .userName()
+                  .toLowerCase()}_${faker.string.alphanumeric(3)}`,
+              },
+            ],
+          },
+        },
       });
 
       await prisma.post.create({
