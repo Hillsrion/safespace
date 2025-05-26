@@ -34,6 +34,39 @@ npm run dev
 
 Your application will be available at `http://localhost:5173`.
 
+## Database Seeding
+
+This project includes a script to populate the database with sample data for development and testing purposes. This is useful for having a consistent dataset to work with.
+
+**Important:** Running the seed script will first delete all existing data in the relevant tables (Users, Spaces, Posts, etc.) before inserting new data.
+
+### Prerequisites
+
+Ensure you have installed all project dependencies:
+
+```bash
+npm install
+# or
+yarn install
+```
+
+### Running the Seed Script
+
+To populate your database with seed data, run the following command:
+
+```bash
+npx prisma db seed
+```
+
+This command executes the `scripts/seed.ts` file using `tsx`. After the script completes, your database will contain approximately:
+
+*   20 users
+*   Around 20-30 spaces distributed across a few cities
+*   Around 20 posts per space, with varied content and flags
+*   3 additional posts for each user
+
+This data is generated using `@faker-js/faker` for realistic, albeit fake, information.
+
 ## Building for Production
 
 Create a production build:

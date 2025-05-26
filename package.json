@@ -16,6 +16,9 @@
     "test": "vitest",
     "test:ui": "vitest --ui"
   },
+  "prisma": {
+    "seed": "tsx scripts/seed.ts"
+  },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/modifiers": "^9.0.0",
@@ -83,6 +86,7 @@
     "@types/react-dom": "^19.1.5",
     "@types/testing-library__jest-dom": "^6.0.0",
     "@vitest/ui": "^3.1.4",
+    "@faker-js/faker": "^8.0.0",
     "happy-dom": "^17.4.7",
     "msw": "^2.8.4",
     "react-router-dom": "^7.6.0",
