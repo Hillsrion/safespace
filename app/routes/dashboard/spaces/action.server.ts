@@ -47,11 +47,10 @@ export async function action({ request }: ActionFunctionArgs) {
     await addUserToSpace(userId, newSpace.id, "ADMIN");
 
     const session = await getSession(request);
-    session.flash(
-      "toastMessage",
-      `L'espace "${newSpace.name}" a été créé avec succès !`
-    );
-
+    session.flash("toast", {
+      title: `Création d'espace`,
+      message: `L'espace "${newSpace.name}" a été créé avec succès !`,
+    });
     return redirect("/dashboard", {
       headers: {
         "Set-Cookie": await commitSession(session),

@@ -1,8 +1,7 @@
-import { Outlet, useMatches, Link } from "react-router";
+import { Outlet, useMatches, Link, useLoaderData } from "react-router";
 import { SidebarProvider } from "~/components/ui/sidebar";
 import { AppSidebar } from "~/components/app-sidebar";
 import { SidebarTrigger } from "~/components/ui/sidebar";
-import { useMeta } from "~/hooks/useMeta";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,10 +11,17 @@ import {
   BreadcrumbSeparator,
 } from "~/components/ui/breadcrumb";
 import { ModeToggle } from "~/components/mode-toggle";
+import { useEffect } from "react";
+import { toast } from "~/hooks/use-toast";
+import { getSession } from "~/services/session.server";
 
-interface BreadcrumbItemType {
-  path: string;
-  name: string;
+export async function loader({ request }: { request: Request }) {
+  const session = await getSession(request);
+  const toastMessage = session.get("toastMessage");
+  
+  return { 
+    toast: toastMessage ? { message: toastMessage, title: "Success" } : null 
+  };
 }
 
 interface RouteMatch {
@@ -26,8 +32,16 @@ interface RouteMatch {
 }
 
 export default function DashboardLayout() {
-  const { title } = useMeta();
   const matches = useMatches() as unknown as RouteMatch[];
+  const { toast: toastData } = useLoaderData<typeof loader>();
+  useEffect(() => {
+    if (toastData?.message) {
+      toast({
+        title: toastData.title,
+        description: toastData.message,
+      });
+    }
+  }, [toastData]);
   const isDashboardRoute = matches.some(match => match.pathname.startsWith('/dashboard'));
   
   if (!isDashboardRoute) { 
