@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import debounce from 'lodash-es/debounce';
+import { useState, useEffect, useCallback } from "react";
+import debounce from "lodash-es/debounce";
 
 // Define types for results based on the API response structure
 // The API returns an array of objects, each with a 'type' and 'data' field.
@@ -8,9 +8,9 @@ interface SearchResultItemData {
   id: string;
   // Common fields, specific fields depend on the 'type'
   description?: string; // For Post
-  name?: string;        // For ReportedEntity
+  name?: string; // For ReportedEntity
   // Add other potential fields from different data types if known, or keep it general
-  [key: string]: any; 
+  [key: string]: any;
 }
 
 interface SearchResultItem {
@@ -21,25 +21,30 @@ interface SearchResultItem {
 type SearchResults = SearchResultItem[];
 
 export function useSearch() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [results, setResults] = useState<SearchResults>([]);
   const [loading, setLoading] = useState(false);
 
   // useCallback for fetchResults to memoize it unless dependencies change.
   // Here, it has no dependencies other than what's available in its scope (fetch, setResults, setLoading).
   const fetchResults = useCallback(async (query: string) => {
-    if (!query.trim()) { // Check if the query is empty or just whitespace
+    if (!query.trim()) {
+      // Check if the query is empty or just whitespace
       setResults([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+      const response = await fetch(
+        `resources/api/search?q=${encodeURIComponent(query)}`
+      );
       if (!response.ok) {
         // You might want to handle different HTTP error statuses differently
-        console.error(`Search API request failed with status: ${response.status}`);
-        throw new Error('Network response was not ok');
+        console.error(
+          `Search API request failed with status: ${response.status}`
+        );
+        throw new Error("Network response was not ok");
       }
       const data: SearchResults = await response.json();
       setResults(data); // API returns an array directly
@@ -53,7 +58,9 @@ export function useSearch() {
 
   // useCallback for debouncedFetchResults to memoize the debounced function.
   // The dependency array includes fetchResults, so if fetchResults changes, the debounced function is recreated.
-  const debouncedFetchResults = useCallback(debounce(fetchResults, 500), [fetchResults]);
+  const debouncedFetchResults = useCallback(debounce(fetchResults, 500), [
+    fetchResults,
+  ]);
 
   useEffect(() => {
     // Call the debounced function when searchTerm changes.

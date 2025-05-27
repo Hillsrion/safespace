@@ -1,22 +1,37 @@
-import { type RouteConfig, index, route } from "@react-router/dev/routes";
+import {
+  type RouteConfig,
+  index,
+  route,
+  layout,
+  prefix,
+} from "@react-router/dev/routes";
+
+const ROUTES_PREFIX = "routes";
+const LAYOUTS_PREFIX = "layouts";
 
 export const DASHBOARD_PATH = "dashboard";
 export const LOGIN_PATH = "auth/login";
 export const REGISTER_PATH = "auth/register";
 export const API_PATH = "api";
+export const RESOURCES_API_PREFIX = "resources/api";
 
 export default [
-  index("routes/home.tsx"),
-  route(REGISTER_PATH, "routes/auth/register/index.tsx"),
-  route(LOGIN_PATH, "routes/auth/login/index.tsx"),
-  route("auth/logout", "routes/auth/logout.tsx"),
-  route(DASHBOARD_PATH, "layouts/dashboard.tsx", [
-    index("routes/dashboard/index.tsx"),
-    route("account", "routes/dashboard/account/index.tsx"),
-    route("superadmin", "routes/dashboard/superadmin.tsx"),
-    route("spaces/new", "routes/dashboard/spaces/new.tsx"),
-    route("posts-example", "routes/dashboard/posts-example.tsx"),
+  index(`${ROUTES_PREFIX}/home.tsx`),
+  route(REGISTER_PATH, `${ROUTES_PREFIX}/auth/register/index.tsx`),
+  route(LOGIN_PATH, `${ROUTES_PREFIX}/auth/login/index.tsx`),
+  route("auth/logout", `${ROUTES_PREFIX}/auth/logout.tsx`),
+  route(DASHBOARD_PATH, `${LAYOUTS_PREFIX}/dashboard.tsx`, [
+    index(`${ROUTES_PREFIX}/dashboard/index.tsx`),
+    route("account", `${ROUTES_PREFIX}/dashboard/account/index.tsx`),
+    route("superadmin", `${ROUTES_PREFIX}/dashboard/superadmin.tsx`),
+    route("spaces/new", `${ROUTES_PREFIX}/dashboard/spaces/new.tsx`),
   ]),
-  route("resources/api/spaces", "routes/api.spaces.ts"),
-  route(API_PATH, "layouts/api.tsx", [route("search", "routes/api/search.ts")]),
+  layout(`${LAYOUTS_PREFIX}/api.tsx`, [
+    ...prefix(RESOURCES_API_PREFIX, [
+      route(`search`, `${ROUTES_PREFIX}/api/search.ts`),
+      route(`spaces`, `${ROUTES_PREFIX}/api/spaces.ts`),
+      route(`posts/delete`, `${ROUTES_PREFIX}/api/posts/delete.ts`),
+      route(`posts/edit`, `${ROUTES_PREFIX}/api/posts/edit.ts`),
+    ]),
+  ]),
 ] satisfies RouteConfig;
