@@ -13,7 +13,7 @@ export async function action({
   request,
   params,
 }: ActionFunctionArgs): Promise<ActionResult<StatusAction>> {
-  const { postId } = params;
+  const { id: postId } = params;
   if (!postId) {
     return { success: false, error: "Post ID is required" };
   }

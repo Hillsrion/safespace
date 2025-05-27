@@ -30,8 +30,8 @@ export default [
     ...prefix(RESOURCES_API_PREFIX, [
       route(`search`, `${ROUTES_PREFIX}/api/search.ts`),
       route(`spaces`, `${ROUTES_PREFIX}/api/spaces.ts`),
-      route(`posts/delete`, `${ROUTES_PREFIX}/api/posts/delete.ts`),
-      route(`posts/edit`, `${ROUTES_PREFIX}/api/posts/edit.ts`),
+      route(`posts/:id/delete`, `${ROUTES_PREFIX}/api/posts/:id/delete.ts`),
+      route(`posts/:id/edit`, `${ROUTES_PREFIX}/api/posts/:id/edit.ts`),
     ]),
   ]),
 ] satisfies RouteConfig;
