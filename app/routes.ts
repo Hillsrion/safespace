@@ -9,6 +9,21 @@ import {
 const ROUTES_PREFIX = "routes";
 const LAYOUTS_PREFIX = "layouts";
 
+// Helper function to create route paths with prefix
+function routePrefix(prefix: string, path: string): string {
+  return `${prefix}/${path}`;
+}
+
+// Helper function to create route paths with routes prefix
+function routePath(path: string): string {
+  return routePrefix(ROUTES_PREFIX, path);
+}
+
+// Helper function to create route paths with layouts prefix
+function layoutPath(path: string): string {
+  return routePrefix(LAYOUTS_PREFIX, path);
+}
+
 export const DASHBOARD_PATH = "dashboard";
 export const LOGIN_PATH = "auth/login";
 export const REGISTER_PATH = "auth/register";
@@ -16,22 +31,22 @@ export const API_PATH = "api";
 export const RESOURCES_API_PREFIX = "resources/api";
 
 export default [
-  index(`${ROUTES_PREFIX}/home.tsx`),
-  route(REGISTER_PATH, `${ROUTES_PREFIX}/auth/register/index.tsx`),
-  route(LOGIN_PATH, `${ROUTES_PREFIX}/auth/login/index.tsx`),
-  route("auth/logout", `${ROUTES_PREFIX}/auth/logout.tsx`),
-  route(DASHBOARD_PATH, `${LAYOUTS_PREFIX}/dashboard.tsx`, [
-    index(`${ROUTES_PREFIX}/dashboard/index.tsx`),
-    route("account", `${ROUTES_PREFIX}/dashboard/account/index.tsx`),
-    route("superadmin", `${ROUTES_PREFIX}/dashboard/superadmin.tsx`),
-    route("spaces/new", `${ROUTES_PREFIX}/dashboard/spaces/new.tsx`),
+  index(routePath("home.tsx")),
+  route(REGISTER_PATH, routePath("auth/register/index.tsx")),
+  route(LOGIN_PATH, routePath("auth/login/index.tsx")),
+  route("auth/logout", routePath("auth/logout.tsx")),
+  route(DASHBOARD_PATH, layoutPath("dashboard.tsx"), [
+    index(routePath("dashboard/index.tsx")),
+    route("account", routePath("dashboard/account/index.tsx")),
+    route("superadmin", routePath("dashboard/superadmin.tsx")),
+    route("spaces/new", routePath("dashboard/spaces/new.tsx")),
   ]),
-  layout(`${LAYOUTS_PREFIX}/api.tsx`, [
+  layout(layoutPath("api.tsx"), [
     ...prefix(RESOURCES_API_PREFIX, [
-      route(`search`, `${ROUTES_PREFIX}/api/search.ts`),
-      route(`spaces`, `${ROUTES_PREFIX}/api/spaces.ts`),
-      route(`posts/:id/delete`, `${ROUTES_PREFIX}/api/posts/:id/delete.ts`),
-      route(`posts/:id/edit`, `${ROUTES_PREFIX}/api/posts/:id/edit.ts`),
+      route(`search`, routePath("api/search.ts")),
+      route(`spaces`, routePath("api/spaces.ts")),
+      route(`posts/:id/delete`, routePath("api/posts/:id/delete.ts")),
+      route(`posts/:id/edit`, routePath("api/posts/:id/edit.ts")),
     ]),
   ]),
 ] satisfies RouteConfig;
