@@ -81,11 +81,7 @@ export default function Dashboard() {
     isSuperAdmin: user?.isSuperAdmin,
     role: user?.role?.toLowerCase() as "admin" | "moderator" | "user" || "user",
   };
-
-  const mockOnDeletePost = (postId: string) => console.log(`FR: Supprimer le post: ${postId}`);
-  const mockOnHidePost = (postId: string) => console.log(`FR: Masquer le post: ${postId}`);
-  const mockOnUnhidePost = (postId: string) => console.log(`FR: Afficher le post: ${postId}`);
-
+  
   const mappedPosts: PostComponentProps[] = posts.map((post: any /* Replace any with PrismaPost & relations */) => ({
     id: post.id,
     author: post.author ? mapPrismaUserToAuthor(post.author) : {
@@ -101,9 +97,6 @@ export default function Dashboard() {
     reportedUserInfo: undefined, // Assuming no reported user info from this query for now
     space: post.space ? mapPrismaSpaceToSpaceInfo(post.space) : undefined, // Assuming 'space' is a relation
     currentUser: currentUserInfo,
-    onDeletePost: mockOnDeletePost,
-    onHidePost: mockOnHidePost,
-    onUnhidePost: mockOnUnhidePost,
     post
   }));
   return (
