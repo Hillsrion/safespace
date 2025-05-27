@@ -1,5 +1,7 @@
 import * as React from "react";
 import { usePostActions } from "~/components/post/hooks/usePostActions";
+import { MediaDialog } from "~/components/media-dialog";
+import { MediaCarousel } from "~/components/media-carousel";
 import {
   Card,
   CardContent,
@@ -58,8 +60,8 @@ export function Post({
   onHidePost,
   onUnhidePost,
 }: PostComponentProps) {
-  const [isImageDialogOpen, setIsImageDialogOpen] = React.useState(false);
-  const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
+  const [isMediaDialogOpen, setIsMediaDialogOpen] = React.useState(false);
+  const [selectedMediaIndex, setSelectedMediaIndex] = React.useState(0);
   
   const { handlePostAction, isSubmitting } = usePostActions({
     postId: id,
@@ -68,9 +70,9 @@ export function Post({
     onUnhidePost
   });
 
-  const handleImageClick = (index: number) => {
-    setSelectedImageIndex(index);
-    setIsImageDialogOpen(true);
+  const handleMediaClick = (index: number) => {
+    setSelectedMediaIndex(index);
+    setIsMediaDialogOpen(true);
   };
 
   const isCurrentUserAuthor = author.id === currentUser.id;
@@ -186,86 +188,18 @@ export function Post({
         
         {media && media.length > 0 && (
           <div className="mb-4">
-            <Carousel
-              opts={{
-                align: "start",
-                loop: media.length > 1,
-              }}
-              className="w-full"
-            >
-              <CarouselContent>
-                {media.map((mediaItem, index) => (
-                  <CarouselItem key={mediaItem.id} className="md:basis-1/2 lg:basis-1/3" onClick={() => handleImageClick(index)}>
-                    <div className="aspect-square overflow-hidden rounded-md border">
-                      {mediaItem.type === "image" ? (
-                        <img src={mediaItem.url} alt={mediaItem.altText || `Evidence ${index + 1}`} className="h-full w-full object-cover cursor-pointer" />
-                      ) : (
-                        // Basic video placeholder - can be improved with a video player component
-                        <div className="h-full w-full flex items-center justify-center bg-black text-white">
-                          <p>Video: {mediaItem.altText || `Evidence ${index + 1}`}</p>
-                          {/* You might want to use mediaItem.thumbnailUrl here */}
-                        </div>
-                      )}
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              {media.length > 1 && (
-                <>
-                  <CarouselPrevious className="absolute left-2 top-1/2 -translate-y-1/2" />
-                  <CarouselNext className="absolute right-2 top-1/2 -translate-y-1/2" />
-                </>
-              )}
-            </Carousel>
+            <MediaCarousel 
+              media={media} 
+              onMediaClick={handleMediaClick}
+            />
 
-            <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
-              <DialogContent className="max-w-3xl p-0">
-                <DialogHeader className="sr-only">
-                  <DialogTitle>Visionneuse d&apos;images</DialogTitle>
-                  <DialogDescription>Full size media view with navigation.</DialogDescription>
-                </DialogHeader>
-                {media[selectedImageIndex] && (
-                  <div className="relative">
-                     {media[selectedImageIndex].type === 'image' ? (
-                       <img 
-                          src={media[selectedImageIndex].url} 
-                          alt={media[selectedImageIndex].altText || `Evidence ${selectedImageIndex + 1}`} 
-                          className="max-h-[80vh] w-full object-contain" 
-                      />
-                     ) : (
-                        <div className="h-[80vh] w-full flex items-center justify-center bg-black">
-                            <video 
-                                src={media[selectedImageIndex].url} 
-                                controls 
-                                className="max-h-full max-w-full"
-                                autoPlay
-                            />
-                        </div>
-                     )}
-                    {media.length > 1 && (
-                        <>
-                            <Button 
-                                variant="ghost" 
-                                size="sm"
-                                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/75 text-white px-2 py-1 text-xs"
-                                onClick={() => setSelectedImageIndex((prev) => (prev - 1 + media.length) % media.length)}
-                            >
-                                Précédent
-                            </Button>
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/75 text-white px-2 py-1 text-xs"
-                                onClick={() => setSelectedImageIndex((prev) => (prev + 1) % media.length)}
-                            >
-                                Suivant
-                            </Button>
-                        </>
-                    )}
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
+            <MediaDialog
+              isOpen={isMediaDialogOpen}
+              onOpenChange={setIsMediaDialogOpen}
+              media={media}
+              selectedIndex={selectedMediaIndex}
+              onSelectIndex={setSelectedMediaIndex}
+            />
           </div>
         )}
 
