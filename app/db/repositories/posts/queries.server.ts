@@ -30,7 +30,11 @@ export async function getUserPosts(
       status: includeHidden ? undefined : status,
     },
     include: {
-      reportedEntity: true,
+      reportedEntity: {
+        include: {
+          handles: true
+        }
+      },
       media: true,
       author: {
         select: {
@@ -95,7 +99,11 @@ export async function getSpacePosts(
       ],
     },
     include: {
-      reportedEntity: true,
+      reportedEntity: {
+        include: {
+          handles: true
+        }
+      },
       media: true,
       author: {
         select: {
@@ -127,7 +135,11 @@ export async function getAllPosts(userId: string) {
   if (user?.isSuperAdmin) {
     return prisma.post.findMany({
       include: {
-        reportedEntity: true,
+        reportedEntity: {
+          include: {
+            handles: true
+          }
+        },
         media: true,
         author: {
           select: {
