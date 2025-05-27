@@ -11,7 +11,7 @@ export async function action({
   request,
   params,
 }: ActionFunctionArgs): Promise<ActionResult<"deleted">> {
-  const { postId } = params;
+  const { id: postId } = params;
   if (!postId) {
     return { success: false, error: "Post ID is required" };
   }
