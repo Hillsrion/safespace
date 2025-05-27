@@ -50,6 +50,26 @@ export async function getTotalSpaces() {
   return prisma.space.count();
 }
 
+export async function getUserSpaceRole(userId: string, spaceId: string) {
+  // Check if user is superadmin first
+  const user = await getUserById(userId, { isSuperAdmin: true } as const);
+  if (user?.isSuperAdmin) {
+    return 'ADMIN' as const;
+  }
+
+  const membership = await prisma.userSpaceMembership.findFirst({
+    where: {
+      userId,
+      spaceId,
+    },
+    select: {
+      role: true,
+    },
+  });
+
+  return membership?.role || null;
+}
+
 /**
  * Creates a new space in the database.
  * @param name The name of the space.

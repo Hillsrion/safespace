@@ -32,7 +32,8 @@ import {
   DialogTrigger,
 } from "~/components/ui/dialog";
 import { MoreHorizontal, Trash2, Eye, EyeOff } from "lucide-react"; // Icons for actions
-import { Link } from "react-router-dom";
+import { Link, useFetcher } from "react-router-dom";
+import { toast } from "sonner";
 import { 
   type PostComponentProps, 
   type AuthorProfile, 
@@ -58,6 +59,61 @@ export function Post({
 }: PostComponentProps) {
   const [isImageDialogOpen, setIsImageDialogOpen] = React.useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
+  const fetcher = useFetcher<ApiResponse>();
+  const isSubmitting = fetcher.state !== 'idle';
+
+  // Define the response type for the API
+  type ApiResponse = {
+    success: boolean;
+    action?: string;
+    error?: string;
+  };
+
+  // Handle post actions (delete, hide, unhide)
+  const handlePostAction = async (action: 'delete' | 'hide' | 'unhide') => {
+    try {
+      const endpoint = action === 'delete' 
+        ? `/api/posts/${id}/delete` 
+        : `/api/posts/${id}/status`;
+      
+      const formData = new FormData();
+      if (action !== 'delete') {
+        formData.append('_action', action);
+      }
+      
+      // Submit the form and wait for the response
+      await fetcher.submit(formData, {
+        method: 'POST',
+        action: endpoint,
+      });
+      
+      // The fetcher.data will be populated after submission
+      const result = fetcher.data as { success: boolean; action?: string; error?: string } | undefined;
+      
+      if (!result) {
+        throw new Error('No response from server');
+      }
+      
+      if (!result || !result.success) {
+        throw new Error(result?.error || 'Action failed');
+      }
+      
+      // Call the appropriate callback if provided
+      if (action === 'delete' && onDeletePost) {
+        onDeletePost(id);
+      } else if (action === 'hide' && onHidePost) {
+        onHidePost(id);
+      } else if (action === 'unhide' && onUnhidePost) {
+        onUnhidePost(id);
+      }
+      
+      toast.success(`Post ${action}ed successfully`);
+    } catch (error: unknown) {
+      console.error(`Error ${action}ing post:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error(`Failed to ${action} post: ${errorMessage}`);
+    }
+  };
 
   const handleImageClick = (index: number) => {
     setSelectedImageIndex(index);
@@ -118,15 +174,19 @@ export function Post({
           {getStatusBadge()}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="h-6 w-7">
                 <MoreHorizontal className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {/* Delete action - available to admins, super admins, and post authors */}
               {((currentUser.role === "admin" || currentUser.isSuperAdmin || isCurrentUserAuthor) && onDeletePost) && (
-                <DropdownMenuItem onClick={() => onDeletePost(id)} className="text-destructive">
-                  <Trash2 className="mr-2 h-4 w-4" />
+                <DropdownMenuItem 
+                  onClick={() => handlePostAction('delete')} 
+                  className="text-destructive"
+                  disabled={isSubmitting}
+                >
+                  <Trash2 className="h-4 w-4" />
                   <span>Supprimer le post</span>
                 </DropdownMenuItem>
               )}
@@ -135,15 +195,21 @@ export function Post({
               {((currentUser.role === "admin" || currentUser.role === "moderator" || currentUser.isSuperAdmin) && (onHidePost || onUnhidePost)) && (
                 status === "hidden" ? (
                   onUnhidePost && (
-                    <DropdownMenuItem onClick={() => onUnhidePost(id)}>
-                      <Eye className="mr-2 h-4 w-4" />
+                    <DropdownMenuItem 
+                      onClick={() => handlePostAction('unhide')}
+                      disabled={isSubmitting}
+                    >
+                      <Eye className="h-4 w-4" />
                       <span>Afficher le post</span>
                     </DropdownMenuItem>
                   )
                 ) : (
                   onHidePost && (
-                    <DropdownMenuItem onClick={() => onHidePost(id)}>
-                      <EyeOff className="mr-2 h-4 w-4" />
+                    <DropdownMenuItem 
+                      onClick={() => handlePostAction('hide')}
+                      disabled={isSubmitting}
+                    >
+                      <EyeOff className="h-4 w-4" />
                       <span>Masquer le post</span>
                     </DropdownMenuItem>
                   )
