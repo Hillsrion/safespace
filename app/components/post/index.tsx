@@ -1,48 +1,19 @@
-import * as React from "react";
+import { useState } from "react";
+import { Link } from "react-router";
 import { usePostActions } from "~/components/post/hooks/usePostActions";
 import { MediaDialog } from "~/components/media-dialog";
 import { MediaCarousel } from "~/components/media-carousel";
+import { PostActionsMenu } from "./post-actions-menu";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "~/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "~/components/ui/carousel";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "~/components/ui/dialog";
-import { MoreHorizontal, Trash2, Eye, EyeOff } from "lucide-react"; // Icons for actions
-import { Link, useFetcher } from "react-router-dom";
-import { toast } from "sonner";
+import { Badge, type BadgeVariant } from "~/components/ui/badge";
 import { 
   type PostComponentProps, 
-  type AuthorProfile, 
-  type EvidenceMedia, 
-  type ReportedUserInfo, 
-  type SpaceInfo 
 } from "~/lib/types";
 
 
@@ -56,18 +27,12 @@ export function Post({
   reportedUserInfo,
   space,
   currentUser,
-  onDeletePost,
-  onHidePost,
-  onUnhidePost,
 }: PostComponentProps) {
-  const [isMediaDialogOpen, setIsMediaDialogOpen] = React.useState(false);
-  const [selectedMediaIndex, setSelectedMediaIndex] = React.useState(0);
+  const [isMediaDialogOpen, setIsMediaDialogOpen] = useState(false);
+  const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
   
   const { handlePostAction, isSubmitting } = usePostActions({
     postId: id,
-    onDeletePost,
-    onHidePost,
-    onUnhidePost
   });
 
   const handleMediaClick = (index: number) => {
@@ -80,26 +45,20 @@ export function Post({
   const getStatusBadge = () => {
     if (!status || status === "published") return null;
 
-    let variant: "destructive" | "secondary" | "outline" | "default" = "default";
-    let text = "";
+    const statusMap: Record<string, { variant: BadgeVariant; text: string }> = {
+      hidden: { variant: "destructive", text: "Caché" },
+      admin_only: { variant: "secondary", text: "Admin Seulement" },
+      pending_review: { variant: "outline", text: "En Attente" },
+    };
 
-    switch (status) {
-      case "hidden":
-        variant = "destructive";
-        text = "Caché";
-        break;
-      case "admin_only":
-        variant = "secondary";
-        text = "Admin Seulement";
-        break;
-      case "pending_review":
-        variant = "outline";
-        text = "En Attente";
-        break;
-      default:
-        return null; 
-    }
-    return <Badge variant={variant} className="mr-2">{text}</Badge>;
+    const statusConfig = statusMap[status];
+    if (!statusConfig) return null;
+
+    return (
+      <Badge variant={statusConfig.variant} className="mr-2">
+        {statusConfig.text}
+      </Badge>
+    );
   };
 
   return (
@@ -127,59 +86,15 @@ export function Post({
         </div>
         <div className="flex items-center">
           {getStatusBadge()}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-7">
-                <MoreHorizontal className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {/* Delete action - available to admins, super admins, and post authors */}
-              {((currentUser.role === "admin" || currentUser.isSuperAdmin || isCurrentUserAuthor) && onDeletePost) && (
-                <DropdownMenuItem 
-                  onClick={() => handlePostAction('delete')} 
-                  className="text-destructive"
-                  disabled={isSubmitting}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  <span>Supprimer le post</span>
-                </DropdownMenuItem>
-              )}
-
-              {/* Toggle hide/show action - available to admins and moderators */}
-              {((currentUser.role === "admin" || currentUser.role === "moderator" || currentUser.isSuperAdmin) && (onHidePost || onUnhidePost)) && (
-                status === "hidden" ? (
-                  onUnhidePost && (
-                    <DropdownMenuItem 
-                      onClick={() => handlePostAction('unhide')}
-                      disabled={isSubmitting}
-                    >
-                      <Eye className="h-4 w-4" />
-                      <span>Afficher le post</span>
-                    </DropdownMenuItem>
-                  )
-                ) : (
-                  onHidePost && (
-                    <DropdownMenuItem 
-                      onClick={() => handlePostAction('hide')}
-                      disabled={isSubmitting}
-                    >
-                      <EyeOff className="h-4 w-4" />
-                      <span>Masquer le post</span>
-                    </DropdownMenuItem>
-                  )
-                )
-              )}
-
-              {/* Fallback when no actions are available */}
-              {!((currentUser.role === "admin" || currentUser.role === "moderator" || currentUser.isSuperAdmin || isCurrentUserAuthor) && 
-                 (onDeletePost || onHidePost || onUnhidePost)) && (
-                <DropdownMenuItem disabled>
-                  <span>Aucune action disponible</span>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <PostActionsMenu
+            status={status}
+            isSubmitting={isSubmitting}
+            isCurrentUserAuthor={isCurrentUserAuthor}
+            currentUser={currentUser}
+            onDeletePost={() => handlePostAction('delete')}
+            onHidePost={() => handlePostAction('hide')}
+            onUnhidePost={() => handlePostAction('unhide')}
+          />
         </div>
       </CardHeader>
 
