@@ -81,7 +81,7 @@ export default function Dashboard() {
     isSuperAdmin: user?.isSuperAdmin,
     role: user?.role?.toLowerCase() as "admin" | "moderator" | "user" || "user",
   };
-  
+
   const mappedPosts: PostComponentProps[] = posts.map((post: any /* Replace any with PrismaPost & relations */) => ({
     id: post.id,
     author: post.author ? mapPrismaUserToAuthor(post.author) : {
@@ -92,10 +92,10 @@ export default function Dashboard() {
     },
     createdAt: post.createdAt ? new Date(post.createdAt).toISOString() : new Date().toISOString(),
     content: post.description || "", // Assuming 'description' field holds the content
-    media: mapPrismaMediaToEvidence(post.media), // Assuming 'media' is an array relation
-    status: post.status ? post.status.toLowerCase() as PostComponentProps['status'] : "published", // Example mapping
-    reportedUserInfo: undefined, // Assuming no reported user info from this query for now
-    space: post.space ? mapPrismaSpaceToSpaceInfo(post.space) : undefined, // Assuming 'space' is a relation
+    media: mapPrismaMediaToEvidence(post.media), 
+    status: post.status ? post.status.toLowerCase() as PostComponentProps['status'] : "published", 
+    reportedEntity: post.reportedEntity, 
+    space: post.space ? mapPrismaSpaceToSpaceInfo(post.space) : undefined, 
     currentUser: currentUserInfo,
     post
   }));

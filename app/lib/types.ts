@@ -1,4 +1,4 @@
-import type { User } from "~/generated/prisma";
+import type { ReportedEntity, User } from "~/generated/prisma";
 
 export const USER_ROLES = {
   USER: "user",
@@ -38,13 +38,6 @@ export type EvidenceMedia = {
   thumbnailUrl?: string; // Optional: for video previews or image thumbnails
 };
 
-// Information about a user being reported in a post
-export type ReportedUserInfo = {
-  user: UserProfile;
-  platformUrl?: string; // e.g., Instagram profile link, Twitter profile link
-  // Add other relevant details about the report context if needed
-};
-
 // Represents a "Space" or community where the post belongs
 export type SpaceInfo = {
   id: string;
@@ -62,7 +55,7 @@ export type Post = {
   content: string; // The main text content of the post
   media?: EvidenceMedia[]; // Array of images or videos
   status: "published" | "hidden" | "admin_only" | "pending_review"; // Post visibility status
-  reportedUserInfo?: ReportedUserInfo; // Information about the user being reported
+  reportedEntity?: ReportedEntity; // Information about the user being reported
   space?: SpaceInfo; // The space this post belongs to
   tags?: string[]; // Optional: For categorizing or filtering posts
   // Analytics or interaction counts

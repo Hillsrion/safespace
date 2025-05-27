@@ -24,7 +24,7 @@ export function Post({
   content,
   media,
   status,
-  reportedUserInfo,
+  reportedEntity,
   space,
   currentUser,
 }: PostComponentProps) {
@@ -118,12 +118,12 @@ export function Post({
           </div>
         )}
 
-        {reportedUserInfo && (
+        {reportedEntity && (
           <div className="mt-4 border-t pt-4">
-            <p className="text-sm font-semibold">Signalé : {reportedUserInfo.user.name}</p>
-            {reportedUserInfo.platformUrl && (
+            <p className="text-sm font-semibold">Signalé : {reportedEntity.name}</p>
+            {reportedEntity.handles && reportedEntity.handles.length > 0 && (
               <a 
-                href={reportedUserInfo.platformUrl} 
+                href={reportedEntity.handles[0].handle} 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-xs text-blue-500 hover:underline"
