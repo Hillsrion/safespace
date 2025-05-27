@@ -1,4 +1,5 @@
 import * as React from "react";
+import { usePostActions } from "~/components/post/hooks/usePostActions";
 import {
   Card,
   CardContent,
@@ -59,54 +60,13 @@ export function Post({
 }: PostComponentProps) {
   const [isImageDialogOpen, setIsImageDialogOpen] = React.useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-
-  // Handle post actions (delete, hide, unhide)
-  const handlePostAction = async (action: 'delete' | 'hide' | 'unhide') => {
-    try {
-      setIsSubmitting(true);
-      const endpoint = action === 'delete' 
-        ? `/api/posts/${id}/delete` 
-        : `/api/posts/${id}/status`;
-      
-      const formData = new FormData();
-      if (action !== 'delete') {
-        formData.append('_action', action);
-      }
-      
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Request failed');
-      }
-
-      const result = await response.json() as { success: boolean; action?: string; error?: string };
-      
-      if (!result || !result.success) {
-        throw new Error(result?.error || 'Action failed');
-      }
-      
-      // Call the appropriate callback if provided
-      if (action === 'delete' && onDeletePost) {
-        onDeletePost(id);
-      } else if (action === 'hide' && onHidePost) {
-        onHidePost(id);
-      } else if (action === 'unhide' && onUnhidePost) {
-        onUnhidePost(id);
-      }
-      
-      toast.success(`Post ${action}ed successfully`);
-    } catch (error: unknown) {
-      console.error(`Error ${action}ing post:`, error);
-      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-      toast.error(`Failed to ${action} post: ${errorMessage}`);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  
+  const { handlePostAction, isSubmitting } = usePostActions({
+    postId: id,
+    onDeletePost,
+    onHidePost,
+    onUnhidePost
+  });
 
   const handleImageClick = (index: number) => {
     setSelectedImageIndex(index);

@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import { Post, type PostComponentProps } from "./post"; // Adjust path if necessary
+import { Post, type PostComponentProps } from "."; // Adjust path if necessary
 import { type AuthorProfile, type EvidenceMedia, type SpaceInfo, type ReportedUserInfo } from "~/lib/types"; // Adjust path
 
 // Mock Lucide icons
