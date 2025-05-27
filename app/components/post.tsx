@@ -59,19 +59,12 @@ export function Post({
 }: PostComponentProps) {
   const [isImageDialogOpen, setIsImageDialogOpen] = React.useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
-  const fetcher = useFetcher<ApiResponse>();
-  const isSubmitting = fetcher.state !== 'idle';
-
-  // Define the response type for the API
-  type ApiResponse = {
-    success: boolean;
-    action?: string;
-    error?: string;
-  };
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Handle post actions (delete, hide, unhide)
   const handlePostAction = async (action: 'delete' | 'hide' | 'unhide') => {
     try {
+      setIsSubmitting(true);
       const endpoint = action === 'delete' 
         ? `/api/posts/${id}/delete` 
         : `/api/posts/${id}/status`;
@@ -81,18 +74,16 @@ export function Post({
         formData.append('_action', action);
       }
       
-      // Submit the form and wait for the response
-      await fetcher.submit(formData, {
+      const response = await fetch(endpoint, {
         method: 'POST',
-        action: endpoint,
+        body: formData,
       });
-      
-      // The fetcher.data will be populated after submission
-      const result = fetcher.data as { success: boolean; action?: string; error?: string } | undefined;
-      
-      if (!result) {
-        throw new Error('No response from server');
+
+      if (!response.ok) {
+        throw new Error('Request failed');
       }
+
+      const result = await response.json() as { success: boolean; action?: string; error?: string };
       
       if (!result || !result.success) {
         throw new Error(result?.error || 'Action failed');
@@ -112,6 +103,8 @@ export function Post({
       console.error(`Error ${action}ing post:`, error);
       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
       toast.error(`Failed to ${action} post: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
