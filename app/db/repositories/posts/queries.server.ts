@@ -1,5 +1,5 @@
 import { prisma } from "~/db/client.server";
-import type { Post, PostStatus } from "~/generated/prisma";
+import type { PostStatus } from "~/generated/prisma";
 import { getUserById } from "../users.server";
 
 type GetUserPostsOptions = {
@@ -149,4 +149,35 @@ export async function getAllPosts(userId: string) {
   } else {
     return [];
   }
+}
+
+export async function deletePost(postId: string) {
+  return prisma.post.delete({
+    where: { id: postId },
+  });
+}
+
+export async function updatePostStatus(
+  postId: string,
+  status: "active" | "hidden"
+) {
+  return prisma.post.update({
+    where: { id: postId },
+    data: { status },
+  });
+}
+
+export async function getPostWithSpace(postId: string) {
+  return prisma.post.findUnique({
+    where: { id: postId },
+    include: {
+      author: true,
+      space: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
 }
