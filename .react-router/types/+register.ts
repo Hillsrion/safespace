@@ -19,8 +19,8 @@ type Params = {
   "/dashboard/account": {};
   "/dashboard/superadmin": {};
   "/dashboard/spaces/new": {};
-  "/dashboard/posts-example": {};
+  "/resources/api/search": {};
   "/resources/api/spaces": {};
-  "/api": {};
-  "/api/search": {};
+  "/resources/api/posts/delete": {};
+  "/resources/api/posts/edit": {};
 };

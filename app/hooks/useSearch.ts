@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import debounce from 'lodash-es/debounce';
-import { getSearch } from '~/services/api.client/search';
-import type { SearchResults } from '~/services/api.client/search';
+import { useState, useEffect, useCallback } from "react";
+import debounce from "lodash-es/debounce";
+import { getSearch } from "~/services/api.client/search";
+import type { SearchResults } from "~/services/api.client/search";
 
 // Define types for results based on the API response structure
 // The API returns an array of objects, each with a 'type' and 'data' field.
@@ -10,9 +10,9 @@ interface SearchResultItemData {
   id: string;
   // Common fields, specific fields depend on the 'type'
   description?: string; // For Post
-  name?: string;        // For ReportedEntity
+  name?: string; // For ReportedEntity
   // Add other potential fields from different data types if known, or keep it general
-  [key: string]: any; 
+  [key: string]: any;
 }
 
 interface SearchResultItem {
@@ -21,14 +21,15 @@ interface SearchResultItem {
 }
 
 export function useSearch() {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [results, setResults] = useState<SearchResults>([]);
   const [loading, setLoading] = useState(false);
 
   // useCallback for fetchResults to memoize it unless dependencies change.
   // Here, it has no dependencies other than what's available in its scope (fetch, setResults, setLoading).
   const fetchResults = useCallback(async (query: string) => {
-    if (!query.trim()) { // Check if the query is empty or just whitespace
+    if (!query.trim()) {
+      // Check if the query is empty or just whitespace
       setResults([]);
       setLoading(false);
       return;
@@ -47,7 +48,9 @@ export function useSearch() {
 
   // useCallback for debouncedFetchResults to memoize the debounced function.
   // The dependency array includes fetchResults, so if fetchResults changes, the debounced function is recreated.
-  const debouncedFetchResults = useCallback(debounce(fetchResults, 500), [fetchResults]);
+  const debouncedFetchResults = useCallback(debounce(fetchResults, 500), [
+    fetchResults,
+  ]);
 
   useEffect(() => {
     // Call the debounced function when searchTerm changes.
