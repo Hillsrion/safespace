@@ -78,10 +78,18 @@ const POST_THEMES = [
     ],
     details: () => {
       const photographerFullName = faker.person.fullName();
+      const [firstName, lastName] = photographerFullName.split(" ");
+      const cleanFirstName = removeAccents(firstName || "");
+      const cleanLastName = removeAccents(lastName || "");
+      const baseHandle =
+        `${cleanLastName || ""}${
+          cleanFirstName ? `.${cleanFirstName.charAt(0)}` : ""
+        }`.toLowerCase() || faker.internet.userName().toLowerCase();
+      const igHandle = `sf.${baseHandle}${faker.string.numeric(2)}`;
       return {
         photographer_full_name: photographerFullName,
         reported_entity_name: photographerFullName,
-        ig_handle: faker.internet.userName(),
+        ig_handle: igHandle,
         city: faker.location.city(),
         location: faker.location.streetAddress(true),
       };
@@ -99,7 +107,8 @@ const POST_THEMES = [
         contact_person_full_name: contactPersonFullName,
         reported_entity_name: contactPersonFullName,
         contact_person_role: faker.person.jobType(),
-        address: faker.location.secondaryAddress() + " " + faker.location.street(),
+        address:
+          faker.location.secondaryAddress() + " " + faker.location.street(),
         company_name: faker.company.name(),
         action_coerced: faker.word.verb() + " " + faker.word.noun(),
       };
@@ -201,7 +210,7 @@ async function main() {
       // First create the space with just the required fields
       const space = await prisma.space.create({
         data: {
-          name: `${city} - SafeZone ${faker.word.noun()} ${i + 1}`,
+          name: `${city} - SafeZone ${i + 1}`,
           description: faker.lorem.sentence(),
           createdBy: creator.id,
         },
@@ -320,7 +329,15 @@ async function main() {
 
       // Create Reported Entity
       // Use the reported_entity_name from the theme details if available, otherwise generate a random name
-      const reportedEntityName = contentDetails.reported_entity_name || faker.person.fullName();
+      const reportedEntityName =
+        contentDetails.reported_entity_name || faker.person.fullName();
+      const [firstName, lastName] = reportedEntityName.split(" ");
+      const baseHandle =
+        `${lastName || ""}${
+          firstName ? `.${firstName.charAt(0)}` : ""
+        }`.toLowerCase() || faker.internet.userName().toLowerCase();
+      const igHandle = `sf.${baseHandle}${faker.string.numeric(2)}`;
+
       const createdReportedEntity = await prisma.reportedEntity.create({
         data: {
           name: reportedEntityName,
@@ -330,12 +347,7 @@ async function main() {
             create: [
               {
                 platform: "Instagram",
-                handle: `fake_${faker.internet
-                  .userName({
-                    firstName: reportedEntityName.split(" ")[0],
-                    lastName: reportedEntityName.split(" ")[1] || "",
-                  })
-                  .toLowerCase()}_${faker.string.alphanumeric(4)}`,
+                handle: igHandle,
               },
             ],
           },
@@ -386,7 +398,15 @@ async function main() {
       );
 
       // Use the reported_entity_name from the theme details if available, otherwise generate a random name
-      const reportedEntityName = contentDetails.reported_entity_name || faker.person.fullName();
+      const reportedEntityName =
+        contentDetails.reported_entity_name || faker.person.fullName();
+      const [firstName, lastName] = reportedEntityName.split(" ");
+      const baseHandle =
+        `${lastName || ""}${
+          firstName ? `.${firstName.charAt(0)}` : ""
+        }`.toLowerCase() || faker.internet.userName().toLowerCase();
+      const igHandle = `sf.${baseHandle}${faker.string.numeric(2)}`;
+
       const createdReportedEntity = await prisma.reportedEntity.create({
         data: {
           name: reportedEntityName,
@@ -396,12 +416,7 @@ async function main() {
             create: [
               {
                 platform: "Instagram",
-                handle: `fake_personal_${faker.internet
-                  .userName({
-                    firstName: reportedEntityName.split(" ")[0],
-                    lastName: reportedEntityName.split(" ")[1] || "",
-                  })
-                  .toLowerCase()}_${faker.string.alphanumeric(3)}`,
+                handle: igHandle,
               },
             ],
           },
