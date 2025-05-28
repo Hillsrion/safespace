@@ -224,6 +224,32 @@ async function main() {
   }
   console.log(`✅ ${createdSpaces.length} spaces created.`);
 
+  // Track the last created date for each user to ensure posts are not on the same day
+  const userLastPostDate: Record<string, Date> = {};
+
+  // Helper function to get a date that's before the user's last post
+  const getPostDate = (userId: string): Date => {
+    const now = new Date();
+    let lastDate = userLastPostDate[userId];
+
+    // If user has no posts yet, use a random date in the past 2 years
+    if (!lastDate) {
+      const daysAgo = faker.number.int({ min: 1, max: 730 }); // Up to 2 years
+      lastDate = new Date(now);
+      lastDate.setDate(now.getDate() - daysAgo);
+    } else {
+      // Otherwise, set the date to at least one day before the last post
+      lastDate = new Date(lastDate);
+      lastDate.setDate(
+        lastDate.getDate() - faker.number.int({ min: 1, max: 30 })
+      );
+    }
+
+    // Update the user's last post date
+    userLastPostDate[userId] = lastDate;
+    return lastDate;
+  };
+
   // 4. Create UserSpaceMemberships
   console.log("🤝 Creating user space memberships...");
   const memberships: Array<{
@@ -354,10 +380,17 @@ async function main() {
         },
       });
 
+      const postAuthorId = author?.id;
+      const postDate = postAuthorId ? getPostDate(postAuthorId) : new Date();
+
       await prisma.post.create({
         data: {
           space: { connect: { id: space.id } },
-          author: author ? { connect: { id: author.id } } : undefined,
+          author: isAnonymous
+            ? undefined
+            : author
+            ? { connect: { id: author.id } }
+            : undefined,
           reportedEntity: { connect: { id: createdReportedEntity.id } },
           description,
           isAnonymous,
@@ -370,6 +403,8 @@ async function main() {
             "verified",
             "disputed",
           ]),
+          createdAt: postDate,
+          updatedAt: postDate,
         },
       });
       postsCreatedCount++;
@@ -423,15 +458,19 @@ async function main() {
         },
       });
 
+      const postDate = getPostDate(user.id);
+
       await prisma.post.create({
         data: {
           space: { connect: { id: spaceId } },
           author: { connect: { id: user.id } },
           reportedEntity: { connect: { id: createdReportedEntity.id } },
-          description: `[Personal Report] ${description}`,
+          description,
           isAnonymous: false,
           isAdminOnly: false,
           status: PostStatus.active,
+          createdAt: postDate,
+          updatedAt: postDate,
         },
       });
       additionalPostsCount++;
