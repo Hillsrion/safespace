@@ -9,6 +9,24 @@ const removeAccents = (str: string): string => {
   return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
 
+// Function to generate a name without honorifics
+const generateName = (): string => {
+  const name = faker.person.fullName();
+  // Common titles and honorifics to remove
+  const honorifics = [
+    'mr', 'mrs', 'ms', 'miss', 'dr', 'prof', 'professor', 'sir', 'dame',
+    'lord', 'lady', 'rev', 'fr', 'brother', 'sister', 'father', 'mother',
+    'm\.', 'mme', 'mlle', 'm\.', 'mme', 'mlle', 'm\.', 'mme', 'mlle',
+    'mr\.', 'mrs\.', 'ms\.', 'dr\.', 'prof\.', 'sr\.', 'jr\.', 'esq', 'esq\.',
+    'hon', 'hon\.', 'honorable', 'the honorable', 'the hon', 'the hon\.',
+    'sir', 'dame', 'lady', 'lord', 'sir\.', 'dame\.', 'lady\.', 'lord\.'
+  ];
+  // Create a regex pattern that matches any of the honorifics at the start of the string
+  const honorificPattern = new RegExp(`^\\s*(${honorifics.join('|')})[\\s\\.]+`, 'i');
+  // Remove the honorific and any extra spaces
+  return name.replace(honorificPattern, '').trim();
+};
+
 const prisma = new PrismaClient();
 
 // --- Configuration ---
@@ -59,7 +77,7 @@ const POST_THEMES = [
       "Lors d'un after entre photographes et modèles à {event_location}, {suspect_full_name} m'a offert un verre. En moins de 15 minutes, j'étais confuse, j'avais du mal à tenir debout. Je ne bois presque jamais, donc c'était clairement anormal. J'ai fui sans trop comprendre ce qu'il m'arrivait. Je ne suis malheureusement pas la seule à avoir eu un malaise après un verre avec lui.",
     ],
     details: () => {
-      const suspectFullName = faker.person.fullName();
+      const suspectFullName = generateName();
       return {
         venue_name: faker.company.name() + " Studio",
         bar_name: faker.company.name() + " Bar",
@@ -77,7 +95,7 @@ const POST_THEMES = [
       "Ce message s’adresse aux modèles travaillant à {city} : le photographe {photographer_full_name} m’a menacée de ne pas me remettre mes photos si je ne faisais pas une session 'plus hot' le lendemain. Il a aussi refusé que j’amène une amie au shooting. J’ai appris par la suite qu’il avait eu des comportements similaires avec d’autres modèles. Si vous avez aussi vécu des choses avec lui, je vous invite à en parler.",
     ],
     details: () => {
-      const photographerFullName = faker.person.fullName();
+      const photographerFullName = generateName();
       const [firstName, lastName] = photographerFullName.split(" ");
       const cleanFirstName = removeAccents(firstName || "");
       const cleanLastName = removeAccents(lastName || "");
@@ -102,7 +120,7 @@ const POST_THEMES = [
       "Le directeur de {company_name}, {contact_person_full_name}, a eu un comportement déplacé et insistant pour que je {action_coerced} après un entretien.",
     ],
     details: () => {
-      const contactPersonFullName = faker.person.fullName();
+      const contactPersonFullName = generateName();
       return {
         contact_person_full_name: contactPersonFullName,
         reported_entity_name: contactPersonFullName,
