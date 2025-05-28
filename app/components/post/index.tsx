@@ -118,8 +118,12 @@ export function Post({
           </div>
         )}
 
-        {reportedEntity && (
-          <div className="mt-4 border-t pt-4">
+      </CardContent>
+
+      {space && (
+        <CardFooter className="flex justify-between border-t pt-4">
+          {reportedEntity && (
+          <div>
             <p className="text-sm font-semibold">Signalé : {reportedEntity.name}</p>
             {reportedEntity.handles && reportedEntity.handles.length > 0 && (
               <a 
@@ -133,10 +137,6 @@ export function Post({
             )}
           </div>
         )}
-      </CardContent>
-
-      {space && (
-        <CardFooter className="flex justify-end border-t pt-4">
           <Link to={space.url} className="text-sm text-blue-500 hover:underline">
             {space.name}
           </Link>
