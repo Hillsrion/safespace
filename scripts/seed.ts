@@ -54,45 +54,56 @@ const POST_THEMES = [
   {
     type: "spiking",
     templates: [
-      "Lors d’une soirée après un shooting à {venue_name}, j’ai accepté un verre proposé par {suspect_name}, un photographe présent sur place. Peu après, j’ai eu des vertiges et une sensation de flottement. Je suis partie précipitamment, mal à l’aise. D’autres personnes m’ont ensuite dit avoir eu un ressenti étrange à son contact.",
-      "Je veux signaler un incident qui m’est arrivé au {bar_name} après une expo photo. {suspect_name} m’a proposé un verre, que j’ai laissé quelques minutes sans surveillance. J’ai ensuite ressenti une forte désorientation. J’ai dû rentrer seule, paniquée. Faites attention à cette personne, plusieurs modèles m’ont partagé des expériences similaires.",
-      "Lors d’un after entre photographes et modèles à {event_location}, {suspect_name} m’a offert un verre. En moins de 15 minutes, j’étais confuse, j’avais du mal à tenir debout. Je ne bois presque jamais, donc c’était clairement anormal. J’ai fui sans trop comprendre ce qu’il m’arrivait. Je ne suis malheureusement pas la seule à avoir eu un malaise après un verre avec lui.",
+      "Lors d'une soirée après un shooting à {venue_name}, j'ai accepté un verre proposé par {suspect_full_name}, un photographe présent sur place. Peu après, j'ai eu des vertiges et une sensation de flottement. Je suis partie précipitamment, mal à l'aise. D'autres personnes m'ont ensuite dit avoir eu un ressenti étrange à son contact.",
+      "Je veux signaler un incident qui m'est arrivé au {bar_name} après une expo photo. {suspect_full_name} m'a proposé un verre, que j'ai laissé quelques minutes sans surveillance. J'ai ensuite ressenti une forte désorientation. J'ai dû rentrer seule, paniquée. Faites attention à cette personne, plusieurs modèles m'ont partagé des expériences similaires.",
+      "Lors d'un after entre photographes et modèles à {event_location}, {suspect_full_name} m'a offert un verre. En moins de 15 minutes, j'étais confuse, j'avais du mal à tenir debout. Je ne bois presque jamais, donc c'était clairement anormal. J'ai fui sans trop comprendre ce qu'il m'arrivait. Je ne suis malheureusement pas la seule à avoir eu un malaise après un verre avec lui.",
     ],
-    details: () => ({
-      venue_name: faker.company.name() + " Studio",
-      bar_name: faker.company.name() + " Bar",
-      event_location: faker.location.city() + ", " + faker.location.street(),
-      suspect_name: faker.person.fullName(),
-    }),
+    details: () => {
+      const suspectFullName = faker.person.fullName();
+      return {
+        venue_name: faker.company.name() + " Studio",
+        bar_name: faker.company.name() + " Bar",
+        event_location: faker.location.city() + ", " + faker.location.street(),
+        suspect_full_name: suspectFullName,
+        reported_entity_name: suspectFullName,
+      };
+    },
   },
   {
     type: "misconduct",
     templates: [
-      "Je me permets de relayer plusieurs témoignages que j’ai reçus concernant le photographe {photographer_name} (@{ig_handle}), connu dans la scène photo à {city}. Les retours concernent des comportements graves : cris pendant les shoots, propos dégradants comme 'ça c’est une pose de pute', insistance pour des nudes, non-paiement, et vol de contenu. Si vous avez eu une mauvaise expérience, n’hésitez pas à témoigner aussi.",
-      "J’ai travaillé avec {photographer_name} il y a quelques mois dans le cadre d’un projet. Sur place, il était seul, l’ambiance très oppressante, et il a verrouillé la porte une fois dans le studio. J’ai eu très peur. Il a tenté de me convaincre de faire des photos très explicites, en me disant que 'c’est comme ça qu’on perce'. Je suis partie dès que j’ai pu. Faites attention à vous.",
-      "Ce message s’adresse aux modèles travaillant à {city} : le photographe {photographer_name} m’a menacée de ne pas me remettre mes photos si je ne faisais pas une session 'plus hot' le lendemain. Il a aussi refusé que j’amène une amie au shooting. J’ai appris par la suite qu’il avait eu des comportements similaires avec d’autres modèles. Si vous avez aussi vécu des choses avec lui, je vous invite à en parler.",
+      "Je me permets de relayer plusieurs témoignages que j’ai reçus concernant le photographe {photographer_full_name} (@{ig_handle}), connu dans la scène photo à {city}. Les retours concernent des comportements graves : cris pendant les shoots, propos dégradants comme 'ça c’est une pose de pute', insistance pour des nudes, non-paiement, et vol de contenu. Si vous avez eu une mauvaise expérience, n’hésitez pas à témoigner aussi.",
+      "J’ai travaillé avec {photographer_full_name} il y a quelques mois dans le cadre d’un projet. Sur place, il était seul, l’ambiance très oppressante, et il a verrouillé la porte une fois dans le studio. J’ai eu très peur. Il a tenté de me convaincre de faire des photos très explicites, en me disant que 'c’est comme ça qu’on perce'. Je suis partie dès que j’ai pu. Faites attention à vous.",
+      "Ce message s’adresse aux modèles travaillant à {city} : le photographe {photographer_full_name} m’a menacée de ne pas me remettre mes photos si je ne faisais pas une session 'plus hot' le lendemain. Il a aussi refusé que j’amène une amie au shooting. J’ai appris par la suite qu’il avait eu des comportements similaires avec d’autres modèles. Si vous avez aussi vécu des choses avec lui, je vous invite à en parler.",
     ],
-    details: () => ({
-      photographer_name: faker.person.fullName(),
-      ig_handle: faker.internet.userName(),
-      city: faker.location.city(),
-      location: faker.location.streetAddress(true),
-    }),
+    details: () => {
+      const photographerFullName = faker.person.fullName();
+      return {
+        photographer_full_name: photographerFullName,
+        reported_entity_name: photographerFullName,
+        ig_handle: faker.internet.userName(),
+        city: faker.location.city(),
+        location: faker.location.streetAddress(true),
+      };
+    },
   },
   {
     type: "coercion",
     templates: [
-      "J'ai subi des pressions pour me déshabiller de la part de {contact_person_name}, qui se présentait comme {contact_person_role}, pendant un casting bidon à {address}.",
-      "Le directeur de {company_name} a eu un comportement déplacé et insistant pour que je {action_coerced} après un entretien.",
+      "J'ai subi des pressions pour me déshabiller de la part de {contact_person_full_name}, qui se présentait comme {contact_person_role}, pendant un casting bidon à {address}.",
+      "Le directeur de {company_name}, {contact_person_full_name}, a eu un comportement déplacé et insistant pour que je {action_coerced} après un entretien.",
     ],
-    details: () => ({
-      contact_person_name: faker.person.fullName(),
-      contact_person_role: faker.person.jobType(),
-      address:
-        faker.location.secondaryAddress() + " " + faker.location.street(),
-      company_name: faker.company.name(),
-      action_coerced: faker.word.verb() + " " + faker.word.noun(),
-    }),
+    details: () => {
+      const contactPersonFullName = faker.person.fullName();
+      return {
+        contact_person_full_name: contactPersonFullName,
+        reported_entity_name: contactPersonFullName,
+        contact_person_role: faker.person.jobType(),
+        address: faker.location.secondaryAddress() + " " + faker.location.street(),
+        company_name: faker.company.name(),
+        action_coerced: faker.word.verb() + " " + faker.word.noun(),
+      };
+    },
   },
 ];
 
@@ -308,7 +319,8 @@ async function main() {
       const author = isAnonymous ? null : getRandomElement(spaceUsers);
 
       // Create Reported Entity
-      const reportedEntityName = faker.person.fullName();
+      // Use the reported_entity_name from the theme details if available, otherwise generate a random name
+      const reportedEntityName = contentDetails.reported_entity_name || faker.person.fullName();
       const createdReportedEntity = await prisma.reportedEntity.create({
         data: {
           name: reportedEntityName,
@@ -373,7 +385,8 @@ async function main() {
         contentDetails
       );
 
-      const reportedEntityName = faker.person.fullName();
+      // Use the reported_entity_name from the theme details if available, otherwise generate a random name
+      const reportedEntityName = contentDetails.reported_entity_name || faker.person.fullName();
       const createdReportedEntity = await prisma.reportedEntity.create({
         data: {
           name: reportedEntityName,
@@ -384,7 +397,10 @@ async function main() {
               {
                 platform: "Instagram",
                 handle: `fake_personal_${faker.internet
-                  .userName()
+                  .userName({
+                    firstName: reportedEntityName.split(" ")[0],
+                    lastName: reportedEntityName.split(" ")[1] || "",
+                  })
                   .toLowerCase()}_${faker.string.alphanumeric(3)}`,
               },
             ],
