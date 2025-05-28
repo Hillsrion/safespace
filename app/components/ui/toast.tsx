@@ -29,7 +29,12 @@ const toastVariants = cva(
       variant: {
         default: "border bg-background text-foreground",
         destructive:
-          "destructive group border-destructive bg-destructive text-destructive-foreground",
+          "border-red-500 bg-red-100 text-red-700 dark:border-red-700 dark:bg-red-900 dark:text-red-200",
+        success:
+          "border-green-500 bg-green-100 text-green-700 dark:border-green-700 dark:bg-green-900 dark:text-green-200",
+        warning:
+          "border-yellow-500 bg-yellow-100 text-yellow-700 dark:border-yellow-700 dark:bg-yellow-900 dark:text-yellow-200",
+        info: "border-blue-500 bg-blue-100 text-blue-700 dark:border-blue-700 dark:bg-blue-900 dark:text-blue-200",
       },
     },
     defaultVariants: {
@@ -110,13 +115,16 @@ const ToastDescription = React.forwardRef<
 ))
 ToastDescription.displayName = ToastPrimitives.Description.displayName
 
-type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
+type ToastProps = React.ComponentPropsWithoutRef<typeof Toast> & {
+  variant?: VariantProps<typeof toastVariants>["variant"]
+}
 
 type ToastActionElement = React.ReactElement<typeof ToastAction>
 
 export {
   type ToastProps,
   type ToastActionElement,
+  toastVariants, // export toastVariants
   ToastProvider,
   ToastViewport,
   Toast,
