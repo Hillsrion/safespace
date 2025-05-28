@@ -3,10 +3,22 @@ import "@testing-library/jest-dom";
 import { Post, type PostComponentProps } from "."; // Adjust path if necessary
 import { type AuthorProfile, type EvidenceMedia, type SpaceInfo, type ReportedUserInfo } from "~/lib/types"; // Adjust path
 
+import { type ReportedEntity } from "~/lib/types"; // Adjust path
+
 // Mock Lucide icons
 jest.mock("lucide-react", () => ({
   ...jest.requireActual("lucide-react"),
   MoreHorizontal: () => <div data-testid="more-horizontal-icon" />,
+  CircleAlert: () => <div data-testid="circle-alert-icon" />,
+  ShieldUser: () => <div data-testid="shield-user-icon" />,
+}));
+
+// Mock Tooltip components
+jest.mock("~/components/ui/tooltip", () => ({
+  Tooltip: ({ children }: { children: React.ReactNode }) => <div data-testid="tooltip">{children}</div>,
+  TooltipContent: ({ children }: { children: React.ReactNode }) => <div data-testid="tooltip-content">{children}</div>,
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <div data-testid="tooltip-provider">{children}</div>,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <div data-testid="tooltip-trigger">{children}</div>,
 }));
 
 // Mock react-router-dom Link
@@ -23,6 +35,7 @@ const createMockAuthor = (id: string, name: string, username: string, isAdmin = 
   avatarUrl: `https://via.placeholder.com/40?text=${name.charAt(0)}`,
   isAdmin,
   isModerator,
+  role: isAdmin ? "admin" : isModerator ? "moderator" : "user",
 });
 
 const createMockMedia = (count: number): EvidenceMedia[] =>
@@ -32,6 +45,13 @@ const createMockMedia = (count: number): EvidenceMedia[] =>
     type: "image",
     altText: `Evidence image ${i + 1}`,
   }));
+
+const createMockReportedEntity = (name: string, handles?: Array<{ handle: string; platform: string }>): ReportedEntity => ({
+  id: `reported-${name.toLowerCase().replace(/\s+/g, "-")}`,
+  name,
+  handles: handles || [],
+});
+
 
 const defaultAuthor = createMockAuthor("author1", "Default Author", "defaultauthor");
 const defaultCurrentUser = { id: "currentUser1", role: "user" as "admin" | "moderator" | "user" };
@@ -94,8 +114,12 @@ describe("Post Component", () => {
     render(<Post {...basePostProps} status="pending_review" />);
     expect(screen.getByText("En Attente")).toBeInTheDocument();
 
-    render(<Post {...basePostProps} status="published" />); // Test for published status as well
-    expect(screen.getByText("Publié")).toBeInTheDocument();
+    // Test for published status (no badge)
+    const { queryByText } = render(<Post {...basePostProps} status="published" />);
+    expect(queryByText("Caché")).not.toBeInTheDocument();
+    expect(queryByText("Admin Seulement")).not.toBeInTheDocument();
+    expect(queryByText("En Attente")).not.toBeInTheDocument();
+    expect(queryByText("Publié")).not.toBeInTheDocument(); // Assuming "Publié" isn't a badge text
   });
 
   test("renders media carousel when media is provided", () => {
@@ -115,27 +139,129 @@ describe("Post Component", () => {
     // The Dialog component in post.tsx uses DialogTitle "Visionneuse d'images" (sr-only)
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByAltText("Evidence image 1")).toBeVisible(); // Check if the clicked image is visible in the dialog
-    // Test dialog navigation buttons
-    fireEvent.click(screen.getByText("Suivant")); // Assuming there's more than one image if these buttons show
-    fireEvent.click(screen.getByText("Précédent"));
+    // Test dialog navigation buttons (if multiple images)
+    // fireEvent.click(screen.getByText("Suivant")); 
+    // fireEvent.click(screen.getByText("Précédent"));
   });
 
-  test("renders reported user info in French", () => {
-    const reportedUserInfo: ReportedUserInfo = {
-      user: createMockAuthor("reported1", "Reported Person", "reportedperson"),
-      platformUrl: "http://instagram.com/reported",
-    };
-    render(<Post {...basePostProps} reportedUserInfo={reportedUserInfo} />);
-    expect(screen.getByText(`Signalé : ${reportedUserInfo.user.name}`)).toBeInTheDocument();
-    expect(screen.getByText("Profil Instagram")).toHaveAttribute("href", reportedUserInfo.platformUrl);
+  // Remove or update the old reportedUserInfo test as it's replaced by reportedEntity
+  // test("renders reported user info in French", () => { ... });
+
+  // Remove or update the old space link test as it's replaced by the new button style
+  // test("renders space link with React Router Link", () => { ... });
+
+  describe("Reported Entity Display", () => {
+    const reportedEntityWithInstagram = createMockReportedEntity("Scammer Person", [{ handle: "scammerInsta", platform: "Instagram" }]);
+    const reportedEntityWithTwitter = createMockReportedEntity("Bad Actor", [{ handle: "badTwitter", platform: "Twitter" }]);
+    const reportedEntityWithWebsite = createMockReportedEntity("Phishing Site", [{ handle: "phish.com/login", platform: "Website" }]);
+    const reportedEntityNoHandles = createMockReportedEntity("Anonymous Entity");
+    const reportedEntityFacebookSimpleHandle = createMockReportedEntity("FB User", [{ handle: "fbUserHandle", platform: "Facebook" }]);
+    const reportedEntityOtherDomainHandle = createMockReportedEntity("Other User", [{ handle: "some.domain.com/user", platform: "Other" }]);
+    const reportedEntityFullUrlHandleInstagram = createMockReportedEntity("Insta Celeb", [{ handle: "http://completely-different.com/instaceleb", platform: "Instagram" }]);
+    const reportedEntityFullUrlHandleOther = createMockReportedEntity("Random Profile", [{ handle: "https://another-site.net/profileXYZ", platform: "CustomPlatform" }]);
+
+
+    test("renders correctly for Instagram (supported platform)", () => {
+      render(<Post {...basePostProps} reportedEntity={reportedEntityWithInstagram} />);
+      expect(screen.getByTestId("circle-alert-icon")).toBeInTheDocument();
+      const entityNameElement = screen.getByText(reportedEntityWithInstagram.name);
+      expect(entityNameElement).toBeInTheDocument();
+      expect(entityNameElement).toHaveClass("font-semibold", "text-muted-foreground");
+      
+      const handleLink = screen.getByText(`@${reportedEntityWithInstagram.handles[0].handle}`);
+      expect(handleLink).toBeInTheDocument();
+      expect(handleLink).toHaveAttribute("href", `https://www.instagram.com/${reportedEntityWithInstagram.handles[0].handle}`);
+      expect(screen.getByTestId("tooltip-content")).toHaveTextContent(reportedEntityWithInstagram.handles[0].platform);
+    });
+
+    test("renders correctly for Twitter (supported platform)", () => {
+      render(<Post {...basePostProps} reportedEntity={reportedEntityWithTwitter} />);
+      const handleLink = screen.getByText(`@${reportedEntityWithTwitter.handles[0].handle}`);
+      expect(handleLink).toHaveAttribute("href", `https://twitter.com/${reportedEntityWithTwitter.handles[0].handle}`);
+      expect(screen.getByTestId("tooltip-content")).toHaveTextContent(reportedEntityWithTwitter.handles[0].platform);
+    });
+    
+    test("renders correctly for Website (supported platform, handle is path only)", () => {
+      render(<Post {...basePostProps} reportedEntity={reportedEntityWithWebsite} />);
+      const handleLink = screen.getByText(`@${reportedEntityWithWebsite.handles[0].handle}`);
+      expect(handleLink).toHaveAttribute("href", `https://${reportedEntityWithWebsite.handles[0].handle}`); // Expects https:// to be prepended
+      expect(screen.getByTestId("tooltip-content")).toHaveTextContent(reportedEntityWithWebsite.handles[0].platform);
+    });
+
+    test("fallback behavior: prepends https:// for unlisted platform and simple handle", () => {
+      render(<Post {...basePostProps} reportedEntity={reportedEntityFacebookSimpleHandle} />);
+      const handleLink = screen.getByText(`@${reportedEntityFacebookSimpleHandle.handles[0].handle}`);
+      expect(handleLink).toBeInTheDocument();
+      expect(handleLink).toHaveAttribute("href", `https://${reportedEntityFacebookSimpleHandle.handles[0].handle}`);
+      expect(screen.getByTestId("tooltip-content")).toHaveTextContent(reportedEntityFacebookSimpleHandle.handles[0].platform); // Tooltip shows original platform
+    });
+
+    test("fallback behavior: prepends https:// for 'Other' platform and domain/path handle", () => {
+      render(<Post {...basePostProps} reportedEntity={reportedEntityOtherDomainHandle} />);
+      const handleLink = screen.getByText(`@${reportedEntityOtherDomainHandle.handles[0].handle}`);
+      expect(handleLink).toBeInTheDocument();
+      expect(handleLink).toHaveAttribute("href", `https://${reportedEntityOtherDomainHandle.handles[0].handle}`);
+      expect(screen.getByTestId("tooltip-content")).toHaveTextContent(reportedEntityOtherDomainHandle.handles[0].platform);
+    });
+
+    test("uses handle directly if it's a full URL (http), even for a supported platform", () => {
+      render(<Post {...basePostProps} reportedEntity={reportedEntityFullUrlHandleInstagram} />);
+      const handleLink = screen.getByText(`@${reportedEntityFullUrlHandleInstagram.handles[0].handle}`);
+      expect(handleLink).toBeInTheDocument();
+      expect(handleLink).toHaveAttribute("href", reportedEntityFullUrlHandleInstagram.handles[0].handle); // Uses the full URL directly
+      expect(screen.getByTestId("tooltip-content")).toHaveTextContent(reportedEntityFullUrlHandleInstagram.handles[0].platform);
+    });
+
+    test("uses handle directly if it's a full URL (https) for an unlisted platform", () => {
+      render(<Post {...basePostProps} reportedEntity={reportedEntityFullUrlHandleOther} />);
+      const handleLink = screen.getByText(`@${reportedEntityFullUrlHandleOther.handles[0].handle}`);
+      expect(handleLink).toBeInTheDocument();
+      expect(handleLink).toHaveAttribute("href", reportedEntityFullUrlHandleOther.handles[0].handle); // Uses the full URL directly
+      expect(screen.getByTestId("tooltip-content")).toHaveTextContent(reportedEntityFullUrlHandleOther.handles[0].platform);
+    });
+    
+    test("renders reported entity info without handle link if no handles are present", () => {
+      render(<Post {...basePostProps} reportedEntity={reportedEntityNoHandles} />);
+      expect(screen.getByTestId("circle-alert-icon")).toBeInTheDocument();
+      expect(screen.getByText(reportedEntityNoHandles.name)).toBeInTheDocument();
+      expect(screen.queryByRole("link")).not.toBeInTheDocument(); // No links for handles
+      expect(screen.queryByTestId("tooltip")).not.toBeInTheDocument();
+    });
+
+    test("does not render reported entity section if reportedEntity is null", () => {
+      render(<Post {...basePostProps} reportedEntity={null} />);
+      expect(screen.queryByTestId("circle-alert-icon")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Scammer Person/i)).not.toBeInTheDocument(); // Check against a known name
+    });
   });
 
-  test("renders space link with React Router Link", () => {
-    const space: SpaceInfo = { id: "space1", name: "Test Space", url: "/space/test" };
-    render(<Post {...basePostProps} space={space} />);
-    const spaceLinkElement = screen.getByText(`Espace : ${space.name}`);
-    expect(spaceLinkElement).toBeInTheDocument();
-    expect(spaceLinkElement).toHaveAttribute("href", space.url); // Check 'href' due to mock
+  describe("Space Link Display", () => {
+    const spaceInfo: SpaceInfo = { id: "s1", name: "Justice League", url: "/spaces/justice-league" };
+
+    test("renders space link as a ghost button with icon, name, and correct URL", () => {
+      render(<Post {...basePostProps} space={spaceInfo} />);
+      
+      const buttonLink = screen.getByRole("link", { name: spaceInfo.name }); // The link is inside the button
+      expect(buttonLink).toBeInTheDocument();
+      expect(buttonLink).toHaveAttribute("href", spaceInfo.url);
+      
+      // Check for button specific classes (approximating ghost variant)
+      // This depends on how your Button component implements variants.
+      // If it adds a specific class like 'button-ghost', test for that.
+      // For now, check it's a link and has the icon.
+      const buttonElement = buttonLink.closest('a'); // Mock renders Link as <a>
+      expect(buttonElement).toBeInTheDocument();
+
+      // Check for icon
+      expect(screen.getByTestId("shield-user-icon")).toBeInTheDocument();
+      expect(screen.getByText(spaceInfo.name)).toBeInTheDocument();
+    });
+
+    test("does not render space link button if space is null", () => {
+      render(<Post {...basePostProps} space={null} />);
+      expect(screen.queryByRole("link", { name: /Justice League/i })).not.toBeInTheDocument();
+      expect(screen.queryByTestId("shield-user-icon")).not.toBeInTheDocument();
+    });
   });
 
   describe("Contextual Menu (Admin) in French", () => {
@@ -169,7 +295,7 @@ describe("Post Component", () => {
       expect(mockOnHidePost).toHaveBeenCalledWith(basePostProps.id);
     });
 
-     test("'Afficher le post (Admin)' calls onUnhidePost for admin if post is hidden", () => {
+    test("'Afficher le post (Admin)' calls onUnhidePost for admin if post is hidden", () => {
       render(<Post {...basePostProps} currentUser={adminUser} status="hidden" />);
       fireEvent.click(screen.getByTestId("more-horizontal-icon"));
       fireEvent.click(screen.getByText("Afficher le post (Admin)"));

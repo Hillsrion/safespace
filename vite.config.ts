@@ -28,11 +28,15 @@ export default defineConfig({
     resolve: {
       conditions: ['node', 'import', 'module'],
     },
-    alias: [ // Adding alias for msw/node
+    alias: [ 
       {
         find: /^msw\/node$/,
         replacement: 'msw/node',
       },
+      {
+        find: /^tslib$/,
+        replacement: 'tslib/tslib.js', // Attempt to force CommonJS version
+      }
     ],
   },
 } as VitestUserConfig);
