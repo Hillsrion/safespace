@@ -12,10 +12,18 @@ import {
 } from "~/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge, type BadgeVariant } from "~/components/ui/badge";
+import { CircleAlert, ShieldUser } from "lucide-react";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "~/components/ui/tooltip";
+import { Button } from "~/components/ui/button";
 import { 
   type PostComponentProps, 
 } from "~/lib/types";
-
+import { getProfileUrl } from "./utils";
 
 export function Post({
   id,
@@ -123,23 +131,36 @@ export function Post({
       {space && (
         <CardFooter className="flex justify-between border-t pt-4">
           {reportedEntity && (
-          <div>
-            <p className="text-sm font-semibold">Signalé : {reportedEntity.name}</p>
-            {reportedEntity.handles && reportedEntity.handles.length > 0 && (
-              <a 
-                href={reportedEntity.handles[0].handle} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="text-xs text-blue-500 hover:underline"
-              >
-                Profil Instagram
-              </a>
-            )}
-          </div>
-        )}
-          <Link to={space.url} className="text-sm text-blue-500 hover:underline">
-            {space.name}
-          </Link>
+            <div className="flex items-center">
+              <CircleAlert className="h-4 w-4 mr-2 text-destructive" />
+              <p className="text-sm font-semibold text-muted-foreground mr-1">{reportedEntity.name}</p>
+              {reportedEntity.handles && reportedEntity.handles.length > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <a 
+                        href={getProfileUrl(reportedEntity.handles[0].handle, reportedEntity.handles[0].platform)} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-xs text-blue-500 hover:underline"
+                      >
+                        @{reportedEntity.handles[0].handle}
+                      </a>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{reportedEntity.handles[0].platform}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </div>
+          )}
+          <Button variant="ghost" size="sm" asChild>
+            <Link to={space.url}>
+              <ShieldUser className="h-4 w-4 mr-2" />
+              {space.name}
+            </Link>
+          </Button>
         </CardFooter>
       )}
     </Card>
