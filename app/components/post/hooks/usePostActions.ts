@@ -23,8 +23,8 @@ export function usePostActions({
       setIsSubmitting(true);
       const endpoint =
         action === "delete"
-          ? `/api/posts/${postId}/delete`
-          : `/api/posts/${postId}/status`;
+          ? `resources/api/posts/${postId}/delete`
+          : `resources/api/posts/${postId}/edit`;
 
       const formData = new FormData();
       if (action !== "delete") {
@@ -71,6 +71,7 @@ export function usePostActions({
       toast({
         title: `Failed to ${action} post`,
         description: `Failed to ${action} post: ${errorMessage}`,
+        variant: "destructive",
       });
       return { success: false, error: errorMessage };
     } finally {
