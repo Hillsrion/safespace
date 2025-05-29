@@ -129,20 +129,22 @@ export function Post({
       </CardContent>
 
       {space && (
-        <CardFooter className="flex justify-between border-t pt-4">
+        <CardFooter className="flex justify-between border-t py-4">
           {reportedEntity && (
-            <div className="flex items-center">
-              <CircleAlert className="h-4 w-4 mr-2 text-destructive" />
-              <p className="text-sm font-semibold text-muted-foreground mr-1">{reportedEntity.name}</p>
-              {reportedEntity.handles && reportedEntity.handles.length > 0 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+            <div className="flex">
+              <div className="flex flex-col">
+                <Link to={`/dashboard/entities/${reportedEntity.id}`} className="text-sm font-semibold text-muted-foreground mr-1 transition-colors hover:text-muted-foreground/80 duration-200 ease-in-out">
+                  {reportedEntity.name}
+                </Link>
+                {reportedEntity.handles && reportedEntity.handles.length > 0 && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                       <a 
                         href={getProfileUrl(reportedEntity.handles[0].handle, reportedEntity.handles[0].platform)} 
                         target="_blank" 
                         rel="noopener noreferrer" 
-                        className="text-xs text-blue-500 hover:underline"
+                        className="text-xs text-blue-300 transition-colors hover:text-blue-400 duration-200 ease-in-out"
                       >
                         @{reportedEntity.handles[0].handle}
                       </a>
@@ -153,11 +155,12 @@ export function Post({
                   </Tooltip>
                 </TooltipProvider>
               )}
+              </div>
             </div>
           )}
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="outline" asChild>
             <Link to={space.url}>
-              <ShieldUser className="h-4 w-4 mr-2" />
+              <ShieldUser className="w-12 h-12" />
               {space.name}
             </Link>
           </Button>
