@@ -5,7 +5,7 @@ import {
   SparkleIcon,
   PlusIcon,
 } from "lucide-react";
-import { logout } from "~/lib/api";
+import { fetchLogoutApi } from "~/services/api.client/auth";
 import { useSpaces } from "~/hooks/useSpaces";
 
 export const useSidebarNav = () => {
@@ -55,3 +55,10 @@ export const useSidebarNav = () => {
 
   return { data };
 };
+
+// Remplacez tous les usages de 'logout' par la fonction ci-dessous :
+export async function logout() {
+  const success = await fetchLogoutApi();
+  window.location.href = "/auth/login";
+  return success;
+}

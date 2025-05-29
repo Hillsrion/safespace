@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import debounce from 'lodash-es/debounce';
+import { getSearch } from '~/services/api.client/search';
+import type { SearchResults } from '~/services/api.client/search';
 
 // Define types for results based on the API response structure
 // The API returns an array of objects, each with a 'type' and 'data' field.
@@ -18,8 +20,6 @@ interface SearchResultItem {
   data: SearchResultItemData;
 }
 
-type SearchResults = SearchResultItem[];
-
 export function useSearch() {
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<SearchResults>([]);
@@ -35,13 +35,7 @@ export function useSearch() {
     }
     setLoading(true);
     try {
-      const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-      if (!response.ok) {
-        // You might want to handle different HTTP error statuses differently
-        console.error(`Search API request failed with status: ${response.status}`);
-        throw new Error('Network response was not ok');
-      }
-      const data: SearchResults = await response.json();
+      const data = await getSearch(query);
       setResults(data); // API returns an array directly
     } catch (error) {
       console.error("Failed to fetch search results:", error);

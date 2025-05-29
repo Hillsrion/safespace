@@ -1,16 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useUser } from "~/hooks/useUser";
-
-interface Space {
-  id: string;
-  name: string;
-  role: string;
-}
-
-interface ApiResponse {
-  spaces: Space[];
-  error?: string;
-}
+import { getUserSpaces } from "~/services/api.client/spaces";
+import type { ApiResponse } from "~/services/api.client/spaces";
 
 export interface SpaceNavItem {
   id: string;
@@ -35,18 +26,7 @@ export const useSpaces = () => {
     setError(null);
 
     try {
-      const response = await fetch("/resources/api/spaces", {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: ApiResponse = await response.json();
+      const data = await getUserSpaces();
 
       if (data.error) {
         throw new Error(data.error);

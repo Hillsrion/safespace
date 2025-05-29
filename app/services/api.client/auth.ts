@@ -1,4 +1,4 @@
-export async function logout() {
+export async function fetchLogoutApi(): Promise<boolean> {
   try {
     await fetch("/auth/logout", {
       method: "POST",
@@ -7,12 +7,9 @@ export async function logout() {
       },
       credentials: "same-origin",
     });
-
-    window.location.href = "/auth/login";
     return true;
   } catch (error) {
     console.error("Logout failed:", error);
-    window.location.href = "/auth/login";
     return false;
   }
 }
