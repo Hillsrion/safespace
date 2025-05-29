@@ -5,6 +5,8 @@ import { getSpacePosts } from "~/db/repositories/posts/queries.server";
 import { getCurrentUser } from "~/services/auth.server";
 import { useToastTrigger } from "~/hooks/use-toast-trigger";
 import { useLoaderData } from "react-router";
+import { useEffect } from "react";
+import { usePostStore } from "~/stores/postStore";
 import { getSession } from "~/services/session.server";
 import type { ToastData } from "~/hooks/use-toast-trigger";
 import { getUserById } from "~/db/repositories/users.server";
@@ -73,8 +75,9 @@ const mapPrismaSpaceToSpaceInfo = (prismaSpace: any /* Replace any with actual P
 
 
 export default function Dashboard() {
-  const { toastData, posts, isSuperAdmin } = useLoaderData<typeof loader>();
+  const { toastData, posts: initialPosts, isSuperAdmin } = useLoaderData<typeof loader>();
   const user = useUser();
+  const { posts, setPosts } = usePostStore();
   useToastTrigger(toastData);
   const currentUserInfo = {
     id: user?.id,
@@ -82,7 +85,7 @@ export default function Dashboard() {
     role: user?.role?.toLowerCase() as "admin" | "moderator" | "user" || "user",
   };
 
-  const mappedPosts: PostComponentProps[] = posts.map((post: any /* Replace any with PrismaPost & relations */) => ({
+  const mappedPosts: PostComponentProps[] = initialPosts.map((post: any /* Replace any with PrismaPost & relations */) => ({
     id: post.id,
     author: post.author ? mapPrismaUserToAuthor(post.author) : {
       id: "unknown",
@@ -99,14 +102,19 @@ export default function Dashboard() {
     currentUser: currentUserInfo,
     post
   }));
+
+  useEffect(() => {
+    setPosts(mappedPosts);
+  }, [mappedPosts, setPosts]);
+
   return (
     <div>
       <SearchBar />
       <div className="mt-4 space-y-6 sm:p-4 md:p-6 flex flex-col items-center w-full max-w-2xl mx-auto">
-        {mappedPosts.length === 0 && (
+        {posts.length === 0 && (
           <p className="text-center text-lg font-semibold text-muted-foreground">Aucun post à afficher pour le moment.</p>
         )}
-        {mappedPosts.map((post) => (
+        {posts.map((post) => (
           <Post key={post.id} {...post} />
         ))}
       </div>
