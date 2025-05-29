@@ -39,6 +39,7 @@ export function Post({
   const [isMediaDialogOpen, setIsMediaDialogOpen] = useState(false);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
   
+  // The hook now uses Zustand for state management, so callbacks are not needed here.
   const { handlePostAction, isSubmitting } = usePostActions({
     postId: id,
   });

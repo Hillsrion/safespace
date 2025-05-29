@@ -1,22 +1,16 @@
 import { useState } from "react";
 import { toast } from "~/hooks/use-toast";
+import { usePostStore } from "~/stores/postStore";
 
 type PostAction = "delete" | "hide" | "unhide";
 
 interface UsePostActionsProps {
   postId: string;
-  onDeletePost?: (id: string) => void;
-  onHidePost?: (id: string) => void;
-  onUnhidePost?: (id: string) => void;
 }
 
-export function usePostActions({
-  postId,
-  onDeletePost,
-  onHidePost,
-  onUnhidePost,
-}: UsePostActionsProps) {
+export function usePostActions({ postId }: UsePostActionsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { removePost, updatePostStatus } = usePostStore();
 
   const handlePostAction = async (action: PostAction) => {
     try {
@@ -50,13 +44,14 @@ export function usePostActions({
         throw new Error(result?.error || "Action failed");
       }
 
-      // Call the appropriate callback if provided
-      if (action === "delete" && onDeletePost) {
-        onDeletePost(postId);
-      } else if (action === "hide" && onHidePost) {
-        onHidePost(postId);
-      } else if (action === "unhide" && onUnhidePost) {
-        onUnhidePost(postId);
+      if (result && result.success) {
+        if (action === "delete") {
+          removePost(postId);
+        } else if (action === "hide") {
+          updatePostStatus(postId, "hidden");
+        } else if (action === "unhide") {
+          updatePostStatus(postId, "published");
+        }
       }
 
       toast({
