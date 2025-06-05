@@ -12,7 +12,7 @@ import {
 } from "~/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge, type BadgeVariant } from "~/components/ui/badge";
-import { CircleAlert, ShieldUser } from "lucide-react";
+import { ShieldUser } from "lucide-react";
 import { 
   Tooltip,
   TooltipContent,
@@ -21,9 +21,12 @@ import {
 } from "~/components/ui/tooltip";
 import { Button } from "~/components/ui/button";
 import { 
-  type PostComponentProps, 
+  type TPost, 
 } from "~/lib/types";
 import { getProfileUrl } from "./utils";
+import { useUser } from "~/hooks/useUser";
+
+type TBadgeStatus = Exclude<TPost['status'], 'published'>;
 
 export function Post({
   id,
@@ -34,12 +37,11 @@ export function Post({
   status,
   reportedEntity,
   space,
-  currentUser,
-}: PostComponentProps) {
+}: TPost) {
   const [isMediaDialogOpen, setIsMediaDialogOpen] = useState(false);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
-  
-  // The hook now uses Zustand for state management, so callbacks are not needed here.
+  const currentUser = useUser();
+
   const { handlePostAction, isSubmitting } = usePostActions({
     postId: id,
   });
@@ -53,8 +55,7 @@ export function Post({
 
   const getStatusBadge = () => {
     if (!status || status === "published") return null;
-
-    const statusMap: Record<string, { variant: BadgeVariant; text: string }> = {
+    const statusMap: Record<TBadgeStatus, { variant: BadgeVariant; text: string }> = {
       hidden: { variant: "destructive", text: "Caché" },
       admin_only: { variant: "secondary", text: "Admin Seulement" },
       pending_review: { variant: "outline", text: "En Attente" },

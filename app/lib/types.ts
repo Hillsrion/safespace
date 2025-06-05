@@ -18,7 +18,7 @@ export type EnhancedUser = User & {
 export type UserProfile = {
   id: string;
   name: string; // Full name or display name
-  username: string; // Unique @username
+  username?: string; // Unique @username
   avatarUrl?: string; // URL to avatar image
   isVerified?: boolean; // Optional: if user is verified
   // Add other profile fields as necessary
@@ -47,7 +47,7 @@ export type SpaceInfo = {
 };
 
 // Defines the structure for a Post
-export type Post = {
+export type TPost = {
   id: string;
   author: AuthorProfile; // The user who created the post
   createdAt: string; // ISO date string
@@ -57,29 +57,4 @@ export type Post = {
   status: "published" | "hidden" | "admin_only" | "pending_review"; // Post visibility status
   reportedEntity?: ReportedEntity; // Information about the user being reported
   space?: SpaceInfo; // The space this post belongs to
-  tags?: string[]; // Optional: For categorizing or filtering posts
-  // Analytics or interaction counts
-  viewCount?: number;
-  likeCount?: number;
-  commentCount?: number;
-  // Who can perform actions on this post
-  permissions: {
-    canDelete: boolean;
-    canHide: boolean;
-    canEdit: boolean;
-  };
-};
-
-// Props for the Post component, combining Post data with UI-specific state/roles
-export type PostComponentProps = Omit<Post, "permissions"> & {
-  currentUser: {
-    id: string;
-    role: UserRoles; // Role of the user viewing the post
-    isSuperAdmin: boolean;
-  };
-  // Actions - these would typically be functions passed down to the component
-  onDeletePost?: (postId: string) => void;
-  onHidePost?: (postId: string) => void;
-  onUnhidePost?: (postId: string) => void;
-  // Add other interaction handlers as needed, e.g., onLike, onComment, onReport
 };

@@ -1,11 +1,11 @@
-import { create } from 'zustand';
-import { PostComponentProps } from '~/lib/types';
+import { create } from "zustand";
+import type { TPost } from "~/lib/types";
 
 interface PostState {
-  posts: PostComponentProps[];
-  setPosts: (posts: PostComponentProps[]) => void;
+  posts: TPost[];
+  setPosts: (posts: TPost[]) => void;
   removePost: (postId: string) => void;
-  updatePostStatus: (postId: string, status: string) => void;
+  updatePostStatus: (postId: string, status: TPost["status"]) => void;
 }
 
 export const usePostStore = create<PostState>((set) => ({

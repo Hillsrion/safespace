@@ -12,7 +12,7 @@ import type { ToastData } from "~/hooks/use-toast-trigger";
 import { getUserById } from "~/db/repositories/users.server";
 import { getAllPosts } from "~/db/repositories/posts/queries.server";
 import { Post } from "~/components/post";
-import { type AuthorProfile, type SpaceInfo, type EvidenceMedia, type PostComponentProps, type EnhancedUser, USER_ROLES } from "~/lib/types";
+import { type AuthorProfile, type SpaceInfo, type EvidenceMedia, type TPost } from "~/lib/types";
 import { useUser } from "~/hooks/useUser";
 import { getUserIdentity } from "~/lib/utils";
 
@@ -85,27 +85,25 @@ export default function Dashboard() {
     role: user?.role?.toLowerCase() as "admin" | "moderator" | "user" || "user",
   };
 
-  const mappedPosts: PostComponentProps[] = initialPosts.map((post: any /* Replace any with PrismaPost & relations */) => ({
+  const mappedPosts: TPost[] = initialPosts.map((post: any) => ({
     id: post.id,
     author: post.author ? mapPrismaUserToAuthor(post.author) : {
       id: "unknown",
       name: "Unknown Author",
-      username: "unknown",
       role: null,
     },
-    createdAt: post.createdAt ? new Date(post.createdAt).toISOString() : new Date().toISOString(),
-    content: post.description || "", // Assuming 'description' field holds the content
-    media: mapPrismaMediaToEvidence(post.media), 
-    status: post.status ? post.status.toLowerCase() as PostComponentProps['status'] : "published", 
-    reportedEntity: post.reportedEntity, 
-    space: post.space ? mapPrismaSpaceToSpaceInfo(post.space) : undefined, 
+    createdAt: post.createdAt,
+    content: post.description || "",
+    media: mapPrismaMediaToEvidence(post.media),
+    status: post.status ? post.status.toLowerCase() as TPost['status'] : "published",
+    reportedEntity: post.reportedEntity,
+    space: post.space ? mapPrismaSpaceToSpaceInfo(post.space) : undefined,
     currentUser: currentUserInfo,
-    post
   }));
 
   useEffect(() => {
     setPosts(mappedPosts);
-  }, [mappedPosts, setPosts]);
+  }, []);
 
   return (
     <div>
