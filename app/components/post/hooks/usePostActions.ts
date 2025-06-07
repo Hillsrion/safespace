@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { toast } from "~/hooks/use-toast";
 import { usePostStore } from "~/stores/postStore";
-
-type PostAction = "delete" | "hide" | "unhide";
+import {
+  deletePost,
+  updatePostStatus,
+  type PostAction,
+} from "~/services/api.client/posts";
 
 interface UsePostActionsProps {
   postId: string;
@@ -10,65 +13,47 @@ interface UsePostActionsProps {
 
 export function usePostActions({ postId }: UsePostActionsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { removePost, updatePostStatus } = usePostStore();
+  const { removePost, updatePostStatus: updatePostInStore } = usePostStore();
 
   const handlePostAction = async (action: PostAction) => {
     try {
       setIsSubmitting(true);
-      const endpoint =
+
+      const result =
         action === "delete"
-          ? `resources/api/posts/${postId}/delete`
-          : `resources/api/posts/${postId}/edit`;
+          ? await deletePost(postId)
+          : await updatePostStatus(postId, action);
 
-      const formData = new FormData();
-      if (action !== "delete") {
-        formData.append("_action", action);
-      }
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error("Request failed");
-      }
-
-      const result = (await response.json()) as {
-        success: boolean;
-        action?: string;
-        error?: string;
-      };
-
-      if (!result || !result.success) {
+      if (!result.success) {
         throw new Error(result?.error || "Action failed");
       }
 
-      if (result && result.success) {
-        if (action === "delete") {
-          removePost(postId);
-        } else if (action === "hide") {
-          updatePostStatus(postId, "hidden");
-        } else if (action === "unhide") {
-          updatePostStatus(postId, "published");
-        }
+      if (action === "delete") {
+        removePost(postId);
+      } else if (action === "hide") {
+        updatePostInStore(postId, "hidden");
+      } else if (action === "unhide") {
+        updatePostInStore(postId, "published");
       }
 
       toast({
-        title: `Post ${action}ed successfully`,
-        description: `Post ${action}ed successfully`,
+        title: `Post ${action}d successfully`,
+        variant: "default",
       });
       return { success: true };
-    } catch (error: unknown) {
+    } catch (error) {
       console.error(`Error ${action}ing post:`, error);
-      const errorMessage =
-        error instanceof Error ? error.message : "An unknown error occurred";
       toast({
         title: `Failed to ${action} post`,
-        description: `Failed to ${action} post: ${errorMessage}`,
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
         variant: "destructive",
       });
-      return { success: false, error: errorMessage };
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      };
     } finally {
       setIsSubmitting(false);
     }
