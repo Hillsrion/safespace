@@ -1,6 +1,6 @@
 import { vi, describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
-import { Label } from "~/components/ui/label"
+import { DEFAULT_CLASS, Label } from "~/components/ui/label"
 
 describe("Label", () => {
   it("renders with children", () => {
@@ -11,9 +11,7 @@ describe("Label", () => {
   it("applies default classes", () => {
     render(<Label>Test</Label>)
     const label = screen.getByText("Test")
-    expect(label).toHaveClass(
-      "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-    )
+    expect(label).toHaveClass(DEFAULT_CLASS)
   })
 
   it("merges custom className", () => {
