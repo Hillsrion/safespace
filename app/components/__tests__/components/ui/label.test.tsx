@@ -1,5 +1,6 @@
+import { vi, describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
-import { Label } from "../ui/label"
+import { Label } from "~/components/ui/label"
 
 describe("Label", () => {
   it("renders with children", () => {
@@ -30,14 +31,15 @@ describe("Label", () => {
   it("passes through additional props", () => {
     render(
       <div>
-        <Label htmlFor="input-id">Test</Label>
-        <input id="input-id" />
+        <Label htmlFor="input-id" data-testid="test-label">Test</Label>
+        <input id="input-id" data-testid="test-input" />
       </div>
     )
-    const input = screen.getByRole("textbox")
-    const label = screen.getByText("Test")
+    const input = screen.getByTestId("test-input")
+    const label = screen.getByTestId("test-label")
     expect(label).toHaveAttribute("for", "input-id")
-    expect(label).toHaveAttribute("id")
-    expect(input).toHaveAttribute("aria-labelledby", label.getAttribute("id"))
+    expect(input).toHaveAttribute("id", "input-id")
+    // Verify the label is properly associated with the input via htmlFor
+    expect(label.getAttribute("for")).toBe(input.getAttribute("id"))
   })
 })

@@ -1,5 +1,6 @@
 // import '@testing-library/jest-dom/vitest'; // if using vitest
 import '@testing-library/jest-dom'; // if using jest or if vitest setup prefers this
+import { vi } from 'vitest';
 
 // You can add other global setup files here, for example, mocking a global API
 // import { server } from './mocks/server'; // Example for MSW

@@ -19,13 +19,18 @@ interface VitestUserConfig extends UserConfig {
   test: InlineConfig;
 }
 
-export default defineConfig({
-  css: {
-    postcss: {
-      plugins: [tailwindcss, autoprefixer],
+export default defineConfig(({ command, mode }) => {
+  const isTest = mode === 'test' || process.env.NODE_ENV === 'test';
+  
+  return {
+    css: {
+      postcss: {
+        plugins: [tailwindcss, autoprefixer],
+      },
     },
-  },
-  plugins: [reactRouter(), tsconfigPaths(), netlifyPlugin(), devtoolsJson()],
+    plugins: isTest 
+      ? [tsconfigPaths()] 
+      : [reactRouter(), tsconfigPaths(), netlifyPlugin(), devtoolsJson()],
   test: {
     globals: true,
     environment: "jsdom",
@@ -38,6 +43,7 @@ export default defineConfig({
         "@radix-ui/react-dialog",
         "@radix-ui/react-portal",
         "@radix-ui/react-slot",
+        "@radix-ui/react-label",
       ],
     },
     resolve: {
@@ -108,6 +114,16 @@ export default defineConfig({
           )
         ),
       },
+      {
+        find: /^@radix-ui\/react-label$/,
+        replacement: fileURLToPath(
+          new URL(
+            "./node_modules/@radix-ui/react-label/dist/index.js",
+            import.meta.url
+          )
+        ),
+      },
     ],
   },
-} as VitestUserConfig);
+  };
+}) as VitestUserConfig;
