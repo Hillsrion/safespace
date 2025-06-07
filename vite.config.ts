@@ -6,7 +6,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import netlifyPlugin from "@netlify/vite-plugin-react-router";
 import devtoolsJson from "vite-plugin-devtools-json";
 import type { UserConfig } from "vite";
-import type { InlineConfig } from "vitest";
+import type { InlineConfig } from "vitest/node";
 
 interface VitestUserConfig extends UserConfig {
   test: InlineConfig;
@@ -26,17 +26,17 @@ export default defineConfig({
     include: ["./app/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
     watchExclude: [".*\\/node_modules\\/.*", ".*\\/build\\/.*"],
     resolve: {
-      conditions: ['node', 'import', 'module'],
+      conditions: ["node", "import", "module"],
     },
-    alias: [ 
+    alias: [
       {
         find: /^msw\/node$/,
-        replacement: 'msw/node',
+        replacement: "msw/node",
       },
       {
         find: /^tslib$/,
-        replacement: 'tslib/tslib.js', // Attempt to force CommonJS version
-      }
+        replacement: "tslib/tslib.js", // Attempt to force CommonJS version
+      },
     ],
   },
 } as VitestUserConfig);
