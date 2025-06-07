@@ -1,66 +1,74 @@
 import { useState } from "react";
 import { toast } from "~/hooks/use-toast";
 import { usePostStore } from "~/stores/postStore";
-import {
-  deletePost,
-  updatePostStatus,
-  type PostAction,
-} from "~/services/api.client/posts";
+import { usePostApi } from "~/services/api.client/posts";
+import { handleError } from "~/lib/error/handle";
+import type { PostAction } from "~/services/api.client/posts";
 
 interface UsePostActionsProps {
   postId: string;
 }
 
+type ActionStatus = "idle" | "loading" | "success" | "error";
+
+const ACTION_LABELS: Record<PostAction, string> = {
+  delete: "deleted",
+  hide: "hidden",
+  unhide: "unhidden",
+} as const;
+
 export function usePostActions({ postId }: UsePostActionsProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [status, setStatus] = useState<ActionStatus>("idle");
   const { removePost, updatePostStatus: updatePostInStore } = usePostStore();
+  const { deletePost, updatePostStatus } = usePostApi();
 
   const handlePostAction = async (action: PostAction) => {
-    try {
-      setIsSubmitting(true);
+    setStatus("loading");
 
-      const result =
-        action === "delete"
-          ? await deletePost(postId)
-          : await updatePostStatus(postId, action);
+    const { data, error } = action === "delete"
+      ? await deletePost(postId)
+      : await updatePostStatus(postId, action);
 
-      if (!result.success) {
-        throw new Error(result?.error || "Action failed");
-      }
-
-      if (action === "delete") {
-        removePost(postId);
-      } else if (action === "hide") {
-        updatePostInStore(postId, "hidden");
-      } else if (action === "unhide") {
-        updatePostInStore(postId, "published");
-      }
-
+    if (error || !data?.success) {
+      setStatus("error");
+      const errorMessage = error?.message || "Failed to complete action";
+      
       toast({
-        title: `Post ${action}d successfully`,
-        variant: "default",
-      });
-      return { success: true };
-    } catch (error) {
-      console.error(`Error ${action}ing post:`, error);
-      toast({
-        title: `Failed to ${action} post`,
-        description:
-          error instanceof Error ? error.message : "An unknown error occurred",
+        title: "Error",
+        description: errorMessage,
         variant: "destructive",
       });
-      return {
-        success: false,
-        error:
-          error instanceof Error ? error.message : "An unknown error occurred",
-      };
-    } finally {
-      setIsSubmitting(false);
+      
+      setStatus("idle");
+      return { success: false, error: errorMessage };
     }
+
+    // Update local state based on action
+    if (action === "delete") {
+      removePost(postId);
+    } else {
+      updatePostInStore(
+        postId, 
+        action === "hide" ? "hidden" : "published"
+      );
+    }
+
+    setStatus("success");
+    
+    // Show success toast
+    const actionLabel = ACTION_LABELS[action];
+    toast({
+      title: "Success",
+      description: `Post ${actionLabel} successfully`,
+    });
+    
+    setStatus("idle");
+    return { success: true };
   };
 
   return {
     handlePostAction,
-    isSubmitting,
-  };
+    isSubmitting: status === "loading",
+    status,
+  } as const;
 }

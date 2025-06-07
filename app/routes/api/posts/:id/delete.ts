@@ -6,47 +6,97 @@ import {
 } from "~/db/repositories/posts/queries.server";
 import { getUserSpaceRole } from "~/db/repositories/spaces/queries.server";
 import type { ActionResult } from "~/db/repositories/posts/types";
+import { createError } from '~/lib/error/parse';
+import type { AppError } from '~/lib/error/types';
+import { errorResponse } from '~/lib/api/response';
 
 export async function action({
   request,
   params,
-}: ActionFunctionArgs): Promise<ActionResult<"deleted">> {
-  const { id: postId } = params;
-  if (!postId) {
-    return { success: false, error: "Post ID is required" };
-  }
-
-  // Get the post with the author and space information
-  const post = await getPostWithSpace(postId);
-  if (!post) {
-    return { success: false, error: "Post not found" };
-  }
-
-  if (!post.space) {
-    return { success: false, error: "Post does not belong to a space" };
-  }
-
-  const user = await getCurrentUser(request);
-  if (!user) {
-    return { success: false, error: "User not found" };
-  }
-  const isAuthor = post.authorId === user.id;
-
-  // Only allow delete if user is the author or has admin/moderator role
-  if (!isAuthor) {
-    const userRole = await getUserSpaceRole(user.id, post.space.id);
-    const isAdminOrModerator = userRole === "ADMIN" || userRole === "MODERATOR";
-
-    if (!isAdminOrModerator) {
-      return { success: false, error: "Unauthorized" };
-    }
-  }
-
+}: ActionFunctionArgs) {
   try {
+    const { id: postId } = params;
+    if (!postId) {
+      return errorResponse(
+        'Post ID is required',
+        'bad_request:api',
+        400
+      );
+    }
+
+    // Get the post with the author and space information
+    const post = await getPostWithSpace(postId);
+    if (!post) {
+      return errorResponse(
+        'Post not found',
+        'not_found:api',
+        404
+      );
+    }
+
+    if (!post.space) {
+      return errorResponse(
+        'Post does not belong to a space',
+        'bad_request:api',
+        400
+      );
+    }
+
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return errorResponse(
+        'Authentication required',
+        'unauthorized:api',
+        401
+      );
+    }
+
+    const isAuthor = post.authorId === user.id;
+
+    // Only allow delete if user is the author or has admin/moderator role
+    if (!isAuthor) {
+      const userRole = await getUserSpaceRole(user.id, post.space.id);
+      const isAdminOrModerator = userRole === "ADMIN" || userRole === "MODERATOR";
+
+      if (!isAdminOrModerator) {
+        return errorResponse(
+          'You do not have permission to delete this post',
+          'forbidden:api',
+          403
+        );
+      }
+    }
+
     await deletePost(postId);
-    return { success: true, action: "deleted" };
-  } catch (error) {
-    console.error("Error deleting post:", error);
-    return { success: false, error: "Failed to delete post" };
+    
+    return new Response(
+      JSON.stringify({
+        success: true,
+        action: 'deleted' as const
+      } as ActionResult<'deleted'>),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  } catch (error: unknown) {
+    console.error("Error in delete post action:", error);
+    
+    // If it's one of our custom errors, return it with the proper status
+    if (error && typeof error === 'object' && 'status' in error && 'code' in error && 'message' in error) {
+      const typedError = error as { status: number; code: string; message: string };
+      return errorResponse(
+        typedError.message,
+        typedError.code as AppError['code'],
+        typedError.status
+      );
+    }
+    
+    // For unexpected errors, return a 500
+    return errorResponse(
+      'An unexpected error occurred',
+      'server_error:api',
+      500
+    );
   }
 }

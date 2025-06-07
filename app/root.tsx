@@ -69,7 +69,7 @@ function AppBody() {
 export default function App() {
   const data = useLoaderData<typeof loader>();
   return (
-    <ThemeProvider specifiedTheme={data.theme} themeAction="/action/set-theme">
+    <ThemeProvider specifiedTheme={data?.theme} themeAction="/action/set-theme">
       <AppBody />
     </ThemeProvider>
   );
@@ -101,8 +101,8 @@ export function ErrorBoundary() {
       <head>
         <title>{message}</title>
         <Meta />
-      <ThemeProvider specifiedTheme={data.theme} themeAction="/action/set-theme">
-        {data?.theme !== undefined && <PreventFlashOnWrongTheme ssrTheme={Boolean(data.theme)} />}
+      <ThemeProvider specifiedTheme={data?.theme} themeAction="/action/set-theme">
+        {data?.theme !== undefined && <PreventFlashOnWrongTheme ssrTheme={Boolean(data?.theme)} />}
         <Links />
       </ThemeProvider>
       </head>

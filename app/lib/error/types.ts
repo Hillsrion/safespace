@@ -1,12 +1,11 @@
 export type ErrorType =
   | "bad_request"
   | "unauthorized"
-  | "forbidden"
   | "not_found"
   | "rate_limit"
-  | "offline"
   | "server_error"
-  | "validation_error";
+  | "validation_error"
+  | "network_error";
 
 export type Surface =
   | "chat"
