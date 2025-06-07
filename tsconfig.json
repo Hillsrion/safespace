@@ -7,7 +7,7 @@
   ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "types": ["node", "vite/client"],
+    "types": ["node", "vite/client", "@testing-library/jest-dom"],
     "target": "ES2022",
     "module": "ES2022",
     "moduleResolution": "bundler",
@@ -16,13 +16,16 @@
     "baseUrl": ".",
     "paths": {
       "~/*": ["./app/*"],
-      "@prisma/client": ["./generated/prisma"]
+      "@prisma/client": ["./generated/prisma"],
+      "@/*": ["./app/*"]
     },
     "esModuleInterop": true,
-    "verbatimModuleSyntax": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleDetection": "force",
     "noEmit": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "strict": true
+    "strict": true,
+    "isolatedModules": true
   }
 }
