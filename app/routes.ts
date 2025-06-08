@@ -45,6 +45,7 @@ export default [
     ...prefix(RESOURCES_API_PREFIX, [
       route(`search`, routePath("api/search.ts")),
       route(`spaces`, routePath("api/spaces.ts")),
+      route(`posts/feed`, routePath("api/posts/feed.ts")),
       route(`posts/:id/delete`, routePath("api/posts/:id/delete.ts")),
       route(`posts/:id/edit`, routePath("api/posts/:id/edit.ts")),
     ]),
