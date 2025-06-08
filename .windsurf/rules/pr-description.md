@@ -1,4 +1,9 @@
-#  Standard PR Sections
+---
+trigger: model_decision
+description: When opening a Pull/Merge Request, use this as the template to stay consistant
+---
+
+# Standard PR Sections
 
 When writing a PR description, follow this consistent structure and choose relevant sections from the list below. Use only the sections that apply, but **keep their names consistent** across PRs.
 
@@ -82,25 +87,32 @@ Link to Jira, Linear, GitHub Issues, etc.
 
 ```md
 # Overview
+
 Adds infinite scrolling to the post feed to improve UX and reduce load time on large datasets.
 
 ## Changes
 
 ### Database Layer
+
 - Added `cursor` support in `getAllPosts`, `getUserPosts`
 - Updated return type with `nextCursor`, `hasNextPage`
 
 ### API
+
 - New endpoint: `GET /api/posts/feed`
 
 ### State Management
+
 - Added pagination state in `usePostStore`
 - New `addPosts` and `isLoadingMore` flags
 
 ### UI Components
+
 - Added scroll-based loading via `react-intersection-observer`
 - “End of list” message and loading skeletons
 
 ## Dependencies
+
 - ➕ `react-intersection-observer`
 - 🔄 Prisma client types
+```

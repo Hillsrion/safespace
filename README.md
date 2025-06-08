@@ -1,107 +1,130 @@
-# React Router Netlify Template
+# SafeSpace
 
-A modern, production-ready template for building full-stack React applications using React Router,
-deployed to Netlify.
-
-## Features
-
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
-- 💻 Configured for deployment to Netlify
-
-## Getting Started
-
-### Installation
-
-Install the dependencies:
-
-```bash
-npm install
-```
-
-### Development
-
-Start the development server with HMR:
-
-```bash
-npm run dev
-```
-
-Your application will be available at `http://localhost:5173`.
-
-## Database Seeding
-
-This project includes a script to populate the database with sample data for development and testing purposes. This is useful for having a consistent dataset to work with.
-
-**Important:** Running the seed script will first delete all existing data in the relevant tables (Users, Spaces, Posts, etc.) before inserting new data.
+A secure, invite-only platform for sharing confidential information about reported entities in the photography industry.
 
 ### Prerequisites
 
-Ensure you have installed all project dependencies:
+- Node.js 20+ and Yarn 1.22+
+- PostgreSQL 16+
+
+### Installation
+
+1. Install dependencies:
+
+   ```bash
+   yarn install
+   ```
+
+2. Set up environment variables:
+
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+3. Set up the database:
+
+   ```bash
+   # Generate Prisma Client
+   yarn prisma generate
+
+   # Run migrations
+   yarn prisma migrate dev
+   ```
+
+Your application will be available at `http://localhost:5173`.
+
+## 🌱 Database Seeding
+
+Populate the database with sample data for development:
 
 ```bash
-npm install
-# or
-yarn install
+yarn db:seed
 ```
 
-### Running the Seed Script
+**Note:** This will delete all existing data in the database.
 
-To populate your database with seed data, run the following command:
+The seed script will create:
+
+- 20 users with different roles
+- 20-30 spaces across various locations
+- 20+ posts per space
+- Test media uploads and relationships
+
+## Development
+
+Start the development server:
 
 ```bash
-npx prisma db seed
+yarn dev
 ```
 
-This command executes the `scripts/seed.ts` file using `tsx`. After the script completes, your database will contain approximately:
-
-- 20 users
-- Around 20-30 spaces distributed across a few cities
-- Around 20 posts per space, with varied content and flags
-- 3 additional posts for each user
-
-This data is generated using `@faker-js/faker` for realistic, albeit fake, information.
-
-## Building for Production
+## 🏗 Building for Production
 
 Create a production build:
 
 ```bash
-npm run build
+yarn build
 ```
 
-## Previewing a Production build
+## 🚀 Deployment
 
-To preview a production build locally, use the [Netlify CLI](https://cli.netlify.com):
+### Prerequisites
+
+- Netlify account
+- Netlify CLI (optional)
+
+### Deploy to Netlify
+
+1. Push your code to a Git repository
+2. [Create a new site on Netlify](https://docs.netlify.com/welcome/add-new-site/)
+3. Connect your Git repository
+4. Set up environment variables in the Netlify dashboard
+5. Deploy!
+
+Or use the Netlify CLI:
 
 ```bash
-npx netlify-cli serve
+# Install Netlify CLI if you haven't already
+yarn global add netlify-cli
+
+# Login to Netlify
+netlify login
+
+# Deploy to a new site
+netlify deploy --prod
 ```
 
-```bash
-npm run build
-```
+## 🛠 Development Scripts
 
-## Deployment
+- `yarn dev` - Start development server
+- `yarn build` - Create production build
+- `yarn preview` - Preview production build locally
+- `yarn test` - Run tests
+- `yarn lint` - Lint code
+- `yarn format` - Format code
+- `yarn prisma:generate` - Generate Prisma client
+- `yarn db:seed` - Seed the database
+- `yarn db:reset` - Reset and seed the database
 
-This template is preconfigured for deployment to Netlify.
+## 🎨 Styling
 
-Follow <https://docs.netlify.com/welcome/add-new-site/> to add this project as a site
-in your Netlify account.
+This project uses [Tailwind CSS](https://tailwindcss.com/) for styling. The configuration can be found in `tailwind.config.js`.
 
-## Styling
+### Customization
 
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
+- Theme colors and fonts are defined in `tailwind.config.js`
+- Custom CSS can be added to `app/styles/global.css`
+- Component-specific styles should use Tailwind's `@apply` directive
 
-## See also
+## 📄 License
 
-[Guide: how to deploy a React Router 7 site to Netlify](https://developers.netlify.com/guides/how-to-deploy-a-react-router-7-site-to-netlify/)
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0) - see the [LICENSE](LICENSE) file for details.
+
+**Important AGPL Notice**:
+
+- This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+- This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+- You should have received a copy of the GNU Affero General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 ---
-
-Built with ❤️ using React Router.
