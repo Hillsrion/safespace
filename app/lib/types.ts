@@ -47,6 +47,12 @@ export type SpaceInfo = {
 };
 
 // Defines the structure for a Post
+export type TPostCurrentUser = {
+  id?: string;
+  isSuperAdmin?: boolean;
+  role: "admin" | "moderator" | "user";
+};
+
 export type TPost = {
   id: string;
   author: AuthorProfile; // The user who created the post
@@ -57,4 +63,5 @@ export type TPost = {
   status: "published" | "hidden" | "admin_only" | "pending_review"; // Post visibility status
   reportedEntity?: ReportedEntity; // Information about the user being reported
   space?: SpaceInfo; // The space this post belongs to
+  currentUser: TPostCurrentUser;
 };

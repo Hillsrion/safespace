@@ -24,7 +24,9 @@ export async function getUserPosts(
     includeHidden = false,
   } = options;
 
-  return prisma.post.findMany({
+  const actualLimit = limit;
+
+  const posts = await prisma.post.findMany({
     where: {
       authorId: userId,
       status: includeHidden ? undefined : status,
@@ -45,10 +47,21 @@ export async function getUserPosts(
       },
     },
     orderBy: { createdAt: "desc" },
-    take: limit,
+    take: actualLimit + 1,
     skip: cursor ? 1 : 0,
     cursor: cursor ? { id: cursor } : undefined,
   });
+
+  let hasNextPage = false;
+  let nextCursor: string | undefined = undefined;
+
+  if (posts.length > actualLimit) {
+    hasNextPage = true;
+    const nextItem = posts.pop();
+    nextCursor = nextItem!.id;
+  }
+
+  return { posts, nextCursor, hasNextPage };
 }
 
 export async function getTotalPosts() {
@@ -76,10 +89,12 @@ export async function getSpacePosts(
   const spaceIds = userSpaces.map((us: { spaceId: string }) => us.spaceId);
 
   if (spaceIds.length === 0) {
-    return [];
+    return { posts: [], nextCursor: undefined, hasNextPage: false };
   }
 
-  return prisma.post.findMany({
+  const actualLimit = limit;
+
+  const posts = await prisma.post.findMany({
     where: {
       spaceId: spaceId ? spaceId : { in: spaceIds },
       status: includeHidden ? undefined : status,
@@ -121,46 +136,78 @@ export async function getSpacePosts(
       },
     },
     orderBy: { createdAt: "desc" },
-    take: limit,
+    take: actualLimit + 1,
     skip: cursor ? 1 : 0,
     cursor: cursor ? { id: cursor } : undefined,
   });
+
+  let hasNextPage = false;
+  let nextCursor: string | undefined = undefined;
+
+  if (posts.length > actualLimit) {
+    hasNextPage = true;
+    const nextItem = posts.pop();
+    nextCursor = nextItem!.id;
+  }
+
+  return { posts, nextCursor, hasNextPage };
 }
 
 // NOTE: This function is so critical that it should be protected by a super admin check
-export async function getAllPosts(userId: string) {
+export async function getAllPosts(
+  userId: string,
+  options: { limit?: number; cursor?: string } = {}
+) {
   const user = await getUserById(userId, {
     isSuperAdmin: true,
   });
-  if (user?.isSuperAdmin) {
-    return prisma.post.findMany({
-      include: {
-        reportedEntity: {
-          include: {
-            handles: true
-          }
-        },
-        media: true,
-        author: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            instagram: true,
-          },
-        },
-        space: {
-          select: {
-            id: true,
-            name: true,
-          },
+
+  if (!user?.isSuperAdmin) {
+    return { posts: [], nextCursor: undefined, hasNextPage: false };
+  }
+
+  const { limit = 20, cursor } = options;
+  const actualLimit = limit;
+
+  const posts = await prisma.post.findMany({
+    include: {
+      reportedEntity: {
+        include: {
+          handles: true,
         },
       },
-      orderBy: { createdAt: "desc" },
-    });
-  } else {
-    return [];
+      media: true,
+      author: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          instagram: true,
+        },
+      },
+      space: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: actualLimit + 1,
+    skip: cursor ? 1 : 0,
+    cursor: cursor ? { id: cursor } : undefined,
+  });
+
+  let hasNextPage = false;
+  let nextCursor: string | undefined = undefined;
+
+  if (posts.length > actualLimit) {
+    hasNextPage = true;
+    const nextItem = posts.pop();
+    nextCursor = nextItem!.id;
   }
+
+  return { posts, nextCursor, hasNextPage };
 }
 
 export async function deletePost(postId: string) {
