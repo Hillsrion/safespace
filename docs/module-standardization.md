@@ -80,10 +80,12 @@ export function PostList({ posts, onPostClick }: PostListProps) {
 ## State Management
 
 ### 1. Local State
+
 - `useState` for simple state
 - `useReducer` for complex logic
 
 ### 2. Global State (Zustand)
+
 - Store per domain in `app/stores`
 - Single responsibility
 - Immutable updates
@@ -100,18 +102,21 @@ interface PostState {
 export const usePostStore = create<PostState>((set) => ({
   posts: [],
   addPost: (post) => set((state) => ({ posts: [...state.posts, post] })),
-  updatePost: (id, updates) => set((state) => ({
-    posts: state.posts.map(p => p.id === id ? { ...p, ...updates } : p)
-  })),
-  removePost: (id) => set((state) => ({
-    posts: state.posts.filter(p => p.id !== id)
-  }))
+  updatePost: (id, updates) =>
+    set((state) => ({
+      posts: state.posts.map((p) => (p.id === id ? { ...p, ...updates } : p)),
+    })),
+  removePost: (id) =>
+    set((state) => ({
+      posts: state.posts.filter((p) => p.id !== id),
+    })),
 }));
 ```
 
 ## API Integration
 
 ### API Client Pattern
+
 - Use `useApi` hook
 - Group by domain in `app/services/api.client`
 - Consistent error handling
@@ -121,7 +126,11 @@ export const usePostStore = create<PostState>((set) => ({
 export function usePostActionsApi() {
   const { callApi } = useApi<PostActionResponse>();
 
+<<<<<<< HEAD
   const deletePost = (postId: string) =>
+=======
+  const deletePost = (postId: string) =>
+>>>>>>> 2577651 (docs: add module standardization guidelines with kebab-case convention)
     callApi(`/api/posts/${postId}`, { method: 'DELETE' });
 
   return { deletePost };
@@ -139,7 +148,7 @@ export function usePostActionsApi() {
 export function useLoginForm() {
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' }
+    defaultValues: { email: "", password: "" },
   });
 
   const handleSubmit = form.handleSubmit((data) => {
@@ -161,6 +170,7 @@ export function useLoginForm() {
 ## Example: Post Feature
 
 ### File Structure
+
 ```
 app/
   components/
@@ -180,16 +190,16 @@ app/
 ```
 
 ### Component Usage
+
 ```tsx
 // post-list.tsx
 export function PostList() {
   const { posts, loading, error } = usePosts();
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
-
   return (
     <div>
-      {posts.map(post => (
+      {posts.map((post) => (
         <post key={post.id} post={post} />
       ))}
     </div>
