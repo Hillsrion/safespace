@@ -1,5 +1,8 @@
-import { json, type LoaderFunctionArgs } from "@remix-run/node"; // Assuming Remix, adjust if different
-import { getAllPosts, getSpacePosts } from "~/db/repositories/posts/queries.server";
+import { data, type LoaderFunctionArgs } from "@remix-run/node"; // Assuming Remix, adjust if different
+import {
+  getAllPosts,
+  getSpacePosts,
+} from "~/db/repositories/posts/queries.server";
 import { getCurrentUser } from "~/services/auth.server"; // To get current user
 import { getUserById } from "~/db/repositories/users.server"; // To check for super admin
 
@@ -9,7 +12,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getCurrentUser(request);
 
   if (!user) {
-    return json({ error: "Unauthorized" }, { status: 401 });
+    return data({ error: "Unauthorized" }, { status: 401 });
   }
 
   const url = new URL(request.url);
@@ -18,7 +21,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const limit = limitParam ? parseInt(limitParam, 10) : DEFAULT_LIMIT;
 
   if (isNaN(limit) || limit <= 0) {
-    return json({ error: "Invalid limit parameter" }, { status: 400 });
+    return data({ error: "Invalid limit parameter" }, { status: 400 });
   }
 
   try {
@@ -42,14 +45,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     // The mapping to TPost happens on the client-side in the dashboard,
     // so raw Prisma objects can be returned here if they are serializable.
 
-    return json({
+    return data({
       posts: result.posts,
       nextCursor: result.nextCursor,
       hasNextPage: result.hasNextPage,
     });
-
   } catch (error) {
     console.error("Failed to fetch posts:", error);
-    return json({ error: "Failed to fetch posts" }, { status: 500 });
+    return data({ error: "Failed to fetch posts" }, { status: 500 });
   }
 }

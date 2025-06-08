@@ -5,7 +5,7 @@ import { getSpacePosts } from "~/db/repositories/posts/queries.server";
 import { getCurrentUser } from "~/services/auth.server";
 import { useToastTrigger } from "~/hooks/use-toast-trigger";
 import { useLoaderData } from "react-router";
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { usePostStore } from "~/stores/postStore";
 import { getSession } from "~/services/session.server";
 import type { ToastData } from "~/hooks/use-toast-trigger";
@@ -14,7 +14,7 @@ import { getAllPosts } from "~/db/repositories/posts/queries.server";
 import { useInView } from 'react-intersection-observer';
 import { usePostApi } from '~/services/api.client/posts';
 import { Post } from "~/components/post";
-import { type AuthorProfile, type SpaceInfo, type EvidenceMedia, type TPost } from "~/lib/types";
+import { type AuthorProfile, type SpaceInfo, type EvidenceMedia, type TPost, TPostCurrentUser } from "~/lib/types";
 import { useUser } from "~/hooks/useUser";
 import { getUserIdentity } from "~/lib/utils";
 
@@ -116,12 +116,12 @@ export default function Dashboard() {
 
   useToastTrigger(toastData);
 
-  // This will be used for mapping posts
-  const currentUserInfo: TPostCurrentUser = { // Explicitly type currentUserInfo
+  // Memoize the current user info to prevent unnecessary recreations
+  const currentUserInfo = useMemo(() => ({
     id: user?.id,
     isSuperAdmin: user?.isSuperAdmin,
-    role: user?.role?.toLowerCase() as "admin" | "moderator" | "user" || "user",
-  };
+    role: (user?.role?.toLowerCase() as "admin" | "moderator" | "user") || "user",
+  }), [user?.id, user?.isSuperAdmin, user?.role]);
 
   // Define a more specific type for posts coming from the loader/API
   type PrismaPostWithIncludes = PrismaPost & {
@@ -129,62 +129,69 @@ export default function Dashboard() {
     media?: PrismaMedia[];
     space?: PrismaSpace | null;
     reportedEntity?: ReportedEntity | null;
-    description?: string | null; // Ensure this matches your Prisma model or query
-    // Prisma's Date fields are typically Date objects in Prisma Client,
-    // but become ISO strings after JSON serialization in loaders/APIs.
-    createdAt: string; // Assuming it's already a string from loader/API
-    updatedAt?: string | null; // Assuming it's already a string
+    description?: string | null;
+    createdAt: string;
+    updatedAt?: string | null;
   };
 
-  // Helper function to map Prisma Post to TPost
-  const mapPrismaPostToTPost = (post: PrismaPostWithIncludes): TPost => ({
-    id: post.id,
-    author: post.author ? mapPrismaUserToAuthor(post.author) : {
-      id: "unknown",
-      name: "Unknown Author",
-      username: "unknown",
-      role: null,
-    },
-    createdAt: post.createdAt, // Already a string if serialized by loader/API
-    content: post.description || "",
-    media: mapPrismaMediaToEvidence(post.media),
-    status: (post.status ? post.status.toLowerCase() : "published") as TPost['status'],
-    reportedEntity: post.reportedEntity || undefined,
-    space: post.space ? mapPrismaSpaceToSpaceInfo(post.space) : undefined,
-    currentUser: currentUserInfo,
-  });
+  // Move the mapping logic outside the component to prevent recreation
+  const mapPrismaPostToTPost = useCallback((post: any, currentUser: TPostCurrentUser): TPost => {
+    const typedPost = post as PrismaPostWithIncludes;
+    return {
+      id: typedPost.id,
+      author: typedPost.author ? mapPrismaUserToAuthor(typedPost.author) : {
+        id: "unknown",
+        name: "Unknown Author",
+        username: "unknown",
+        role: null,
+      },
+      createdAt: typedPost.createdAt,
+      content: typedPost.description || "",
+      media: mapPrismaMediaToEvidence(typedPost.media),
+      status: (typedPost.status ? typedPost.status.toLowerCase() : "published") as TPost['status'],
+      reportedEntity: typedPost.reportedEntity || undefined,
+      space: typedPost.space ? mapPrismaSpaceToSpaceInfo(typedPost.space) : undefined,
+      currentUser,
+    };
+  }, []);  // No dependencies as we pass currentUser as parameter
 
+  // Load initial posts
   useEffect(() => {
-    const mappedInitialPosts = initialPosts.map(p => mapPrismaPostToTPost(p as PrismaPostWithIncludes));
-    setPosts(mappedInitialPosts, initialNextCursor, initialHasNextPage);
-  }, [initialPosts, initialNextCursor, initialHasNextPage, setPosts, mapPrismaPostToTPost]); // Added mapPrismaPostToTPost
+    if (initialPosts.length > 0) {
+      const mappedInitialPosts = initialPosts.map(p => 
+        mapPrismaPostToTPost(p as PrismaPostWithIncludes, currentUserInfo)
+      );
+      setPosts(mappedInitialPosts, initialNextCursor, initialHasNextPage);
+    }
+  }, [initialPosts, initialNextCursor, initialHasNextPage, setPosts, mapPrismaPostToTPost, currentUserInfo]);
 
   const { ref, inView } = useInView({
     threshold: 0,
     triggerOnce: false,
   });
 
+  // Load more posts when scrolled to bottom
   useEffect(() => {
     if (inView && hasNextPage && !isLoadingMore && !apiIsLoading) {
       setIsLoadingMore(true);
       fetchPaginatedPosts(nextCursor ?? undefined, DEFAULT_PAGE_LIMIT)
         .then(response => {
           if (response.posts && !response.error) {
-            const mappedNewPosts = response.posts.map(p => mapPrismaPostToTPost(p as PrismaPostWithIncludes));
+            const mappedNewPosts = response.posts.map(p => 
+              mapPrismaPostToTPost(p as PrismaPostWithIncludes, currentUserInfo)
+            );
             addPosts(mappedNewPosts, response.nextCursor, response.hasNextPage);
           } else if (response.error) {
             console.error("Failed to fetch more posts:", response.error);
-            // Optionally show a toast or error message to the user
-            setIsLoadingMore(false); // Reset loading state on error
+            setIsLoadingMore(false);
           }
         })
         .catch(error => {
           console.error("Error fetching more posts:", error);
-          // Optionally show a toast or error message
-          setIsLoadingMore(false); // Reset loading state on error
+          setIsLoadingMore(false);
         });
     }
-  }, [inView, hasNextPage, isLoadingMore, nextCursor, fetchPaginatedPosts, addPosts, setIsLoadingMore, apiIsLoading, mapPrismaPostToTPost]); // Added mapPrismaPostToTPost to deps
+  }, [inView, hasNextPage, isLoadingMore, nextCursor, fetchPaginatedPosts, addPosts, setIsLoadingMore, apiIsLoading, mapPrismaPostToTPost, currentUserInfo]);
 
   return (
     <div>

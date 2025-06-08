@@ -21,6 +21,7 @@ type Params = {
   "/dashboard/spaces/new": {};
   "/resources/api/search": {};
   "/resources/api/spaces": {};
+  "/resources/api/posts/feed": {};
   "/resources/api/posts/:id/delete": {
     "id": string;
   };
