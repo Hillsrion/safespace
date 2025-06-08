@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "~/hooks/use-toast";
 import { usePostStore } from "~/stores/postStore";
-import { usePostApi } from "~/services/api.client/posts";
+import { usePostActionsApi } from "~/services/api.client/posts";
 import type { PostAction } from "~/services/api.client/posts";
 
 interface UsePostActionsProps {
@@ -19,7 +19,7 @@ const ACTION_LABELS: Record<PostAction, string> = {
 export function usePostActions({ postId }: UsePostActionsProps) {
   const [status, setStatus] = useState<ActionStatus>("idle");
   const { removePost, updatePostStatus: updatePostInStore } = usePostStore();
-  const { deletePost, updatePostStatus } = usePostApi();
+  const { deletePost, updatePostStatus } = usePostActionsApi();
 
   const handlePostAction = async (action: PostAction) => {
     setStatus("loading");

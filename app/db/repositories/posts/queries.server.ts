@@ -5,7 +5,7 @@ import { getUserById } from "../users.server";
 type GetUserPostsOptions = {
   status?: PostStatus;
   limit?: number;
-  cursor?: string;
+  cursor?: string | null;
   includeHidden?: boolean;
 };
 
@@ -34,8 +34,8 @@ export async function getUserPosts(
     include: {
       reportedEntity: {
         include: {
-          handles: true
-        }
+          handles: true,
+        },
       },
       media: true,
       author: {
@@ -116,8 +116,8 @@ export async function getSpacePosts(
     include: {
       reportedEntity: {
         include: {
-          handles: true
-        }
+          handles: true,
+        },
       },
       media: true,
       author: {
