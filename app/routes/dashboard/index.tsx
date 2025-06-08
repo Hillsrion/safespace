@@ -159,7 +159,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (initialPosts.length > 0) {
       const mappedInitialPosts = initialPosts.map(p => 
-        mapPrismaPostToTPost(p as PrismaPostWithIncludes, currentUserInfo)
+        mapPrismaPostToTPost(p, currentUserInfo)
       );
       setPosts(mappedInitialPosts, initialNextCursor, initialHasNextPage);
     }
@@ -176,11 +176,11 @@ export default function Dashboard() {
       setIsLoadingMore(true);
       fetchPaginatedPosts(nextCursor ?? undefined, DEFAULT_PAGE_LIMIT)
         .then(response => {
-          if (response.posts && !response.error) {
-            const mappedNewPosts = response.posts.map(p => 
-              mapPrismaPostToTPost(p as PrismaPostWithIncludes, currentUserInfo)
+          if (response.data && response.data.posts && !response.error) {
+            const mappedNewPosts = response.data.posts.map(p => 
+              mapPrismaPostToTPost(p, currentUserInfo)
             );
-            addPosts(mappedNewPosts, response.nextCursor, response.hasNextPage);
+            addPosts(mappedNewPosts, response.data.nextCursor, response.data.hasNextPage);
           } else if (response.error) {
             console.error("Failed to fetch more posts:", response.error);
             setIsLoadingMore(false);
