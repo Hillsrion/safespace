@@ -36,9 +36,9 @@ export function SearchBar() {
 
   // Effect to open/close the list based on search term and results
   useEffect(() => {
-    if (searchTerm.trim() && (results.length > 0 || loading)) {
+    if (searchTerm.trim() && (results?.length || loading)) {
       setIsOpen(true);
-    } else if (!searchTerm.trim() && results.length === 0 && !loading) {
+    } else if (!searchTerm.trim() && results?.length === 0 && !loading) {
       // Close if search term is cleared and no results/loading
       // but don't close if it's just loading with an empty term for the first time.
       // setIsOpen(false); // This might be too aggressive, let onFocus/onBlur/clickOutside handle it mostly.
@@ -89,7 +89,7 @@ export function SearchBar() {
   };
   
   const handleInputFocus = () => {
-    if (searchTerm.trim() || results.length > 0 || loading) {
+    if (searchTerm.trim() || results?.length || loading) {
       setIsOpen(true);
     }
   };
@@ -98,7 +98,7 @@ export function SearchBar() {
     setSearchTerm(newSearchTerm);
     if (newSearchTerm.trim() && !isOpen) {
         setIsOpen(true);
-    } else if (!newSearchTerm.trim() && !loading && results.length === 0) {
+    } else if (!newSearchTerm.trim() && !loading && results?.length === 0) {
         // If input is cleared, and not loading, and no results, keep it open to show "Type to search"
         // but allow click outside or blur to close it.
         // Or, if you prefer to close it immediately:
@@ -128,17 +128,17 @@ export function SearchBar() {
                 <span>Searching...</span>
               </div>
             )}
-            {!loading && !results.length && searchTerm.trim() && (
+            {!loading && !results?.length && searchTerm.trim() && (
               <CommandEmpty className="p-4 text-sm text-center text-muted-foreground">
                 No results found for "{searchTerm}".
               </CommandEmpty>
             )}
-            {!loading && !results.length && !searchTerm.trim() && (
+            {!loading && !results?.length && !searchTerm.trim() && (
               <CommandEmpty className="p-4 text-sm text-center text-muted-foreground">
                 Type to start searching.
               </CommandEmpty>
             )}
-            {!loading && results.length > 0 && (
+            {!loading && results?.length && (
               <CommandGroup
                 heading={
                   <div className="px-3 py-2 text-xs font-medium text-muted-foreground border-b">
@@ -147,7 +147,7 @@ export function SearchBar() {
                 }
                 className="pt-0" 
               >
-                {results.map((result) => {
+                {results?.map((result) => {
                   const { text, icon } = getResultDisplayData(result);
                   return (
                     <CommandItem

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import debounce from "lodash-es/debounce";
-import { getSearch } from "~/services/api.client/search";
+import { useSearchApi } from "~/services/api.client/search";
 import type { SearchResults } from "~/services/api.client/search";
 
 // Define types for results based on the API response structure
@@ -22,50 +22,43 @@ interface SearchResultItem {
 
 export function useSearch() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [results, setResults] = useState<SearchResults>([]);
+  const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
+  const { search } = useSearchApi();
 
-  // useCallback for fetchResults to memoize it unless dependencies change.
-  // Here, it has no dependencies other than what's available in its scope (fetch, setResults, setLoading).
   const fetchResults = useCallback(async (query: string) => {
     if (!query.trim()) {
-      // Check if the query is empty or just whitespace
-      setResults([]);
+      setResults(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const data = await getSearch(query);
-      setResults(data); // API returns an array directly
+      const response = await search(query);
+      if (!response.data) {
+        setResults(null);
+        return;
+      }
+      setResults(response.data);
     } catch (error) {
       console.error("Failed to fetch search results:", error);
-      setResults([]); // Clear results on error to avoid displaying stale/incorrect data
+      setResults(null);
     } finally {
       setLoading(false);
     }
-  }, []); // Empty dependency array as fetchResults doesn't depend on props/state from useSearch's scope directly
+  }, []);
 
-  // useCallback for debouncedFetchResults to memoize the debounced function.
-  // The dependency array includes fetchResults, so if fetchResults changes, the debounced function is recreated.
   const debouncedFetchResults = useCallback(debounce(fetchResults, 500), [
     fetchResults,
   ]);
 
   useEffect(() => {
-    // Call the debounced function when searchTerm changes.
-    // If searchTerm is empty, debouncedFetchResults will call fetchResults with an empty query,
-    // which will then clear results and set loading to false.
     debouncedFetchResults(searchTerm);
 
-    // Cleanup function:
-    // This will be called when the component unmounts or before the effect runs again.
-    // It's good practice to cancel any pending debounced calls to prevent them from
-    // executing (e.g., updating state on an unmounted component).
     return () => {
       debouncedFetchResults.cancel();
     };
-  }, [searchTerm, debouncedFetchResults]); // Effect dependencies
+  }, [searchTerm, debouncedFetchResults]);
 
   return { searchTerm, setSearchTerm, results, loading };
 }

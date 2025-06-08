@@ -1,15 +1,25 @@
-export async function fetchLogoutApi(): Promise<boolean> {
-  try {
-    await fetch("/auth/logout", {
+import { useApi } from "~/hooks/use-api";
+
+export interface AuthResponse {
+  success: boolean;
+  error?: string;
+  code?: string;
+}
+
+export function useAuthApi() {
+  const { callApi, ...rest } = useApi<AuthResponse>();
+
+  const logout = async () => {
+    return callApi("/auth/logout", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "same-origin",
     });
-    return true;
-  } catch (error) {
-    console.error("Logout failed:", error);
-    return false;
-  }
+  };
+
+  return {
+    logout,
+    ...rest,
+  };
 }

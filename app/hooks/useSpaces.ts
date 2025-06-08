@@ -1,7 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { useUser } from "~/hooks/useUser";
-import { getUserSpaces } from "~/services/api.client/spaces";
-import type { ApiResponse } from "~/services/api.client/spaces";
+import { useCallback, useEffect } from "react";
+import { useSpacesApi, type TSpace } from "~/services/api.client/spaces";
 
 export interface SpaceNavItem {
   id: string;
@@ -10,57 +8,25 @@ export interface SpaceNavItem {
 }
 
 export const useSpaces = () => {
-  const [spaces, setSpaces] = useState<SpaceNavItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const user = useUser();
-
-  const fetchSpaces = useCallback(async () => {
-    if (!user?.id) {
-      setSpaces([]);
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const data = await getUserSpaces();
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      const formattedSpaces = data.spaces.map((space) => ({
-        id: space.id,
-        name: space.name,
-        url: `/dashboard/spaces/${space.id}`,
-      }));
-
-      setSpaces(formattedSpaces);
-    } catch (err) {
-      console.error("Failed to fetch spaces:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch spaces");
-      setSpaces([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.id]);
+  const { getUserSpaces, isLoading, error, data } = useSpacesApi();
+  const fetchSpaces = useCallback(getUserSpaces, []);
 
   useEffect(() => {
     fetchSpaces();
-  }, [fetchSpaces]);
+  }, []);
 
-  // Function to manually refresh spaces if needed
-  const refresh = useCallback(() => {
-    return fetchSpaces();
-  }, [fetchSpaces]);
+  // Format spaces data when it changes
+  const spaces: SpaceNavItem[] =
+    data?.spaces?.map((space: TSpace) => ({
+      id: space.id,
+      name: space.name,
+      url: `/dashboard/spaces/${space.id}`,
+    })) || [];
 
   return {
     spaces,
     isLoading,
     error,
-    refresh,
+    refresh: fetchSpaces,
   };
 };

@@ -1,23 +1,28 @@
+import { useApi } from "~/hooks/use-api";
 import type { Space } from "~/generated/prisma";
 
 export type TSpace = Pick<Space, "id" | "name">;
 
-export interface ApiResponse {
+export interface SpacesResponse {
   spaces: TSpace[];
   error?: string;
+  code?: string;
 }
 
-export async function getUserSpaces(): Promise<ApiResponse> {
-  const response = await fetch("/resources/api/spaces", {
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+export function useSpacesApi() {
+  const { callApi, ...rest } = useApi<SpacesResponse>();
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
+  const getUserSpaces = async () => {
+    return callApi("/resources/api/spaces", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+  };
 
-  return response.json();
+  return {
+    getUserSpaces,
+    ...rest,
+  };
 }
