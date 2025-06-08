@@ -1,5 +1,6 @@
 import type { Post as PrismaPost } from "~/generated/prisma";
 import { useApi } from "~/hooks/use-api";
+import { AppError } from "~/lib/error";
 import { RESOURCES_API_PREFIX } from "~/routes";
 
 export interface PaginatedPostsResponse {
@@ -43,7 +44,13 @@ export function usePostApi() {
     });
   };
 
-  const getPosts = async (cursor?: string, limit?: number) => {
+  const getPosts = async (
+    cursor?: string,
+    limit?: number
+  ): Promise<{
+    data: PaginatedPostsResponse | null;
+    error: AppError | null;
+  }> => {
     const params = new URLSearchParams();
     if (cursor) {
       params.append("cursor", cursor);
