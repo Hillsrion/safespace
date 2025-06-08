@@ -1,27 +1,46 @@
-import { data, type LoaderFunctionArgs } from "@remix-run/node"; // Assuming Remix, adjust if different
+import { data, type LoaderFunctionArgs } from "@remix-run/node";
+import { createError } from "~/lib/error/parse";
 import {
   getAllPosts,
   getSpacePosts,
 } from "~/db/repositories/posts/queries.server";
-import { getCurrentUser } from "~/services/auth.server"; // To get current user
-import { getUserById } from "~/db/repositories/users.server"; // To check for super admin
+import { getCurrentUser } from "~/services/auth.server";
+import { getUserById } from "~/db/repositories/users.server";
+import type { Post } from "~/generated/prisma";
+import { POSTS_PAGE_LIMIT } from "~/lib/constants";
 
-const DEFAULT_LIMIT = 10;
+export type PaginatedPostsResponse = {
+  posts: Post[];
+  nextCursor?: string | null;
+  hasNextPage: boolean;
+  error?: string;
+};
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const user = await getCurrentUser(request);
 
   if (!user) {
-    return data({ error: "Unauthorized" }, { status: 401 });
+    const error = createError(
+      "You must be logged in to view posts",
+      "unauthorized:auth",
+      401
+    );
+    return data({ error }, { status: error.status });
   }
 
   const url = new URL(request.url);
   const cursor = url.searchParams.get("cursor") || undefined;
   const limitParam = url.searchParams.get("limit");
-  const limit = limitParam ? parseInt(limitParam, 10) : DEFAULT_LIMIT;
+  const limit = limitParam ? parseInt(limitParam, 10) : POSTS_PAGE_LIMIT;
 
   if (isNaN(limit) || limit <= 0) {
-    return data({ error: "Invalid limit parameter" }, { status: 400 });
+    const error = createError(
+      "Invalid limit parameter. Must be a positive number",
+      "bad_request:api",
+      400,
+      { limit: limitParam }
+    );
+    return data({ error: error }, { status: error.status });
   }
 
   try {
@@ -32,26 +51,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
     if (fullUser?.isSuperAdmin) {
       result = await getAllPosts(user.id, { cursor, limit });
     } else {
-      // For regular users, fetch posts from spaces they are part of.
-      // getSpacePosts expects userId and options.
-      // If you need to fetch posts for specific spaces based on other criteria,
-      // this logic might need adjustment or more specific parameters.
-      // For a general feed, it usually gets posts from all spaces the user is a member of.
+      // For regular users, fetch posts from spaces they are part of
       result = await getSpacePosts(user.id, { cursor, limit });
     }
-
-    // Ensure posts are serializable (e.g., Date objects to ISO strings)
-    // Prisma typically handles this, but good to be aware.
-    // The mapping to TPost happens on the client-side in the dashboard,
-    // so raw Prisma objects can be returned here if they are serializable.
 
     return data({
       posts: result.posts,
       nextCursor: result.nextCursor,
       hasNextPage: result.hasNextPage,
-    });
+    } satisfies PaginatedPostsResponse);
   } catch (error) {
     console.error("Failed to fetch posts:", error);
-    return data({ error: "Failed to fetch posts" }, { status: 500 });
+    const customError = createError(
+      "Unable to load posts. Please try again later.",
+      "server_error:posts",
+      500,
+      { cursor, limit, userId: user.id }
+    );
+    return data({ error: customError }, { status: customError.status });
   }
 }

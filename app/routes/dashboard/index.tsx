@@ -12,13 +12,13 @@ import type { ToastData } from "~/hooks/use-toast-trigger";
 import { getUserById } from "~/db/repositories/users.server";
 import { getAllPosts } from "~/db/repositories/posts/queries.server";
 import { useInView } from 'react-intersection-observer';
-import { usePostApi } from '~/services/api.client/posts';
+import { usePostFeedApi } from '~/services/api.client/posts';
 import { Post } from "~/components/post";
 import { type AuthorProfile, type SpaceInfo, type EvidenceMedia, type TPost, TPostCurrentUser } from "~/lib/types";
 import { useUser } from "~/hooks/useUser";
 import { getUserIdentity } from "~/lib/utils";
-
-const DEFAULT_PAGE_LIMIT = 10; // Same as in loader
+import { handleError } from "~/lib/error";
+import { POSTS_PAGE_LIMIT } from "~/lib/constants";
 
 export function meta() {
   return [{ title: "Dashboard" }];
@@ -44,13 +44,12 @@ export async function loader({ request }: { request: Request }) {
     isSuperAdmin: true,
   });
 
-  const DEFAULT_PAGE_LIMIT = 10;
   let initialLoadResult;
 
   if (!completedUser?.isSuperAdmin) {
-    initialLoadResult = await getSpacePosts(user.id, { limit: DEFAULT_PAGE_LIMIT, cursor: undefined });
+    initialLoadResult = await getSpacePosts(user.id, { limit: POSTS_PAGE_LIMIT });
   } else {
-    initialLoadResult = await getAllPosts(user.id, { limit: DEFAULT_PAGE_LIMIT, cursor: undefined });
+    initialLoadResult = await getAllPosts(user.id, { limit: POSTS_PAGE_LIMIT });
   }
 
   return {
@@ -98,7 +97,6 @@ export default function Dashboard() {
     initialNextCursor,
     initialHasNextPage,
     toastData,
-    isSuperAdmin // isSuperAdmin is already part of loader data
   } = useLoaderData<typeof loader>();
 
   const user = useUser(); // For currentUserInfo
@@ -112,18 +110,16 @@ export default function Dashboard() {
     setIsLoadingMore
   } = usePostStore();
 
-  const { getPosts: fetchPaginatedPosts, isLoading: apiIsLoading } = usePostApi();
+  const { getPosts: fetchPaginatedPosts, isLoading: apiIsLoading } = usePostFeedApi();
 
   useToastTrigger(toastData);
 
-  // Memoize the current user info to prevent unnecessary recreations
   const currentUserInfo = useMemo(() => ({
     id: user?.id,
     isSuperAdmin: user?.isSuperAdmin,
     role: (user?.role?.toLowerCase() as "admin" | "moderator" | "user") || "user",
   }), [user?.id, user?.isSuperAdmin, user?.role]);
 
-  // Define a more specific type for posts coming from the loader/API
   type PrismaPostWithIncludes = PrismaPost & {
     author?: PrismaUser | null;
     media?: PrismaMedia[];
@@ -134,7 +130,6 @@ export default function Dashboard() {
     updatedAt?: string | null;
   };
 
-  // Move the mapping logic outside the component to prevent recreation
   const mapPrismaPostToTPost = useCallback((post: any, currentUser: TPostCurrentUser): TPost => {
     const typedPost = post as PrismaPostWithIncludes;
     return {
@@ -153,9 +148,8 @@ export default function Dashboard() {
       space: typedPost.space ? mapPrismaSpaceToSpaceInfo(typedPost.space) : undefined,
       currentUser,
     };
-  }, []);  // No dependencies as we pass currentUser as parameter
+  }, []);
 
-  // Load initial posts
   useEffect(() => {
     if (initialPosts.length > 0) {
       const mappedInitialPosts = initialPosts.map(p => 
@@ -163,18 +157,17 @@ export default function Dashboard() {
       );
       setPosts(mappedInitialPosts, initialNextCursor, initialHasNextPage);
     }
-  }, [initialPosts, initialNextCursor, initialHasNextPage, setPosts, mapPrismaPostToTPost, currentUserInfo]);
+  }, []);
 
   const { ref, inView } = useInView({
     threshold: 0,
     triggerOnce: false,
   });
 
-  // Load more posts when scrolled to bottom
   useEffect(() => {
     if (inView && hasNextPage && !isLoadingMore && !apiIsLoading) {
       setIsLoadingMore(true);
-      fetchPaginatedPosts(nextCursor ?? undefined, DEFAULT_PAGE_LIMIT)
+      fetchPaginatedPosts(nextCursor ?? "", POSTS_PAGE_LIMIT)
         .then(response => {
           if (response.data && response.data.posts && !response.error) {
             const mappedNewPosts = response.data.posts.map(p => 
@@ -182,16 +175,16 @@ export default function Dashboard() {
             );
             addPosts(mappedNewPosts, response.data.nextCursor, response.data.hasNextPage);
           } else if (response.error) {
-            console.error("Failed to fetch more posts:", response.error);
+            handleError(response.error);
             setIsLoadingMore(false);
           }
         })
         .catch(error => {
-          console.error("Error fetching more posts:", error);
+          handleError(error);
           setIsLoadingMore(false);
         });
     }
-  }, [inView, hasNextPage, isLoadingMore, nextCursor, fetchPaginatedPosts, addPosts, setIsLoadingMore, apiIsLoading, mapPrismaPostToTPost, currentUserInfo]);
+  }, [inView]);
 
   return (
     <div>
@@ -201,26 +194,22 @@ export default function Dashboard() {
           <Post key={post.id} {...post} />
         ))}
 
-        {/* Intersection Observer Trigger */}
         {hasNextPage && !isLoadingMore && !apiIsLoading && (
-          <div ref={ref} style={{ height: '1px' }} /> // Invisible trigger
+          <div ref={ref} className="h-px" />
         )}
 
-        {/* Loading Indicator */}
-        {(isLoadingMore || (apiIsLoading && posts.length === 0)) && hasNextPage && ( // Show loader if loading more or initial API load for next page (when posts are empty)
+        {(isLoadingMore || (apiIsLoading && posts.length === 0)) && hasNextPage && (
           <div className="text-center py-4">
-            <p>Chargement des posts...</p> {/* Or a spinner component */}
+            <p>Chargement des posts...</p>
           </div>
         )}
 
-        {/* End of list message */}
         {!hasNextPage && posts.length > 0 && (
           <div className="text-center py-4 text-muted-foreground">
             <p>Vous avez atteint la fin de la liste.</p>
           </div>
         )}
 
-        {/* Initial empty state message - only if no posts after initial load and not currently loading more */}
         {posts.length === 0 && !hasNextPage && !isLoadingMore && !apiIsLoading && (
            <p className="text-center text-lg font-semibold text-muted-foreground">Aucun post à afficher pour le moment.</p>
         )}

@@ -1,14 +1,7 @@
-import type { Post as PrismaPost } from "~/generated/prisma";
 import { useApi } from "~/hooks/use-api";
 import { AppError } from "~/lib/error";
 import { RESOURCES_API_PREFIX } from "~/routes";
-
-export interface PaginatedPostsResponse {
-  posts: PrismaPost[];
-  nextCursor?: string | null;
-  hasNextPage: boolean;
-  error?: string;
-}
+import { PaginatedPostsResponse } from "~/routes/api/posts/feed";
 
 export type PostAction = "delete" | "hide" | "unhide";
 
@@ -19,7 +12,7 @@ export interface PostActionResponse {
   code?: string;
 }
 
-export function usePostApi() {
+export function usePostActionsApi() {
   const { callApi, ...rest } = useApi<PostActionResponse>();
 
   const deletePost = async (postId: string) => {
@@ -44,9 +37,19 @@ export function usePostApi() {
     });
   };
 
+  return {
+    deletePost,
+    updatePostStatus,
+    ...rest,
+  };
+}
+
+export function usePostFeedApi() {
+  const { callApi, ...rest } = useApi<PaginatedPostsResponse>();
+
   const getPosts = async (
-    cursor?: string,
-    limit?: number
+    cursor: string,
+    limit: number
   ): Promise<{
     data: PaginatedPostsResponse | null;
     error: AppError | null;
@@ -71,8 +74,6 @@ export function usePostApi() {
   };
 
   return {
-    deletePost,
-    updatePostStatus,
     getPosts,
     ...rest,
   };
