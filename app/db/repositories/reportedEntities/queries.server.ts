@@ -1,4 +1,4 @@
-import { prisma } from "~/db/prisma.server";
+import { prisma } from "~/db/client.server";
 import type { ReportedEntityWithHandles, ReportedEntityPost } from "./types";
 
 /**
@@ -32,7 +32,7 @@ export async function getReportedEntityPosts(
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
-      spaceMemberships: {
+      memberships: {
         // Assuming 'spaceMemberships' is the relation name on the User model
         select: { spaceId: true },
       },
@@ -44,7 +44,7 @@ export async function getReportedEntityPosts(
     throw new Error("User not found");
   }
 
-  const userSpaceIds = user.spaceMemberships.map((sm) => sm.spaceId);
+  const userSpaceIds = user.memberships.map((sm) => sm.spaceId);
 
   // Base conditions for fetching posts related to the ReportedEntity
   const whereConditions: any = {
@@ -64,21 +64,22 @@ export async function getReportedEntityPosts(
   const posts = await prisma.post.findMany({
     where: whereConditions,
     include: {
-      author: { // Assuming relation name on Post model is 'author' to User model
+      author: {
+        // Assuming relation name on Post model is 'author' to User model
         select: {
           id: true,
-          name: true, // Assuming User model has 'name'
-          username: true,
-          avatarUrl: true,
-          role: true, // Assuming User model has 'role'
+          firstName: true,
+          lastName: true,
+          instagram: true,
         },
       },
-      space: { // Assuming relation name on Post model is 'space' to Space model
+      space: {
+        // Assuming relation name on Post model is 'space' to Space model
         select: {
           id: true,
           name: true,
           // url: true, // TPost's SpaceInfo expects a URL. Assuming Space model has 'url' or it's derived.
-                       // If not directly on model, this might need to be constructed. For now, assume it exists.
+          // If not directly on model, this might need to be constructed. For now, assume it exists.
         },
       },
       media: true, // Assuming relation name is 'media' and it fetches all EvidenceMedia fields
@@ -87,8 +88,8 @@ export async function getReportedEntityPosts(
       // which refers to the entity whose profile page is being viewed.
       reportedEntity: {
         include: {
-            handles: true, // To match TPost's ReportedEntity, which includes handles
-        }
+          handles: true, // To match TPost's ReportedEntity, which includes handles
+        },
       },
       // Add other includes like 'flags' if TPost requires them and they are relations
     },
@@ -100,15 +101,17 @@ export async function getReportedEntityPosts(
   // TODO: Temporary mapping to satisfy TPost more closely until Prisma types are fully aligned
   // or until we ensure all fields like author.name, space.url are directly available.
   // This mapping step might be removed if Prisma select/include directly matches TPost structure.
-  return posts.map(post => ({
+  return posts.map((post) => ({
     ...post,
     // Ensure author structure matches AuthorProfile, especially if 'name' isn't direct.
     // Prisma's select will return null for relations if they don't exist, which is fine for optional TPost fields.
-    author: post.author ? {
-        ...post.author,
-        name: post.author.name || post.author.username || "Unknown User", // Fallback for name
-        role: post.author.role || "user", // Fallback for role
-    } : { id: "unknown", name: "Unknown User", role: "user" }, // Placeholder for missing author
+    author: post.author
+      ? {
+          ...post.author,
+          name: post.author.firstName || post.author.lastName || "Unknown User", // Fallback for name
+          role: "user", // Fallback for role
+        }
+      : { id: "unknown", name: "Unknown User", role: "user" }, // Placeholder for missing author
 
     // If space.url is not directly on the model and needs construction (e.g. /spaces/${id}):
     // space: post.space ? { ...post.space, url: `/spaces/${post.space.id}` } : undefined,
@@ -116,6 +119,5 @@ export async function getReportedEntityPosts(
     // Ensure createdAt is a string
     createdAt: post.createdAt.toISOString(),
     updatedAt: post.updatedAt ? post.updatedAt.toISOString() : undefined,
-
   })) as unknown as ReportedEntityPost[]; // Cast needed because the intermediate mapping might not perfectly match the defined (but soon to be updated) ReportedEntityPost
 }

@@ -19,6 +19,9 @@ type Params = {
   "/dashboard/account": {};
   "/dashboard/superadmin": {};
   "/dashboard/spaces/new": {};
+  "/dashboard/entities/:id": {
+    "id": string;
+  };
   "/resources/api/search": {};
   "/resources/api/spaces": {};
   "/resources/api/posts/feed": {};

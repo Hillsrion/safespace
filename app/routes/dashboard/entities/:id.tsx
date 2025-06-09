@@ -1,9 +1,8 @@
 import type { LoaderFunctionArgs } from "@remix-run/node";
-import { json, Response } from "@remix-run/node"; // Added Response for throwing
-import { useLoaderData, useParams, useRouteError, isRouteErrorResponse } from "@remix-run/react"; // Added useRouteError, isRouteErrorResponse
-import type { ReportedEntityWithHandles, ReportedEntityPost } from "~/db/repositories/reportedEntities/types"; // Renamed FetchedReportedEntityPost back
+import { data } from "@remix-run/node"; // Added Response for throwing
+import { useLoaderData, useParams, useRouteError, isRouteErrorResponse } from "react-router"; // Added useRouteError, isRouteErrorResponse
 import { reportedEntityRepository } from "~/db/repositories/reportedEntities/index.server";
-import { requireUserId } from "~/services/auth.server";
+import { requireUser } from "~/services/auth.server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Post as PostComponent } from "~/components/post";
@@ -25,10 +24,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
 
     // Then fetch posts, requiring userId
-    const userId = await requireUserId(request); // Throws Response if not authenticated
-    const posts = await reportedEntityRepository.getPosts(entityId, userId);
+    const user = await requireUser(request); // Throws Response if not authenticated
+    const posts = await reportedEntityRepository.getPosts(entityId, user.id);
 
-    return json({ entity, posts });
+    return data({ entity, posts });
   } catch (error) {
     console.error("Error in ReportedEntity loader:", error);
 

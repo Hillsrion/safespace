@@ -40,6 +40,7 @@ export default [
     route("account", routePath("dashboard/account/index.tsx")),
     route("superadmin", routePath("dashboard/superadmin.tsx")),
     route("spaces/new", routePath("dashboard/spaces/new.tsx")),
+    route("entities/:id", routePath("dashboard/entities/:id.tsx")),
   ]),
   layout(layoutPath("api.tsx"), [
     ...prefix(RESOURCES_API_PREFIX, [

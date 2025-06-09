@@ -15,7 +15,8 @@ export type Surface =
   | "posts"
   | "spaces"
   | "users"
-  | "form";
+  | "form"
+  | "reported_entity";
 
 export type ErrorCode = `${ErrorType}:${Surface}`;
 

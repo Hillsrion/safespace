@@ -2,6 +2,7 @@ import { Authenticator } from "remix-auth";
 import { FormStrategy } from "remix-auth-form";
 import { prisma } from "~/db/client.server";
 import bcrypt from "bcryptjs";
+import { throwHttpError } from "~/lib/api/http-error";
 import type { User } from "~/generated/prisma";
 import { getSession } from "./session.server";
 import { redirect } from "react-router";
@@ -67,3 +68,11 @@ authenticator.use(
   }),
   "user-pass" // Strategy name
 );
+
+export async function requireUser(request: Request) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    throwHttpError(401, "Unauthorized", "unauthorized:auth");
+  }
+  return user;
+}
