@@ -18,68 +18,225 @@ globs: app/routes
 
 - Always use TypeScript types/interfaces for request and response payloads
 - Use `zod` for runtime validation of all incoming requests
-- Return consistent response structures:
-  ```typescript
-  interface ApiResponse<T> {
-    data?: T;
-    error?: {
-      code: string;
-      message: string;
-      details?: unknown;
-    };
-    meta?: {
-      page?: number;
-      pageSize?: number;
-      total?: number;
-    };
+- For loaders, return data directly and let Remix handle the response
+- For actions, return a simple success/error object
+
+```typescript
+// Loader example
+import { data } from "@remix-run/node";
+
+export async function loader() {
+  const result = await fetchData();
+  return data(result);
+}
+
+// Action example
+export async function action() {
+  try {
+    await doSomething();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Something went wrong" };
   }
-  ```
+}
+```
 
 ### 3. Error Handling
 
-- Use HTTP status codes appropriately
-- Implement custom error classes for different error types
-- Always return meaningful error messages and codes
-- Log errors appropriately on the server
+#### HTTP Errors
+
+For HTTP errors, use the error helpers from `~/lib/api/http-error`:
+
+```typescript
+import { errors } from "~/lib/api/http-error";
+
+// Authentication errors
+if (!user) {
+  throw errors.unauthorized("You must be logged in to access this resource");
+}
+
+// Authorization errors
+if (!hasPermission) {
+  throw errors.forbidden("Insufficient permissions");
+}
+
+// Not found errors
+if (!resource) {
+  throw errors.notFound("Resource not found");
+}
+
+// Server errors
+try {
+  // ...
+} catch (error) {
+  console.error(error);
+  throw errors.internalServerError("Something went wrong");
+}
+```
+
+#### Action Errors
+
+For form submissions and actions, return error objects directly:
+
+```typescript
+export async function action() {
+  if (!isValid) {
+    return { success: false, error: "Invalid input" };
+  }
+
+  try {
+    await doSomething();
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: "Failed to process request",
+      details: error instanceof Error ? error.message : String(error)
+    };
+  }
+}
+```
+
+#### Error Response Format
+
+HTTP errors follow this format (handled by Remix's error boundaries):
+
+```typescript
+{
+  "success": false,
+  "error": "Error message",
+  "code": "error_code:category",
+  "details": { /* optional additional details */ }
+}
+```
+
+Action errors return the response directly:
+
+```typescript
+{
+  "success": false,
+  "error": "Error message",
+  "details?": "Additional error details"
+}
+```
+
+#### Common Error Codes
+
+- `400 bad_request:*` - Invalid request data or parameters
+- `401 unauthorized:auth` - Authentication required
+- `403 forbidden:auth` - Insufficient permissions
+- `404 not_found:api` - Resource not found
+- `409 conflict:api` - Resource state conflict
+- `500 server_error:api` - Internal server error
+
+#### Best Practices
+
+- Use HTTP errors for HTTP-level concerns (auth, not found, etc.)
+- Use action return values for form validation and business logic errors
+- Always include user-friendly error messages
+- Log detailed errors server-side
+- Use appropriate HTTP status codes
+- Let Remix's error boundaries handle HTTP error responses
 
 ## Remix Data Loading
 
 ### 1. Data Loading Functions
 
-- Always use the `data` function from `@remix-run/node` for returning responses
-- The `json` function from `@remix-run/node` is deprecated and must never be used
+- Use the `data` function from `@remix-run/node` for all loader responses
+- The `json` function is deprecated and must never be used
 - The `data` function provides better TypeScript support and is the recommended approach in Remix v2+
 
 ### 2. Data Fetching Pattern
 
 ```typescript
-// Good - Using data function
+// Loader with data function
 import type { LoaderFunctionArgs } from "@remix-run/node";
 import { data } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 
+// Type for the loader data
+type LoaderData = {
+  items: Item[];
+  total: number;
+};
+
 export async function loader({ request }: LoaderFunctionArgs) {
-  const result = await fetchData();
-  return data({ result });
+  const url = new URL(request.url);
+  const page = Number(url.searchParams.get("page")) || 1;
+
+  const { items, total } = await fetchPaginatedData({ page });
+
+  return data<LoaderData>({
+    items,
+    total,
+    page,
+  });
 }
 
 export default function RouteComponent() {
-  const { result } = useLoaderData<typeof loader>();
+  const { items, total, page } = useLoaderData<typeof loader>();
   // ...
 }
 
-// Bad - Using json function (deprecated)
-import { json } from "@remix-run/node"; // ❌ Do not import json
+// Action pattern
+export async function action({ request }: ActionFunctionArgs) {
+  const formData = await request.formData();
+  const intent = formData.get("intent");
 
-export async function loader() {
-  const result = await fetchData();
-  return json({ result }); // ❌ Never use json()
+  try {
+    switch (intent) {
+      case "create":
+        const item = await createItem(formData);
+        return { success: true, item };
+
+      case "update":
+        const updated = await updateItem(formData);
+        return { success: true, item: updated };
+
+      default:
+        return {
+          success: false,
+          error: "Invalid intent"
+        };
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: "Failed to process request",
+      details: error instanceof Error ? error.message : String(error)
+    };
+  }
 }
+```
 
-// Also Bad - Direct object return (loses type safety)
-export async function loader() {
-  const result = await fetchData();
-  return { result }; // ❌ Avoid direct object returns
+### 3. Form Handling
+
+```typescript
+// Form component
+export default function ItemForm() {
+  const actionData = useActionData<typeof action>();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
+
+  return (
+    <Form method="post">
+      {actionData?.error && (
+        <div className="error">{actionData.error}</div>
+      )}
+
+      <input name="name" required />
+      <input name="description" />
+
+      <button
+        type="submit"
+        name="intent"
+        value="create"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? 'Creating...' : 'Create Item'}
+      </button>
+    </Form>
+  );
 }
 ```
 

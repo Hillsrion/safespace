@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
+import { Link } from "@remix-run/react";
 import { usePostActions } from "~/components/post/hooks/usePostActions";
 import { MediaDialog } from "~/components/media-dialog";
 import { MediaCarousel } from "~/components/media-carousel";

@@ -1,42 +1,41 @@
-import type { AppError } from "~/lib/error/types";
+/**
+ * API Response Utility
+ *
+ * This module provides utilities for creating consistent API responses.
+ * It includes type definitions and helper functions for success and error responses.
+ */
 
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  code?: AppError["code"];
+/**
+ * Represents an error API response
+ */
+export interface ApiErrorResponse {
+  success: false;
+  error: string;
+  code: string;
+  details?: unknown;
 }
 
-export function createApiResponse<T = unknown>(
-  success: boolean,
-  options: {
-    data?: T;
-    error?: string;
-    code?: AppError["code"];
-  } = {}
-): ApiResponse<T> {
-  return {
-    success,
-    ...(options.data !== undefined && { data: options.data }),
-    ...(options.error && { error: options.error }),
-    ...(options.code && { code: options.code }),
-  };
-}
-
-export function successResponse<T = unknown>(data: T): ApiResponse<T> {
-  return createApiResponse<T>(true, { data });
-}
-
+/**
+ * Creates an error response with the given error details
+ *
+ * @param error The error message
+ * @param code The error code
+ * @param status The HTTP status code
+ * @param details Additional error details
+ * @returns A Response object with the error response
+ */
 export function errorResponse(
-  message: string,
-  code: AppError["code"] = "server_error:api",
-  status: number = 500
+  error: string,
+  code: string,
+  status: number = 500,
+  details?: unknown
 ): Response {
-  return new Response(
-    JSON.stringify(createApiResponse(false, { error: message, code })),
-    {
-      status,
-      headers: { "Content-Type": "application/json" },
-    }
-  );
+  const errorResponse: ApiErrorResponse = details
+    ? { success: false, error, code, details }
+    : { success: false, error, code };
+
+  return new Response(JSON.stringify(errorResponse), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }

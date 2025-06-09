@@ -1,6 +1,7 @@
 export type ErrorType =
   | "bad_request"
   | "unauthorized"
+  | "forbidden"
   | "not_found"
   | "rate_limit"
   | "server_error"
