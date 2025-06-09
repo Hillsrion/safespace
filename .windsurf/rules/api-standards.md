@@ -83,7 +83,6 @@ export async function action() {
   if (!isValid) {
     return { success: false, error: "Invalid input" };
   }
-
   try {
     await doSomething();
     return { success: true };
@@ -91,7 +90,7 @@ export async function action() {
     return {
       success: false,
       error: "Failed to process request",
-      details: error instanceof Error ? error.message : String(error)
+      details: error instanceof Error ? error.message : String(error),
     };
   }
 }
@@ -163,10 +162,17 @@ type LoaderData = {
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const page = Number(url.searchParams.get("page")) || 1;
+<<<<<<< HEAD
 
   const { items, total } = await fetchPaginatedData({ page });
 
   return data<LoaderData>({
+=======
+
+  const { items, total } = await fetchPaginatedData({ page });
+
+  return data<LoaderData>({
+>>>>>>> 0324cf7 (refactor: change response error system for API)
     items,
     total,
     page,
@@ -182,12 +188,17 @@ export default function RouteComponent() {
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent");
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 0324cf7 (refactor: change response error system for API)
   try {
     switch (intent) {
       case "create":
         const item = await createItem(formData);
         return { success: true, item };
+<<<<<<< HEAD
 
       case "update":
         const updated = await updateItem(formData);
@@ -202,6 +213,22 @@ export async function action({ request }: ActionFunctionArgs) {
   } catch (error) {
     return {
       success: false,
+=======
+
+      case "update":
+        const updated = await updateItem(formData);
+        return { success: true, item: updated };
+
+      default:
+        return {
+          success: false,
+          error: "Invalid intent"
+        };
+    }
+  } catch (error) {
+    return {
+      success: false,
+>>>>>>> 0324cf7 (refactor: change response error system for API)
       error: "Failed to process request",
       details: error instanceof Error ? error.message : String(error)
     };
@@ -217,12 +244,17 @@ export default function ItemForm() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
+<<<<<<< HEAD
 
+=======
+
+>>>>>>> 0324cf7 (refactor: change response error system for API)
   return (
     <Form method="post">
       {actionData?.error && (
         <div className="error">{actionData.error}</div>
       )}
+<<<<<<< HEAD
 
       <input name="name" required />
       <input name="description" />
@@ -230,6 +262,15 @@ export default function ItemForm() {
       <button
         type="submit"
         name="intent"
+=======
+
+      <input name="name" required />
+      <input name="description" />
+
+      <button
+        type="submit"
+        name="intent"
+>>>>>>> 0324cf7 (refactor: change response error system for API)
         value="create"
         disabled={isSubmitting}
       >
