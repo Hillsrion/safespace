@@ -92,6 +92,41 @@ export async function createSpace(
 }
 
 /**
+ * Removes a user from a space.
+ * @param userId The ID of the user to remove.
+ * @param spaceId The ID of the space to remove the user from.
+ * @returns The result of the deleteMany operation (includes count of deleted records).
+ * @throws Will throw an error if the database operation fails.
+ */
+export async function removeUserFromSpace(userId: string, spaceId: string) {
+  try {
+    const result = await prisma.userSpaceMembership.deleteMany({
+      where: {
+        userId: userId,
+        spaceId: spaceId,
+      },
+    });
+
+    // Optional: Check if any record was actually deleted
+    if (result.count === 0) {
+      // This could mean the user was not a member, or IDs were incorrect.
+      // For now, let's log it and still consider it a successful operation.
+      console.warn(
+        `No membership found for user ${userId} in space ${spaceId} to remove.`
+      );
+    }
+
+    return result; // Contains count of deleted records
+  } catch (error) {
+    console.error(
+      `Error removing user ${userId} from space ${spaceId}:`,
+      error
+    );
+    throw new Error(`Failed to remove user from space.`);
+  }
+}
+
+/**
  * Adds a user to a space with a specific role.
  * @param userId The ID of the user to add.
  * @param spaceId The ID of the space to add the user to.
