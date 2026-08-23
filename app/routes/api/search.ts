@@ -2,8 +2,31 @@ import { data, type LoaderFunctionArgs } from "react-router";
 import { prisma } from "~/db/client.server";
 import { requireUser } from "~/services/auth.server";
 import { errors } from "~/lib/api/http-error";
+import { redactAnonymousPost } from "~/lib/post-privacy";
 
 const SEARCH_RESULT_LIMIT = 20;
+
+export function toSearchResults<
+  P extends { id: string; isAnonymous: boolean },
+  E extends { id: string },
+>(posts: P[], reportedEntities: E[]) {
+  const results = [
+    ...posts.map((post) => ({
+      type: "post" as const,
+      data: redactAnonymousPost(post),
+    })),
+    ...reportedEntities.map((entity) => ({
+      type: "reportedEntity" as const,
+      data: entity,
+    })),
+  ];
+
+  return Array.from(
+    new Map(
+      results.map((item) => [`${item.type}-${item.data.id}`, item])
+    ).values()
+  );
+}
 
 export function getSearchAccessFilters(user: {
   id: string;
@@ -23,7 +46,16 @@ export function getSearchAccessFilters(user: {
                 memberships: {
                   some: {
                     userId: user.id,
-                    role: { in: ["ADMIN", "MODERATOR", "Admin", "Moderator"] },
+                    role: {
+                      in: [
+                        "ADMIN",
+                        "MODERATOR",
+                        "Admin",
+                        "Moderator",
+                        "admin",
+                        "moderator",
+                      ],
+                    },
                   },
                 },
               },
@@ -92,28 +124,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
     // User search removed as per requirements
 
-    const results = [
-      ...posts.map((post) => ({
-        type: "post",
-        data:
-          post.isAnonymous && !user.isSuperAdmin
-            ? { ...post, authorId: null }
-            : post,
-      })),
-      ...reportedEntities.map((entity) => ({
-        type: "reportedEntity",
-        data: entity,
-      })),
-    ];
-
-    // Deduplicate results based on type and ID
-    const uniqueResults = Array.from(
-      new Map(
-        results.map((item) => [`${item.type}-${item.data.id}`, item])
-      ).values()
-    );
-
-    return data(uniqueResults);
+    return data(toSearchResults(posts, reportedEntities));
   } catch (error) {
     console.error("Search error:", error);
     throw errors.internalServerError("Search failed");

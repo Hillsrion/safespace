@@ -1,4 +1,5 @@
-import { MoreHorizontal, Trash2, Eye, EyeOff } from "lucide-react";
+import { MoreHorizontal, Trash2, Eye, EyeOff, Pencil } from "lucide-react";
+import { Link } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
   DropdownMenu,
@@ -10,11 +11,10 @@ import {
 interface PostActionsMenuProps {
   status?: string;
   isSubmitting: boolean;
-  isCurrentUserAuthor: boolean;
-  currentUser: {
-    role?: string;
-    isSuperAdmin?: boolean;
-  };
+  canDelete: boolean;
+  canEdit: boolean;
+  canModerate: boolean;
+  editUrl: string;
   onDeletePost?: () => void;
   onHidePost?: () => void;
   onUnhidePost?: () => void;
@@ -23,8 +23,10 @@ interface PostActionsMenuProps {
 export function PostActionsMenu({
   status,
   isSubmitting,
-  isCurrentUserAuthor,
-  currentUser,
+  canDelete,
+  canEdit,
+  canModerate,
+  editUrl,
   onDeletePost,
   onHidePost,
   onUnhidePost,
@@ -37,8 +39,16 @@ export function PostActionsMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {/* Delete action - available to admins, super admins, and post authors */}
-        {((currentUser.role === "admin" || currentUser.isSuperAdmin || isCurrentUserAuthor) && onDeletePost) && (
+        {canEdit && (
+          <DropdownMenuItem asChild>
+            <Link to={editUrl}>
+              <Pencil className="h-4 w-4 mr-2" />
+              <span>Modifier le signalement</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
+
+        {canDelete && onDeletePost && (
           <DropdownMenuItem 
             onClick={onDeletePost} 
             className="text-destructive"
@@ -50,7 +60,7 @@ export function PostActionsMenu({
         )}
 
         {/* Toggle hide/show action - available to admins and moderators */}
-        {((currentUser.role === "admin" || currentUser.role === "moderator" || currentUser.isSuperAdmin) && (onHidePost || onUnhidePost)) && (
+        {canModerate && (onHidePost || onUnhidePost) && (
           status === "hidden" ? (
             onUnhidePost && (
               <DropdownMenuItem 

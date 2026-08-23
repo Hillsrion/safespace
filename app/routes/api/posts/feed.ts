@@ -5,13 +5,14 @@ import {
   getAllPosts,
   getSpacePosts,
 } from "~/db/repositories/posts/queries.server";
+import type { PostViewerPermissions } from "~/db/repositories/posts/queries.server";
 import { getCurrentUser } from "~/services/auth.server";
 import { getUserById } from "~/db/repositories/users.server";
 import type { Post } from "~/generated/prisma";
 import { POSTS_PAGE_LIMIT } from "~/lib/constants";
 
 export type PaginatedPostsResponse = {
-  posts: Post[];
+  posts: Array<Post & PostViewerPermissions>;
   nextCursor?: string | null;
   hasNextPage: boolean;
 };

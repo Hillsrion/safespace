@@ -5,6 +5,7 @@ import type {
   TPost // For reference, aiming for compatibility
 } from "~/lib/types";
 import type { ReportedEntity as PrismaReportedEntity, Post as PrismaPost, User as PrismaUser, Space as PrismaSpace } from "~/generated/prisma"; // Assuming default Prisma client export location
+import type { PostViewerPermissions } from "../posts/queries.server";
 
 // Represents the structure of the author data as selected in getReportedEntityPosts
 type PostAuthor = Pick<AuthorProfile, "id" | "name" | "username" | "avatarUrl" | "role">;
@@ -25,7 +26,7 @@ export type ReportedEntityWithHandles = Pick<
 
 // This type now reflects the richer post object returned by getReportedEntityPosts
 // It should be very similar to TPost, but derived from what the query actually returns.
-export type ReportedEntityPost = Omit<PrismaPost, "authorId" | "userId" | "reportedEntityId" | "spaceId" | "createdAt" | "updatedAt"> & {
+export type ReportedEntityPost = Omit<PrismaPost, "authorId" | "userId" | "reportedEntityId" | "spaceId" | "createdAt" | "updatedAt"> & PostViewerPermissions & {
   // Overwrite or add included fields:
   author: PostAuthor;
   space?: PostSpace | null; // Prisma returns null for missing optional relations

@@ -67,4 +67,7 @@ export type TPost = {
   }; // Information about the user being reported
   space?: SpaceInfo; // The space this post belongs to
   currentUser: TPostCurrentUser;
+  viewerCanEdit?: boolean;
+  viewerCanDelete?: boolean;
+  viewerCanModerate?: boolean;
 };

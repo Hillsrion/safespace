@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getSearchAccessFilters } from "./search";
+import { getSearchAccessFilters, toSearchResults } from "./search";
 
 describe("search access filters", () => {
   it("scopes posts and entities to a regular user's memberships", () => {
@@ -36,6 +36,31 @@ describe("search access filters", () => {
       "MODERATOR",
       "Admin",
       "Moderator",
+      "admin",
+      "moderator",
     ]);
+  });
+
+  it("redacts anonymous authors even in results prepared for a super admin", () => {
+    const [result] = toSearchResults(
+      [
+        {
+          id: "post-1",
+          isAnonymous: true,
+          authorId: "secret-author",
+          author: { id: "secret-author", firstName: "Secret" },
+        },
+      ],
+      []
+    );
+
+    expect(result).toMatchObject({
+      type: "post",
+      data: {
+        id: "post-1",
+        authorId: null,
+        author: { id: "anonymous" },
+      },
+    });
   });
 });

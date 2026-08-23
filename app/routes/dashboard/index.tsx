@@ -86,7 +86,7 @@ const mapPrismaSpaceToSpaceInfo = (prismaSpace: any /* Replace any with actual P
     return {
         id: prismaSpace.id,
         name: prismaSpace.name || "Unknown Space",
-        url: `/spaces/${prismaSpace.id}`, // Example URL structure
+        url: `/dashboard/spaces/${prismaSpace.id}`,
     };
 };
 
@@ -128,6 +128,9 @@ export default function Dashboard() {
     description?: string | null;
     createdAt: string;
     updatedAt?: string | null;
+    viewerCanEdit?: boolean;
+    viewerCanDelete?: boolean;
+    viewerCanModerate?: boolean;
   };
 
   const mapPrismaPostToTPost = useCallback((post: any, currentUser: TPostCurrentUser): TPost => {
@@ -143,10 +146,17 @@ export default function Dashboard() {
       createdAt: typedPost.createdAt,
       content: typedPost.description || "",
       media: mapPrismaMediaToEvidence(typedPost.media),
-      status: (typedPost.status ? typedPost.status.toLowerCase() : "published") as TPost['status'],
+      status: typedPost.status === "hidden"
+        ? "hidden"
+        : typedPost.isAdminOnly
+          ? "admin_only"
+          : "published",
       reportedEntity: typedPost.reportedEntity || undefined,
       space: typedPost.space ? mapPrismaSpaceToSpaceInfo(typedPost.space) : undefined,
       currentUser,
+      viewerCanEdit: typedPost.viewerCanEdit === true,
+      viewerCanDelete: typedPost.viewerCanDelete === true,
+      viewerCanModerate: typedPost.viewerCanModerate === true,
     };
   }, []);
 

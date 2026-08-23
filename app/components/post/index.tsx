@@ -24,7 +24,6 @@ import {
   type TPost, 
 } from "~/lib/types";
 import { getProfileUrl } from "./utils";
-import { useUser } from "~/hooks/useUser";
 
 type TBadgeStatus = Exclude<TPost['status'], 'published'>;
 
@@ -37,10 +36,12 @@ export function Post({
   status,
   reportedEntity,
   space,
+  viewerCanDelete = false,
+  viewerCanEdit = false,
+  viewerCanModerate = false,
 }: TPost) {
   const [isMediaDialogOpen, setIsMediaDialogOpen] = useState(false);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
-  const currentUser = useUser();
 
   const { handlePostAction, isSubmitting } = usePostActions({
     postId: id,
@@ -50,8 +51,6 @@ export function Post({
     setSelectedMediaIndex(index);
     setIsMediaDialogOpen(true);
   };
-
-  const isCurrentUserAuthor = author.id === currentUser.id;
 
   const getStatusBadge = () => {
     if (!status || status === "published") return null;
@@ -99,8 +98,10 @@ export function Post({
           <PostActionsMenu
             status={status}
             isSubmitting={isSubmitting}
-            isCurrentUserAuthor={isCurrentUserAuthor}
-            currentUser={currentUser}
+            canDelete={viewerCanDelete}
+            canEdit={viewerCanEdit}
+            canModerate={viewerCanModerate}
+            editUrl={`/dashboard/posts/${id}/edit`}
             onDeletePost={() => handlePostAction('delete')}
             onHidePost={() => handlePostAction('hide')}
             onUnhidePost={() => handlePostAction('unhide')}

@@ -1,5 +1,49 @@
 import { prisma } from "~/db/client.server";
+import type { PrismaClient } from "~/generated/prisma";
 import type { ReportedEntityWithHandles, ReportedEntityPost } from "./types";
+import {
+  normalizeViewerRole,
+  redactAnonymousPost,
+  withViewerPermissions,
+} from "../posts/queries.server";
+
+const ELEVATED_ROLES = [
+  "ADMIN",
+  "MODERATOR",
+  "Admin",
+  "Moderator",
+  "admin",
+  "moderator",
+] as const;
+
+export function getReportedEntityPostAccessFilter(
+  reportedEntityId: string,
+  spaceId: string,
+  user: { id: string; isSuperAdmin: boolean }
+) {
+  const target = { reportedEntityId, spaceId };
+  if (user.isSuperAdmin) return target;
+
+  return {
+    ...target,
+    status: "active" as const,
+    space: { memberships: { some: { userId: user.id } } },
+    OR: [
+      { isAdminOnly: false },
+      {
+        isAdminOnly: true,
+        space: {
+          memberships: {
+            some: {
+              userId: user.id,
+              role: { in: [...ELEVATED_ROLES] },
+            },
+          },
+        },
+      },
+    ],
+  };
+}
 
 /**
  * Fetches a ReportedEntity by its ID, including its handles.
@@ -61,14 +105,15 @@ export async function getAccessibleReportedEntityById(
  */
 export async function getReportedEntityPosts(
   reportedEntityId: string,
-  userId: string
+  userId: string,
+  client: PrismaClient = prisma
 ): Promise<ReportedEntityPost[]> {
-  const user = await prisma.user.findUnique({
+  const user = await client.user.findUnique({
     where: { id: userId },
-    include: {
-      memberships: {
-        select: { spaceId: true, role: true },
-      },
+    select: {
+      id: true,
+      isSuperAdmin: true,
+      memberships: { select: { spaceId: true, role: true } },
     },
   });
 
@@ -77,33 +122,35 @@ export async function getReportedEntityPosts(
     throw new Error("User not found");
   }
 
-  const userSpaceIds = user.memberships.map((sm) => sm.spaceId);
+  // Resolve the entity's own space again here. The route performs an access
+  // check too, but repository-level scoping prevents a direct caller (or an
+  // inconsistent post/entity relation) from exposing cross-space posts.
+  const accessibleEntity = await client.reportedEntity.findFirst({
+    where: user.isSuperAdmin
+      ? { id: reportedEntityId }
+      : {
+          id: reportedEntityId,
+          space: { memberships: { some: { userId } } },
+        },
+    select: { spaceId: true },
+  });
+  if (!accessibleEntity) return [];
 
-  // Base conditions for fetching posts related to the ReportedEntity
-  const whereConditions = user.isSuperAdmin
-    ? { reportedEntityId }
-    : {
-        reportedEntityId,
-        spaceId: { in: userSpaceIds },
-        status: "active" as const,
-        OR: [
-          { isAdminOnly: false },
-          {
-            isAdminOnly: true,
-            space: {
-              memberships: {
-                some: {
-                  userId,
-                  role: { in: ["ADMIN", "MODERATOR", "Admin", "Moderator"] },
-                },
-              },
-            },
-          },
-        ],
-      };
-  // SuperAdmins can see all posts for the reported entity, so no additional OR conditions are needed.
+  const viewerRole = user.isSuperAdmin
+    ? "SUPERADMIN"
+    : normalizeViewerRole(
+        user.memberships.find(
+          (membership) => membership.spaceId === accessibleEntity.spaceId
+        )?.role
+      );
 
-  const posts = await prisma.post.findMany({
+  const whereConditions = getReportedEntityPostAccessFilter(
+    reportedEntityId,
+    accessibleEntity.spaceId,
+    user
+  );
+
+  const posts = await client.post.findMany({
     where: whereConditions,
     include: {
       author: {
@@ -147,7 +194,10 @@ export async function getReportedEntityPosts(
   // TODO: Temporary mapping to satisfy TPost more closely until Prisma types are fully aligned
   // or until we ensure all fields like author.name, space.url are directly available.
   // This mapping step might be removed if Prisma select/include directly matches TPost structure.
-  return posts.map((post) => {
+  return posts.map((rawPost) => {
+    const post = redactAnonymousPost(
+      withViewerPermissions(rawPost, userId, viewerRole)
+    );
     const { authorId: _authorId, ...postWithoutAuthorId } = post;
     return {
     ...postWithoutAuthorId,
