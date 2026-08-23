@@ -44,6 +44,7 @@ export default [
     route("posts/new", routePath("dashboard/posts/new.tsx")),
     route("posts/:id/edit", routePath("dashboard/posts/:id/edit.tsx")),
     route("entities/:id", routePath("dashboard/entities/:id.tsx")),
+    route("entities", routePath("dashboard/entities/index.tsx")),
   ]),
   layout(layoutPath("api.tsx"), [
     ...prefix(RESOURCES_API_PREFIX, [

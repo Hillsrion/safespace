@@ -2,7 +2,6 @@ import {
   LogOutIcon,
   UserIcon,
   UsersIcon,
-  SparkleIcon,
   PlusIcon,
 } from "lucide-react";
 import { useSpaces } from "~/hooks/useSpaces";
@@ -25,14 +24,9 @@ export const useSidebarNav = (user: EnhancedUser) => {
         icon: PlusIcon,
       }] : []),
       {
-        title: "Blacklist",
-        url: "/dashboard/blacklist",
+        title: "Entités signalées",
+        url: "/dashboard/entities",
         icon: UsersIcon,
-      },
-      {
-        title: "Chat AI",
-        url: "/dashboard/ai",
-        icon: SparkleIcon,
       },
     ],
     navSecondary: [
