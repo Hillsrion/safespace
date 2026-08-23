@@ -5,6 +5,7 @@ import { getSession, commitSession } from "~/services/session.server";
 import { registerSchema } from "~/hooks/useRegister";
 import { requireSameOrigin } from "~/lib/security.server";
 import { isInviteEligible, normalizeSpaceRole } from "~/lib/invitations";
+import { getInviteTokenCandidates } from "~/lib/invite-token.server";
 
 export async function action({ request }: { request: Request }) {
   requireSameOrigin(request);
@@ -45,8 +46,8 @@ export async function action({ request }: { request: Request }) {
     const now = new Date();
 
     const user = await prisma.$transaction(async (transaction) => {
-      const invite = await transaction.invite.findUnique({
-        where: { token: inviteToken },
+      const invite = await transaction.invite.findFirst({
+        where: { token: { in: getInviteTokenCandidates(inviteToken) } },
       });
 
       if (!isInviteEligible(invite, email, now)) {

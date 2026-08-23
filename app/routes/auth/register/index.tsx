@@ -25,6 +25,7 @@ import { getCurrentUser } from "~/services/auth.server";
 import { prisma } from "~/db/client.server";
 import { useRegister } from "~/hooks/useRegister";
 import { action as registerAction } from "../register/action";
+import { getInviteTokenCandidates } from "~/lib/invite-token.server";
 
 export async function action({ request }: { request: Request }) {
   return await registerAction({ request });
@@ -39,8 +40,8 @@ export async function loader({ request }: { request: Request }) {
     return { invite: null, token: "" };
   }
 
-  const invite = await prisma.invite.findUnique({
-    where: { token },
+  const invite = await prisma.invite.findFirst({
+    where: { token: { in: getInviteTokenCandidates(token) } },
     select: {
       email: true,
       roleToAssign: true,
