@@ -20,6 +20,11 @@ import {
 } from "~/components/ui/table";
 import { prisma } from "~/db/client.server";
 import { getCurrentUser } from "~/services/auth.server";
+import { getUserSpaces } from "~/db/repositories/spaces/queries.server";
+import {
+  CreateReportedEntityControl,
+  ReportedEntityAdminActions,
+} from "~/components/reported-entity-admin-controls";
 
 export const handle = { crumb: "Entités signalées" };
 
@@ -73,7 +78,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         ],
       };
 
-  const [entities, total] = await Promise.all([
+  const [entities, total, spaces] = await Promise.all([
     prisma.reportedEntity.findMany({
       where,
       orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
@@ -93,7 +98,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       },
     }),
     prisma.reportedEntity.count({ where }),
+    getUserSpaces(user.id),
   ]);
+
+  const manageableSpaces = spaces.filter(({ role }) => {
+    const normalized = role.trim().toUpperCase();
+    return user.isSuperAdmin || normalized === "ADMIN";
+  });
 
   return {
     entities,
@@ -101,11 +112,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     query,
     total,
     totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    manageableSpaces,
   };
 }
 
 export default function ReportedEntitiesPage() {
-  const { entities, page, query, total, totalPages } = useLoaderData<typeof loader>();
+  const { entities, manageableSpaces, page, query, total, totalPages } = useLoaderData<typeof loader>();
+  const manageableSpaceIds = new Set(manageableSpaces.map(({ id }) => id));
   const pageUrl = (targetPage: number) => {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
@@ -115,11 +128,14 @@ export default function ReportedEntitiesPage() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-bold">Entités signalées</h1>
-        <p className="text-sm text-muted-foreground">
-          {total} résultat{total === 1 ? "" : "s"} dans vos espaces accessibles.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Entités signalées</h1>
+          <p className="text-sm text-muted-foreground">
+            {total} résultat{total === 1 ? "" : "s"} dans vos espaces accessibles.
+          </p>
+        </div>
+        <CreateReportedEntityControl spaces={manageableSpaces} />
       </div>
 
       <Card>
@@ -151,10 +167,19 @@ export default function ReportedEntitiesPage() {
                   <TableCell>{entity.handles.map(({ handle }) => `@${handle}`).join(", ") || "—"}</TableCell>
                   <TableCell>{entity.space.name}</TableCell>
                   <TableCell>{entity._count.posts}</TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild size="sm" variant="outline">
-                      <Link to={`/dashboard/entities/${entity.id}`}>Consulter</Link>
-                    </Button>
+                  <TableCell className="space-y-2 text-right">
+                    <Button asChild size="sm" variant="outline"><Link to={`/dashboard/entities/${entity.id}`}>Consulter</Link></Button>
+                    {manageableSpaceIds.has(entity.space.id) && (
+                      <ReportedEntityAdminActions
+                        entity={{
+                          id: entity.id,
+                          name: entity.name,
+                          spaceId: entity.space.id,
+                          handles: entity.handles,
+                          postCount: entity._count.posts,
+                        }}
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

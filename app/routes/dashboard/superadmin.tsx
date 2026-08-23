@@ -14,6 +14,7 @@ import type { LoaderFunctionArgs } from "react-router";
 import { Button } from "~/components/ui/button";
 import { SuperAdminSpaceActions } from "~/components/superadmin-space-actions";
 import { listAdminAuditLogs, listAdminSpaces } from "~/services/superadmin-space.server";
+import { listAdminUsers } from "~/services/superadmin-user.server";
 
 export const handle = {
   crumb: "SuperAdmin Dashboard",
@@ -30,12 +31,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return redirect("/dashboard");
   }
 
-  const [totalUsers, totalSpaces, totalPosts, spaces, auditLogs] = await Promise.all([
+  const [totalUsers, totalSpaces, totalPosts, spaces, auditLogs, users] = await Promise.all([
     getTotalUsers(),
     getTotalSpaces(),
     getTotalPosts(),
     listAdminSpaces(user, { limit: 50 }),
     listAdminAuditLogs(user, { limit: 50 }),
+    listAdminUsers(user, { limit: 50 }),
   ]);
 
   return {
@@ -44,11 +46,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
     totalPosts,
     spaces: spaces.spaces,
     auditLogs: auditLogs.logs,
+    users: users.users,
   };
 }
 
 export default function SuperAdminDashboard() {
-  const { totalUsers, totalSpaces, totalPosts, spaces, auditLogs } = useLoaderData<typeof loader>();
+  const { totalUsers, totalSpaces, totalPosts, spaces, auditLogs, users } = useLoaderData<typeof loader>();
 
   return (
     <div className="space-y-8">
@@ -120,6 +123,43 @@ export default function SuperAdminDashboard() {
                 <tr className="border-b" key={log.id}>
                   <td className="py-2">{new Date(log.createdAt).toLocaleString("fr-FR")}</td>
                   <td>{log.action}</td><td>{log.targetEntityType || "—"}</td><td>{log.spaceId || "Global"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Utilisateurs</CardTitle>
+          <CardDescription>
+            Vue globale minimisée des comptes et de leur nombre d’adhésions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="py-2">Nom</th>
+                <th>Email</th>
+                <th>Espaces</th>
+                <th>Type</th>
+                <th>Création</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((listedUser) => (
+                <tr className="border-b" key={listedUser.id}>
+                  <td className="py-2">
+                    {[listedUser.firstName, listedUser.lastName]
+                      .filter(Boolean)
+                      .join(" ") || "—"}
+                  </td>
+                  <td>{listedUser.email}</td>
+                  <td>{listedUser.membershipCount}</td>
+                  <td>{listedUser.isSuperAdmin ? "SuperAdmin" : "Membre"}</td>
+                  <td>{new Date(listedUser.createdAt).toLocaleDateString("fr-FR")}</td>
                 </tr>
               ))}
             </tbody>

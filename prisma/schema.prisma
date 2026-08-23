@@ -53,6 +53,7 @@ enum AuditAction {
   flag_resolve    // Flag resolved
   entity_add      // Reported entity added
   entity_update   // Reported entity updated
+  entity_delete   // Reported entity deleted
   space_create    // Space created
   space_update    // Space updated
   space_delete    // Space deleted
