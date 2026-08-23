@@ -1,0 +1,88 @@
+import type { ActionFunctionArgs } from "react-router";
+import { z } from "zod";
+
+import { HttpError, errors } from "~/lib/api/http-error";
+import { requireSameOrigin } from "~/lib/security.server";
+import {
+  changeSpaceMemberRole,
+  kickSpaceMember,
+  MembershipAdminError,
+} from "~/services/space-member-admin.server";
+import { getCurrentUser } from "~/services/auth.server";
+
+const paramsSchema = z.object({
+  spaceId: z.string().uuid(),
+  userId: z.string().uuid(),
+});
+const roleBodySchema = z.object({
+  role: z.enum(["READ_ONLY", "EDITOR", "MODERATOR", "ADMIN"]),
+});
+
+function errorResponse(error: unknown, message: string): Response {
+  if (error instanceof HttpError) return error.toResponse();
+  if (error instanceof MembershipAdminError) {
+    return Response.json({ success: false, error: error.message }, { status: error.status });
+  }
+  console.error(message, error);
+  // The factory throws a HttpError, which is deliberate: this helper is called
+  // only at the action boundary and must not hide unexpected server failures.
+  return errors.internalServerError(message);
+}
+
+export async function changeSpaceMemberRoleAction({
+  request,
+  params,
+}: ActionFunctionArgs): Promise<Response> {
+  try {
+    requireSameOrigin(request);
+    if (request.method.toUpperCase() !== "PATCH") {
+      throw errors.badRequest("Method not allowed");
+    }
+
+    const user = await getCurrentUser(request);
+    if (!user) throw errors.unauthorized("Authentication required");
+
+    const parsedParams = paramsSchema.safeParse(params);
+    if (!parsedParams.success) throw errors.badRequest("Invalid member path");
+
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      throw errors.badRequest("A valid JSON body is required");
+    }
+    const parsedBody = roleBodySchema.safeParse(body);
+    if (!parsedBody.success) throw errors.badRequest("Invalid member role");
+
+    const member = await changeSpaceMemberRole(user, {
+      ...parsedParams.data,
+      role: parsedBody.data.role,
+    });
+    return Response.json({ success: true, member });
+  } catch (error) {
+    return errorResponse(error, "Failed to change member role");
+  }
+}
+
+export async function kickSpaceMemberAction({
+  request,
+  params,
+}: ActionFunctionArgs): Promise<Response> {
+  try {
+    requireSameOrigin(request);
+    if (request.method.toUpperCase() !== "DELETE") {
+      throw errors.badRequest("Method not allowed");
+    }
+
+    const user = await getCurrentUser(request);
+    if (!user) throw errors.unauthorized("Authentication required");
+
+    const parsedParams = paramsSchema.safeParse(params);
+    if (!parsedParams.success) throw errors.badRequest("Invalid member path");
+
+    const member = await kickSpaceMember(user, parsedParams.data);
+    return Response.json({ success: true, member });
+  } catch (error) {
+    return errorResponse(error, "Failed to kick member");
+  }
+}

@@ -17,6 +17,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { MemberAdminActions } from "~/components/member-admin-actions";
 import { prisma } from "~/db/client.server";
 import { getUserSpaceRole } from "~/db/repositories/spaces/queries.server";
 import {
@@ -125,6 +126,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     space,
     role,
     isAdmin,
+    isSuperAdmin: user.isSuperAdmin,
     members,
     invites,
   });
@@ -306,7 +308,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function SpaceManagementPage() {
-  const { space, role, isAdmin, members, invites } = useLoaderData<typeof loader>();
+  const { space, role, isAdmin, isSuperAdmin, members, invites } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
   const navigation = useNavigation();
   const form = useForm<z.infer<typeof inviteSchema>>({
@@ -384,13 +386,22 @@ export default function SpaceManagementPage() {
             <CardHeader><CardTitle>Membres ({members.length})</CardTitle></CardHeader>
             <CardContent className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead><tr className="border-b text-left"><th className="py-2">Nom</th><th>Email</th><th>Rôle</th></tr></thead>
+                <thead><tr className="border-b text-left"><th className="py-2">Nom</th><th>Email</th><th>Rôle</th><th>Actions</th></tr></thead>
                 <tbody>
                   {members.map((membership) => (
                     <tr className="border-b" key={membership.user.id}>
                       <td className="py-2">{membership.user.firstName} {membership.user.lastName}</td>
                       <td>{membership.user.email}</td>
                       <td>{membership.role}</td>
+                      <td className="py-2">
+                        <MemberAdminActions
+                          currentRole={membership.role}
+                          isSuperAdmin={isSuperAdmin}
+                          memberName={`${membership.user.firstName} ${membership.user.lastName}`}
+                          spaceId={space.id}
+                          userId={membership.user.id}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
