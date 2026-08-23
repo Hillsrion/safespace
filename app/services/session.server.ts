@@ -42,11 +42,12 @@ export async function destroySession(session: any) {
 
 export async function getError(request: Request) {
   const session = await getSession(request);
-  const error = session.get("error") as string | null; 
+  const error = session.get("error") as string | null;
   session.unset("error");
-  // Consider committing session here if unset should persist immediately:
-  // await commitSession(session); 
-  return error;
+  return {
+    error,
+    setCookie: await commitSession(session),
+  };
 }
 
 // This is the crucial part for remix-themes:

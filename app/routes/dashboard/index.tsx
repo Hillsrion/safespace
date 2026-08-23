@@ -4,7 +4,7 @@ import type { Post as PrismaPost, User as PrismaUser, Space as PrismaSpace, Medi
 import { getSpacePosts } from "~/db/repositories/posts/queries.server";
 import { getCurrentUser } from "~/services/auth.server";
 import { useToastTrigger } from "~/hooks/use-toast-trigger";
-import { useLoaderData } from "react-router";
+import { data, redirect, useLoaderData } from "react-router";
 import { useCallback, useEffect, useMemo } from "react";
 import { usePostStore } from "~/stores/postStore";
 import { getSession } from "~/services/session.server";
@@ -19,6 +19,12 @@ import { useUser } from "~/hooks/useUser";
 import { getUserIdentity } from "~/lib/utils";
 import { handleError } from "~/lib/error";
 import { POSTS_PAGE_LIMIT } from "~/lib/constants";
+import { getUserSpaces } from "~/db/repositories/spaces/queries.server";
+import {
+  clearLastVisitedSpaceCookie,
+  getLastVisitedSpaceId,
+  selectAccessibleLastVisitedSpace,
+} from "~/lib/last-visited-space";
 
 export function meta() {
   return [{ title: "Dashboard" }];
@@ -44,6 +50,15 @@ export async function loader({ request }: { request: Request }) {
     isSuperAdmin: true,
   });
 
+  const lastVisitedSpaceId = getLastVisitedSpaceId(request.headers.get("Cookie"));
+  if (lastVisitedSpaceId) {
+    const spaces = await getUserSpaces(user.id);
+    const lastVisitedSpace = selectAccessibleLastVisitedSpace(lastVisitedSpaceId, spaces);
+    if (lastVisitedSpace) {
+      throw redirect(`/dashboard/spaces/${lastVisitedSpace.id}`);
+    }
+  }
+
   let initialLoadResult;
 
   if (!completedUser?.isSuperAdmin) {
@@ -52,13 +67,19 @@ export async function loader({ request }: { request: Request }) {
     initialLoadResult = await getAllPosts(user.id, { limit: POSTS_PAGE_LIMIT });
   }
 
-  return {
+  const headers = new Headers();
+  if (lastVisitedSpaceId) {
+    // The space was removed or access was revoked; stop retrying that stale preference.
+    headers.set("Set-Cookie", clearLastVisitedSpaceCookie());
+  }
+
+  return data({
     initialPosts: initialLoadResult.posts,
     initialNextCursor: initialLoadResult.nextCursor,
     initialHasNextPage: initialLoadResult.hasNextPage,
     toastData,
     isSuperAdmin: completedUser?.isSuperAdmin
-  };
+  }, { headers });
 }
 
 // Helper function to map Prisma User to AuthorProfile (adjust based on actual PrismaUser structure)

@@ -43,6 +43,9 @@ yarn db:seed
 ```
 
 **Note:** This will delete all existing data in the database.
+`SUPERADMIN_EMAIL` et un `SUPERADMIN_PASSWORD` respectant toutes les exigences
+de sécurité doivent être configurés avant l’exécution. Le script vérifie ces
+valeurs avant de supprimer la moindre donnée.
 
 The seed script will create:
 
@@ -99,13 +102,17 @@ netlify deploy --prod
 
 - `yarn dev` - Start development server
 - `yarn build` - Create production build
-- `yarn preview` - Preview production build locally
 - `yarn test` - Run tests
-- `yarn lint` - Lint code
-- `yarn format` - Format code
+- `yarn check` - Run type checking and the complete test suite
 - `yarn prisma:generate` - Generate Prisma client
+- `yarn prisma:deploy` - Apply pending migrations in production
 - `yarn db:seed` - Seed the database
-- `yarn db:reset` - Reset and seed the database
+
+Production deployments must provide a private `SESSION_SECRET` of at least 24
+characters, the PostgreSQL `DATABASE_URL`, the canonical `APP_URL`, and Resend
+credentials when invitation email delivery is enabled. Apply migrations with
+`yarn prisma:deploy` before starting the new application version. Never run the
+development seed against a production database.
 
 ## 🎨 Styling
 

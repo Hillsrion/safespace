@@ -1,4 +1,4 @@
-import { redirect } from "react-router";
+import { data, redirect } from "react-router";
 import { Form as RemixForm, Link, useLoaderData } from "react-router";
 import { AlertCircle } from "lucide-react";
 import {
@@ -26,8 +26,8 @@ export async function action({ request }: { request: Request }) {
 export async function loader({ request }: { request: Request }) {
   const user = await getCurrentUser(request);
   if (user) return redirect("/dashboard");
-  const error = await getError(request);
-  return { error };
+  const { error, setCookie } = await getError(request);
+  return data({ error }, { headers: { "Set-Cookie": setCookie } });
 }
 
 export default function Login() {
@@ -38,8 +38,8 @@ export default function Login() {
       <div className="container mx-auto px-4 py-8">
         <Card className="w-full max-w-md mx-auto">
           <div className="flex flex-col items-center justify-center p-6">
-            <h2 className="text-2xl font-bold tracking-tight">Log in</h2>
-            <p className="text-sm text-muted-foreground mt-1">Log in to your account</p>
+            <h2 className="text-2xl font-bold tracking-tight">Connexion</h2>
+            <p className="text-sm text-muted-foreground mt-1">Accédez à votre espace confidentiel</p>
           </div>
           <CardContent>
             {loaderData?.error && (
@@ -78,11 +78,11 @@ export default function Login() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel>Mot de passe</FormLabel>
                       <FormControl>
                         <PasswordInput
                           field={field}
-                          placeholder="Enter your password"
+                          placeholder="Saisissez votre mot de passe"
                         />
                       </FormControl>
                       <FormMessage>
@@ -93,15 +93,20 @@ export default function Login() {
                 />
 
                 <Button type="submit" className="w-full mt-6">
-                  Log in
+                  Se connecter
                 </Button>
               </RemixForm>
             </Form>
 
             <p className="text-center text-sm mt-3">
-              Don't have an account?{" "}
+              Vous avez reçu une invitation ?{" "}
               <Link to="/auth/register" className="text-blue-500 hover:underline">
-                Register
+                Créer votre compte
+              </Link>
+            </p>
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              <Link to="/auth/superadmin/login" className="hover:underline">
+                Accès SuperAdmin
               </Link>
             </p>
           </CardContent>

@@ -1,7 +1,7 @@
 // scripts/seed.ts
 import { PrismaClient, PostStatus, Prisma } from "../app/generated/prisma";
 import { fakerFR as faker } from "@faker-js/faker";
-import { hashPassword } from "~/lib/password";
+import { hashPassword, validatePassword } from "~/lib/password";
 import "dotenv/config"; // Load environment variables
 
 // Function to remove accents from strings
@@ -148,6 +148,17 @@ function interpolate(template: string, values: Record<string, string>): string {
 }
 
 async function main() {
+  const superAdminEmail = process.env.SUPERADMIN_EMAIL?.trim().toLowerCase();
+  const superAdminPassword = process.env.SUPERADMIN_PASSWORD;
+  if (!superAdminEmail || !superAdminEmail.includes("@")) {
+    throw new Error("SUPERADMIN_EMAIL must be configured before running the seed");
+  }
+  if (!superAdminPassword || !validatePassword(superAdminPassword)) {
+    throw new Error(
+      "SUPERADMIN_PASSWORD must meet every application password requirement before running the seed"
+    );
+  }
+
   console.log(`🌱 Starting seeding process...`);
   console.log(`🎲 Using ${faker.seed()} as faker seed`);
 
@@ -165,8 +176,6 @@ async function main() {
   console.log("🗑️  Existing data deleted.");
 
   // 1. Create Super Admin from environment variables
-  const superAdminEmail = process.env.SUPERADMIN_EMAIL || "admin@example.com";
-  const superAdminPassword = process.env.SUPERADMIN_PASSWORD || "password";
   const superAdminFirstName = process.env.SUPERADMIN_FIRSTNAME || "Admin";
   const superAdminLastName = process.env.SUPERADMIN_LASTNAME || "User";
 
@@ -174,6 +183,7 @@ async function main() {
   const superAdmin = await prisma.user.upsert({
     where: { email: superAdminEmail },
     update: {
+      password: await hashPassword(superAdminPassword),
       firstName: superAdminFirstName,
       lastName: superAdminLastName,
       isSuperAdmin: true,

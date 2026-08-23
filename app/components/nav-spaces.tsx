@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Link } from "react-router"
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -34,7 +35,9 @@ export function NavSpaces({
 }: {
   items: {
     name: string
+    id: string
     url: string
+    role: string
     icon?: LucideIcon
   }[]
 }) {
@@ -44,15 +47,20 @@ export function NavSpaces({
   const visibleItems = hasMore ? items.slice(0, MAX_VISIBLE_ITEMS) : items
   const moreItems = hasMore ? items.slice(MAX_VISIBLE_ITEMS) : []
 
+  const normalizedRole = (role: string) => role.trim().toUpperCase().replaceAll("-", "_")
+  const canManageMembers = (role: string) => normalizedRole(role) === "ADMIN"
+  const canCreateReports = (role: string) =>
+    ["ADMIN", "MODERATOR", "EDITOR"].includes(normalizedRole(role))
+
   const renderSpaceItem = (item: typeof items[0], index: number) => (
     <SidebarMenuItem key={`${item.name}-${index}`}>
       <SidebarMenuButton asChild>
-        <a href={item.url} className="w-full">
+        <Link to={item.url} className="w-full">
           {item.icon && <item.icon className="h-4 w-4" />}
           <span className="truncate">{item.name}</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
-      <DropdownMenu>
+      {(canManageMembers(item.role) || canCreateReports(item.role)) && <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <SidebarMenuAction
             showOnHover
@@ -67,20 +75,22 @@ export function NavSpaces({
           side={isMobile ? "bottom" : "right"}
           align={isMobile ? "end" : "start"}
         >
-          <DropdownMenuItem asChild>
-            <a href={`${item.url}/users`} className="cursor-pointer">
+          {canManageMembers(item.role) && <DropdownMenuItem asChild>
+            <Link to={item.url} className="cursor-pointer">
               <UsersIcon className="mr-2 h-4 w-4" />
-              <span>Utilisateurs</span>
-            </a>
+              <span>Gérer les membres</span>
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <a href={`${item.url}/posts`} className="cursor-pointer">
+          }
+          {canCreateReports(item.role) && <DropdownMenuItem asChild>
+            <Link to={`/dashboard/posts/new?spaceId=${encodeURIComponent(item.id)}`} className="cursor-pointer">
               <FolderIcon className="mr-2 h-4 w-4" />
-              <span>Posts</span>
-            </a>
+              <span>Nouveau signalement</span>
+            </Link>
           </DropdownMenuItem>
+          }
         </DropdownMenuContent>
-      </DropdownMenu>
+      </DropdownMenu>}
     </SidebarMenuItem>
   )
 

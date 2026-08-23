@@ -8,6 +8,8 @@ dev-debug.log
 
 # Dependency directories
 node_modules/
+build/
+.netlify/
 
 # Environment variables
 .env

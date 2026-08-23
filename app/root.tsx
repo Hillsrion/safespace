@@ -49,7 +49,7 @@ function AppBody() {
   const data = useLoaderData<typeof loader>();
   const [theme] = useTheme();
   return (
-    <html lang="en" className={clsx(theme)}>
+    <html lang="fr" className={clsx(theme)}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -99,7 +99,7 @@ export function ErrorBoundary() {
   }
 
   return (
-    <html lang="en" className={clsx(data?.theme)}>
+    <html lang="fr" className={clsx(data?.theme)}>
       <head>
         <title>{message}</title>
         <Meta />

@@ -1,4 +1,5 @@
-import { Outlet, useMatches, Link, useLoaderData, redirect, data } from "react-router";
+import { Outlet, useMatches, Link, useLoaderData, redirect, data, useLocation } from "react-router";
+import { useEffect } from "react";
 import { SidebarProvider } from "~/components/ui/sidebar";
 import { AppSidebar } from "~/components/app-sidebar";
 import { SidebarTrigger } from "~/components/ui/sidebar";
@@ -14,12 +15,23 @@ import { ModeToggle } from "~/components/mode-toggle";
 import { useToastTrigger } from "~/hooks/use-toast-trigger";
 import { commitSession, getSession } from "~/services/session.server";
 import { getCurrentUser } from "~/services/auth.server";
+import { persistLastVisitedSpace } from "~/lib/last-visited-space";
 
 interface RouteMatch {
   pathname: string;
   handle?: {
     crumb?: string;
   };
+}
+
+function LastVisitedSpaceTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    persistLastVisitedSpace(location.pathname);
+  }, [location.pathname]);
+
+  return null;
 }
 
 export async function loader({ request }: { request: Request }) {
@@ -67,6 +79,7 @@ export default function DashboardLayout() {
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full">
+        <LastVisitedSpaceTracker />
         <AppSidebar />
         <main className="flex-1 overflow-auto p-4">
           <div className="flex flex-col w-full mb-6 border-b border-gray-200 pb-4">
