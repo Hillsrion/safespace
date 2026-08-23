@@ -77,11 +77,11 @@ export default function ReportedEntityPage() {
             {entity.name || `Entity Details`}
           </CardTitle>
           <CardDescription className="text-sm text-gray-500">
-            ID: {entity.id}
+            {entity.handles.length} identifiant{entity.handles.length === 1 ? "" : "s"} connu{entity.handles.length === 1 ? "" : "s"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <h3 className="text-lg font-semibold mb-2 text-gray-700">Handles:</h3>
+          <h3 className="text-lg font-semibold mb-2 text-gray-700">Identifiants :</h3>
           {entity.handles && entity.handles.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {entity.handles.map((handle) => (
@@ -91,13 +91,13 @@ export default function ReportedEntityPage() {
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 italic">No handles associated with this entity.</p>
+            <p className="text-gray-500 italic">Aucun identifiant associé.</p>
           )}
         </CardContent>
       </Card>
 
       <div>
-        <h2 className="text-xl font-semibold mb-4 text-gray-800">Associated Posts</h2>
+        <h2 className="text-xl font-semibold mb-4 text-gray-800">Signalements associés</h2>
         {posts && posts.length > 0 ? (
           <div className="space-y-6"> {/* Increased space between posts for clarity */}
             {posts.map((post) => (
@@ -109,7 +109,7 @@ export default function ReportedEntityPage() {
           </div>
         ) : (
           <p className="text-gray-500 italic text-center py-4">
-            No posts found for this entity or accessible by the current user.
+            Aucun signalement accessible pour cette entité.
           </p>
         )}
       </div>

@@ -199,22 +199,43 @@ export async function getReportedEntityPosts(
       withViewerPermissions(rawPost, userId, viewerRole)
     );
     const { authorId: _authorId, ...postWithoutAuthorId } = post;
+    const author = post.isAnonymous
+      ? { id: "anonymous", name: "Anonymous", username: "anonymous", role: "user" as const }
+      : post.author
+        ? {
+            id: post.author.id,
+            name: `${post.author.firstName} ${post.author.lastName}`.trim() || "Unknown User",
+            username: post.author.instagram || "unknown",
+            role: "user" as const,
+          }
+        : { id: "unknown", name: "Unknown User", username: "unknown", role: "user" as const };
+
     return {
     ...postWithoutAuthorId,
     // Ensure author structure matches AuthorProfile, especially if 'name' isn't direct.
     // Prisma's select will return null for relations if they don't exist, which is fine for optional TPost fields.
-    author: post.isAnonymous
-      ? { id: "anonymous", name: "Anonymous", role: "user" }
-      : post.author
-      ? {
-          ...post.author,
-          name: post.author.firstName || post.author.lastName || "Unknown User", // Fallback for name
-          role: "user", // Fallback for role
-        }
-      : { id: "unknown", name: "Unknown User", role: "user" }, // Placeholder for missing author
+    author,
+
+    content: post.description,
+    status: post.status === "hidden"
+      ? "hidden"
+      : post.isAdminOnly
+        ? "admin_only"
+        : "published",
+    currentUser: {
+      id: userId,
+      isSuperAdmin: user.isSuperAdmin,
+      role: viewerRole === "ADMIN" || viewerRole === "SUPERADMIN"
+        ? "admin"
+        : viewerRole === "MODERATOR"
+          ? "moderator"
+          : "user",
+    },
 
     // If space.url is not directly on the model and needs construction (e.g. /spaces/${id}):
-    // space: post.space ? { ...post.space, url: `/spaces/${post.space.id}` } : undefined,
+    space: post.space
+      ? { ...post.space, url: `/dashboard/spaces/${post.space.id}` }
+      : undefined,
 
     // Ensure createdAt is a string
     createdAt: post.createdAt.toISOString(),

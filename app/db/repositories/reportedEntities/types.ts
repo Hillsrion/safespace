@@ -26,7 +26,7 @@ export type ReportedEntityWithHandles = Pick<
 
 // This type now reflects the richer post object returned by getReportedEntityPosts
 // It should be very similar to TPost, but derived from what the query actually returns.
-export type ReportedEntityPost = Omit<PrismaPost, "authorId" | "userId" | "reportedEntityId" | "spaceId" | "createdAt" | "updatedAt"> & PostViewerPermissions & {
+export type ReportedEntityPost = Omit<PrismaPost, "authorId" | "userId" | "reportedEntityId" | "spaceId" | "createdAt" | "updatedAt" | "status"> & PostViewerPermissions & {
   // Overwrite or add included fields:
   author: PostAuthor;
   space?: PostSpace | null; // Prisma returns null for missing optional relations
@@ -36,6 +36,9 @@ export type ReportedEntityPost = Omit<PrismaPost, "authorId" | "userId" | "repor
   // Ensure fields from TPost are present, potentially transformed by the mapping step in queries.server.ts
   createdAt: string; // Now a string due to toISOString()
   updatedAt?: string | null; // Now a string due to toISOString()
+  content: string;
+  currentUser: TPost["currentUser"];
+  status: TPost["status"];
 
   // Fields from PrismaPost like content, status, etc., are inherited.
   // We omit the foreign key IDs if the full object is present.
