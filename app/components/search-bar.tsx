@@ -10,6 +10,7 @@ import {
 } from "~/components/ui/command";
 import { FileText, ShieldAlert, Loader2 } from "lucide-react";
 import { useSearch } from "~/hooks/useSearch"; // Import the new hook
+import { isSearchShortcut } from "~/lib/search-shortcut";
 
 interface SearchResultItemData {
   id: string;
@@ -33,6 +34,25 @@ export function SearchBar() {
   const navigate = useNavigate();
   const commandRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      if (isSearchShortcut(event)) {
+        event.preventDefault();
+        setIsOpen(true);
+        inputRef.current?.focus();
+        return;
+      }
+
+      if (event.key === "Escape" && commandRef.current?.contains(document.activeElement)) {
+        setIsOpen(false);
+        inputRef.current?.blur();
+      }
+    };
+
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   // Effect to open/close the list based on search term and results
   useEffect(() => {
