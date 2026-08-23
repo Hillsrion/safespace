@@ -4,6 +4,37 @@ import { handleError } from "~/lib/error/handle";
 
 type ApiMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
+export function prepareApiRequestBody(
+  body: unknown,
+  headers: Record<string, string>
+): { body: BodyInit | undefined; headers: Record<string, string> } {
+  if (body === undefined || body === null) {
+    return { body: undefined, headers };
+  }
+
+  if (typeof FormData !== "undefined" && body instanceof FormData) {
+    const multipartHeaders = { ...headers };
+    // The browser must add the multipart boundary itself.
+    delete multipartHeaders["Content-Type"];
+    delete multipartHeaders["content-type"];
+    return { body, headers: multipartHeaders };
+  }
+
+  if (
+    typeof body === "string" ||
+    body instanceof URLSearchParams ||
+    body instanceof Blob ||
+    body instanceof ArrayBuffer
+  ) {
+    return { body, headers };
+  }
+
+  return {
+    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json", ...headers },
+  };
+}
+
 /**
  * Custom hook for making API calls with error handling and loading state management.
  *
@@ -25,7 +56,7 @@ export function useApi<T = any>() {
     url: string,
     options: {
       method?: ApiMethod;
-      body?: any;
+      body?: unknown;
       headers?: Record<string, string>;
       showErrorToast?: boolean;
     } = {}
@@ -41,13 +72,11 @@ export function useApi<T = any>() {
     setError(null);
 
     try {
+      const preparedRequest = prepareApiRequestBody(body, headers);
       const response = await fetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          ...headers,
-        },
-        body: body ? JSON.stringify(body) : undefined,
+        headers: preparedRequest.headers,
+        body: preparedRequest.body,
         credentials: "include",
       });
 
