@@ -64,8 +64,13 @@ export function SearchBar() {
     }
     let path = "";
     switch (result.type) {
-      case "post": path = `/posts/${result.data.id}`; break;
-      case "reportedEntity": path = `/reported-entities/${result.data.id}`; break;
+      case "post": {
+        const entityId = result.data.reportedEntity?.id;
+        if (!entityId) return;
+        path = `/dashboard/entities/${entityId}`;
+        break;
+      }
+      case "reportedEntity": path = `/dashboard/entities/${result.data.id}`; break;
       default: console.warn("Unknown result type for navigation:", result.type); return;
     }
     

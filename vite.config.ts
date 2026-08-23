@@ -126,4 +126,4 @@ export default defineConfig(({ command, mode }) => {
     ],
   },
   };
-}) as VitestUserConfig;
+}) as unknown as VitestUserConfig;

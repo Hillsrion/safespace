@@ -2,11 +2,13 @@
 
 import {
   getReportedEntityById,
+  getAccessibleReportedEntityById,
   getReportedEntityPosts,
 } from "./queries.server";
 
 export const reportedEntityRepository = {
   getById: getReportedEntityById,
+  getAccessibleById: getAccessibleReportedEntityById,
   getPosts: getReportedEntityPosts,
 };
 

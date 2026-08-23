@@ -1,12 +1,13 @@
-import { data, type ActionFunctionArgs } from "@remix-run/node";
-import { getSession } from "~/services/session.server";
+import { data, type ActionFunctionArgs } from "react-router";
+import { getCurrentUser } from "~/services/auth.server";
 import { verifyPassword, hashPassword } from "~/lib/password";
 import { prisma } from "~/db/client.server";
 import { accountSchema } from "~/hooks/useAccount";
+import { requireSameOrigin } from "~/lib/security.server";
 
 export async function action({ request }: ActionFunctionArgs) {
-  const session = await getSession(request);
-  const userId = session.get("user")?.id;
+  requireSameOrigin(request);
+  const userId = (await getCurrentUser(request))?.id;
 
   if (!userId) {
     return data(

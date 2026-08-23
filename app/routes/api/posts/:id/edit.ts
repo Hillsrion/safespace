@@ -1,4 +1,4 @@
-import { type ActionFunctionArgs } from "@remix-run/node";
+import { type ActionFunctionArgs } from "react-router";
 import { getCurrentUser } from "~/services/auth.server";
 import {
   getPostWithSpace,
@@ -6,26 +6,38 @@ import {
 } from "~/db/repositories/posts/queries.server";
 import { getUserSpaceRole } from "~/db/repositories/spaces/queries.server";
 import type { ActionResult, PostStatus } from "~/db/repositories/posts/types";
+import { requireSameOrigin } from "~/lib/security.server";
+import { errorResponse } from "~/lib/api/response";
 
 type StatusAction = "hide" | "unhide";
 
 export async function action({
   request,
   params,
-}: ActionFunctionArgs): Promise<ActionResult<StatusAction>> {
+}: ActionFunctionArgs) {
+  requireSameOrigin(request);
   const { id: postId } = params;
   if (!postId) {
-    return { success: false, error: "Post ID is required" };
+    return errorResponse("Post ID is required", "bad_request:api", 400);
+  }
+
+  const user = await getCurrentUser(request);
+  if (!user) {
+    return errorResponse("Authentication required", "unauthorized:api", 401);
   }
 
   // Get the post with the author and space information
   const post = await getPostWithSpace(postId);
   if (!post) {
-    return { success: false, error: "Post not found" };
+    return errorResponse("Post not found", "not_found:api", 404);
   }
 
   if (!post.space) {
-    return { success: false, error: "Post does not belong to a space" };
+    return errorResponse(
+      "Post does not belong to a space",
+      "bad_request:api",
+      400
+    );
   }
 
   // Get the action from form data
@@ -33,16 +45,11 @@ export async function action({
   const action = formData.get("_action") as StatusAction | null;
 
   if (!action || (action !== "hide" && action !== "unhide")) {
-    return {
-      success: false,
-      error: 'Invalid action. Must be "hide" or "unhide"',
-    };
-  }
-
-  const user = await getCurrentUser(request);
-
-  if (!user) {
-    return { success: false, error: "User not found" };
+    return errorResponse(
+      'Invalid action. Must be "hide" or "unhide"',
+      "bad_request:api",
+      400
+    );
   }
 
   // Check if user is admin or moderator in the space
@@ -50,15 +57,23 @@ export async function action({
   const isAdminOrModerator = userRole === "ADMIN" || userRole === "MODERATOR";
 
   if (!isAdminOrModerator) {
-    return { success: false, error: "Unauthorized" };
+    return errorResponse(
+      "You do not have permission to moderate this post",
+      "forbidden:api",
+      403
+    );
   }
 
   try {
     const status: PostStatus = action === "hide" ? "hidden" : "active";
     await updatePostStatus(postId, status);
-    return { success: true, action };
+    return Response.json({ success: true, action } satisfies ActionResult<StatusAction>);
   } catch (error) {
     console.error(`Error ${action} post:`, error);
-    return { success: false, error: `Failed to ${action} post` };
+    return errorResponse(
+      `Failed to ${action} post`,
+      "server_error:api",
+      500
+    );
   }
 }

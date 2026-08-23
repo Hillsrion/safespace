@@ -1,6 +1,6 @@
-import { type LoaderFunctionArgs } from "@remix-run/node";
+import { type LoaderFunctionArgs } from "react-router";
 import { errors } from "~/lib/api/http-error";
-import { data } from "@remix-run/node";
+import { data } from "react-router";
 import {
   getAllPosts,
   getSpacePosts,
@@ -28,9 +28,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const limitParam = url.searchParams.get("limit");
   const limit = limitParam ? parseInt(limitParam, 10) : POSTS_PAGE_LIMIT;
 
-  if (isNaN(limit) || limit <= 0) {
+  if (isNaN(limit) || limit <= 0 || limit > 100) {
     throw errors.badRequest(
-      "Invalid limit parameter. Must be a positive number",
+      "Invalid limit parameter. Must be between 1 and 100",
       "bad_request:api",
       { limit: limitParam }
     );

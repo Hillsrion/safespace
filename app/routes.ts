@@ -49,6 +49,8 @@ export default [
       route(`posts/feed`, routePath("api/posts/feed.ts")),
       route(`posts/:id/delete`, routePath("api/posts/:id/delete.ts")),
       route(`posts/:id/edit`, routePath("api/posts/:id/edit.ts")),
+      route(`entities/:id`, routePath("api/entities/:id.ts")),
+      route(`entities/:id/posts`, routePath("api/entities/:id/posts.ts")),
     ]),
   ]),
 ] satisfies RouteConfig;

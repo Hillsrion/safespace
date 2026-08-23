@@ -71,6 +71,7 @@ model User {
   lastName      String
   instagram     String?   // Optional Instagram username
   isSuperAdmin  Boolean   @default(false) // Global flag for super admin access
+  codeOfConductAcceptedAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
 

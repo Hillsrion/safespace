@@ -1,7 +1,5 @@
 // routes/api/users/index.tsx
-import { data } from "@remix-run/node";
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { Outlet } from "react-router-dom";
+import { data, Outlet, type LoaderFunctionArgs } from "react-router";
 import { getCurrentUser } from "~/services/auth.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {

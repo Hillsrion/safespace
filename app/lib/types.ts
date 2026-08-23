@@ -1,4 +1,5 @@
-import type { ReportedEntity, User } from "~/generated/prisma";
+import type { ReportedEntity, ReportedEntityHandle } from "~/generated/prisma";
+import type { AuthenticatedUser } from "~/services/auth.server";
 
 export const USER_ROLES = {
   USER: "user",
@@ -9,7 +10,7 @@ export const USER_ROLES = {
 
 export type UserRoles = (typeof USER_ROLES)[keyof typeof USER_ROLES];
 
-export type EnhancedUser = User & {
+export type EnhancedUser = AuthenticatedUser & {
   name: string;
   role: UserRoles;
 };
@@ -61,7 +62,9 @@ export type TPost = {
   content: string; // The main text content of the post
   media?: EvidenceMedia[]; // Array of images or videos
   status: "published" | "hidden" | "admin_only" | "pending_review"; // Post visibility status
-  reportedEntity?: ReportedEntity; // Information about the user being reported
+  reportedEntity?: Pick<ReportedEntity, "id" | "name" | "createdAt" | "updatedAt"> & {
+    handles?: Array<Pick<ReportedEntityHandle, "id" | "handle" | "platform">>;
+  }; // Information about the user being reported
   space?: SpaceInfo; // The space this post belongs to
   currentUser: TPostCurrentUser;
 };

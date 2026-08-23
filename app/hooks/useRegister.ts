@@ -32,6 +32,10 @@ export const registerSchema = z
     firstName: z.string().min(1, "First name is required"),
     lastName: z.string().min(1, "Last name is required"),
     instagram: z.string().optional(),
+    inviteToken: z.string().trim().min(1, "A valid invitation is required"),
+    codeOfConductAccepted: z
+      .boolean()
+      .refine(Boolean, "You must accept the Code of Conduct"),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -40,18 +44,20 @@ export const registerSchema = z
 
 export type { PasswordRequirement };
 
-export function useRegister() {
+export function useRegister(initialEmail = "", initialInviteToken = "") {
   const actionData = useActionData<ActionData>();
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      email: "",
+      email: initialEmail,
       password: "",
       confirmPassword: "",
       firstName: "",
       lastName: "",
       instagram: "",
+      inviteToken: initialInviteToken,
+      codeOfConductAccepted: false,
     },
   });
 

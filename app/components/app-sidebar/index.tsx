@@ -18,8 +18,8 @@ import { APP_NAME } from "~/lib/constants"
 import { useUser } from "~/hooks/useUser"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { data } = useSidebarNav();
   const user = useUser();
+  const { data } = useSidebarNav(user);
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>

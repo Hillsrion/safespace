@@ -1,0 +1,11 @@
+ALTER TABLE "User"
+ADD COLUMN "codeOfConductAcceptedAt" TIMESTAMP(3);
+
+UPDATE "UserSpaceMembership"
+SET "role" = CASE
+  WHEN UPPER("role") = 'ADMIN' THEN 'ADMIN'
+  WHEN UPPER("role") = 'MODERATOR' THEN 'MODERATOR'
+  WHEN UPPER("role") = 'EDITOR' THEN 'EDITOR'
+  WHEN UPPER("role") IN ('READ-ONLY', 'READ_ONLY', 'MEMBER') THEN 'READ_ONLY'
+  ELSE 'READ_ONLY'
+END;

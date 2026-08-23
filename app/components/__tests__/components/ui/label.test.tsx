@@ -1,6 +1,6 @@
 import { vi, describe, it, expect } from "vitest"
 import { render, screen } from "@testing-library/react"
-import { DEFAULT_CLASS, Label } from "~/components/ui/label"
+import { DEFAULT_CLASS, Label } from "../../../ui/label"
 
 describe("Label", () => {
   it("renders with children", () => {

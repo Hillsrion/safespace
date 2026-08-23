@@ -1,6 +1,5 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { EnhancedUser } from "./types";
 import { USER_ROLES } from "./types";
 import type { UserRoles } from "./types";
 import type { User } from "~/generated/prisma";
@@ -9,7 +8,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function getRole(user: EnhancedUser): UserRoles {
+export function getRole(user: {
+  isSuperAdmin: boolean;
+  role?: UserRoles | string | null;
+}): UserRoles {
   if (user.isSuperAdmin) {
     return USER_ROLES.SUPERADMIN;
   } else if (user.role === USER_ROLES.MODERATOR) {

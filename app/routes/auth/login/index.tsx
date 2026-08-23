@@ -1,4 +1,4 @@
-import { redirect } from "@remix-run/node";
+import { redirect } from "react-router";
 import { Form as RemixForm, Link, useLoaderData } from "react-router";
 import { AlertCircle } from "lucide-react";
 import {
@@ -14,7 +14,8 @@ import { Input } from "~/components/ui/input";
 import { PasswordInput } from "~/components/ui/password-input";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { getSession, getError } from "~/services/session.server";
+import { getError } from "~/services/session.server";
+import { getCurrentUser } from "~/services/auth.server";
 import { useLogin } from "~/hooks/useLogin";
 import { action as loginAction } from "../login/action";
 
@@ -23,8 +24,7 @@ export async function action({ request }: { request: Request }) {
 }
 
 export async function loader({ request }: { request: Request }) {
-  const session = await getSession(request);
-  const user = session.get("user");
+  const user = await getCurrentUser(request);
   if (user) return redirect("/dashboard");
   const error = await getError(request);
   return { error };

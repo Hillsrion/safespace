@@ -67,7 +67,13 @@ export async function getUserSpaceRole(userId: string, spaceId: string) {
     },
   });
 
-  return membership?.role || null;
+  const role = membership?.role.trim().toUpperCase().replaceAll("-", "_");
+  return role === "ADMIN" ||
+    role === "MODERATOR" ||
+    role === "EDITOR" ||
+    role === "READ_ONLY"
+    ? role
+    : null;
 }
 
 /**
@@ -88,6 +94,25 @@ export async function createSpace(
       description: description, // Prisma handles null appropriately
       createdBy: userId,
     },
+  });
+}
+
+/** Create a space and its initial admin membership as one atomic operation. */
+export async function createSpaceWithAdmin(
+  name: string,
+  description: string | null,
+  userId: string
+): Promise<Space> {
+  return prisma.$transaction(async (transaction) => {
+    const space = await transaction.space.create({
+      data: { name, description, createdBy: userId },
+    });
+
+    await transaction.userSpaceMembership.create({
+      data: { userId, spaceId: space.id, role: "ADMIN" },
+    });
+
+    return space;
   });
 }
 

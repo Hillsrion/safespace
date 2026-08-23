@@ -1,74 +1,109 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { data } from "@remix-run/node";
+import { data, type LoaderFunctionArgs } from "react-router";
 import { prisma } from "~/db/client.server";
+import { requireUser } from "~/services/auth.server";
+import { errors } from "~/lib/api/http-error";
+
+const SEARCH_RESULT_LIMIT = 20;
+
+export function getSearchAccessFilters(user: {
+  id: string;
+  isSuperAdmin: boolean;
+}) {
+  return {
+    postAccess: user.isSuperAdmin
+      ? {}
+      : {
+          space: { memberships: { some: { userId: user.id } } },
+          status: "active" as const,
+          OR: [
+            { isAdminOnly: false },
+            {
+              isAdminOnly: true,
+              space: {
+                memberships: {
+                  some: {
+                    userId: user.id,
+                    role: { in: ["ADMIN", "MODERATOR", "Admin", "Moderator"] },
+                  },
+                },
+              },
+            },
+          ],
+        },
+    entityAccess: user.isSuperAdmin
+      ? {}
+      : { space: { memberships: { some: { userId: user.id } } } },
+  };
+}
 
 export async function loader({ request }: LoaderFunctionArgs) {
+  const user = await requireUser(request);
   const url = new URL(request.url);
-  const q = url.searchParams.get("q");
+  const q = url.searchParams.get("q")?.trim();
 
-  if (!q) {
-    return data({
-      ok: false,
-      error: "No query provided",
-    });
+  if (!q || q.length < 2 || q.length > 100) {
+    throw errors.badRequest("Search query must contain between 2 and 100 characters");
   }
 
   try {
+    const { postAccess, entityAccess } = getSearchAccessFilters(user);
+
     const posts = await prisma.post.findMany({
       where: {
+        ...postAccess,
         description: {
           contains: q,
           mode: "insensitive",
         },
       },
       include: {
-        reportedEntity: true,
+        reportedEntity: {
+          select: {
+            id: true,
+            name: true,
+            createdAt: true,
+            updatedAt: true,
+            handles: { select: { id: true, handle: true, platform: true } },
+          },
+        },
       },
+      orderBy: { createdAt: "desc" },
+      take: SEARCH_RESULT_LIMIT,
     });
 
     const reportedEntities = await prisma.reportedEntity.findMany({
       where: {
-        name: {
-          contains: q,
-          mode: "insensitive",
-        },
+        ...entityAccess,
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { handles: { some: { handle: { contains: q, mode: "insensitive" } } } },
+        ],
       },
-      include: {
-        handles: true,
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+        handles: { select: { id: true, handle: true, platform: true } },
       },
-    });
-
-    const reportedEntityHandles = await prisma.reportedEntityHandle.findMany({
-      where: {
-        handle: {
-          contains: q,
-          mode: "insensitive",
-        },
-      },
-      include: {
-        reportedEntity: {
-          include: {
-            handles: true, // Also include other handles of the parent entity
-          },
-        },
-      },
+      orderBy: { updatedAt: "desc" },
+      take: SEARCH_RESULT_LIMIT,
     });
 
     // User search removed as per requirements
 
     const results = [
-      ...posts.map((post) => ({ type: "post", data: post })),
+      ...posts.map((post) => ({
+        type: "post",
+        data:
+          post.isAnonymous && !user.isSuperAdmin
+            ? { ...post, authorId: null }
+            : post,
+      })),
       ...reportedEntities.map((entity) => ({
         type: "reportedEntity",
         data: entity,
       })),
-      // Map handle search results to their parent ReportedEntity
-      // This avoids duplicate ReportedEntity entries if found by both name and handle
-      ...reportedEntityHandles.map((handle) => ({
-        type: "reportedEntity", // Change type to "reportedEntity"
-        data: handle.reportedEntity, // Return the parent entity
-      })),
-      // User results mapping removed
     ];
 
     // Deduplicate results based on type and ID
@@ -81,9 +116,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return data(uniqueResults);
   } catch (error) {
     console.error("Search error:", error);
-    return data({
-      ok: false,
-      error: process.env.NODE_ENV === "production" ? "Search failed" : error,
-    });
+    throw errors.internalServerError("Search failed");
   }
 }

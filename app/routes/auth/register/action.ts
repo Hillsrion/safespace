@@ -1,14 +1,21 @@
-import { data, redirect } from "@remix-run/node";
-import type { User } from "~/generated/prisma";
+import { data, redirect } from "react-router";
 import { prisma } from "~/db/client.server";
 import { hashPassword } from "~/lib/password";
 import { getSession, commitSession } from "~/services/session.server";
 import { registerSchema } from "~/hooks/useRegister";
+import { requireSameOrigin } from "~/lib/security.server";
+import { isInviteEligible, normalizeSpaceRole } from "~/lib/invitations";
 
 export async function action({ request }: { request: Request }) {
+  requireSameOrigin(request);
   try {
     const formData = await request.formData();
-    const dataObj = Object.fromEntries(formData);
+    const dataObj = {
+      ...Object.fromEntries(formData),
+      codeOfConductAccepted:
+        formData.get("codeOfConductAccepted") === "on" ||
+        formData.get("codeOfConductAccepted") === "true",
+    };
 
     const parsedData = registerSchema.safeParse(dataObj);
     if (!parsedData.success) {
@@ -24,44 +31,70 @@ export async function action({ request }: { request: Request }) {
       );
     }
 
-    const { email, password, firstName, lastName, instagram } = parsedData.data;
-
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      return data(
-        {
-          errors: {
-            fieldErrors: {},
-            formErrors: ["Email already in use"],
-          },
-        },
-        { status: 400 }
-      );
-    }
+    const {
+      email: rawEmail,
+      password,
+      firstName,
+      lastName,
+      instagram,
+      inviteToken,
+    } = parsedData.data;
+    const email = rawEmail.trim().toLowerCase();
 
     const hashedPassword = await hashPassword(password);
+    const now = new Date();
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        firstName,
-        lastName,
-        instagram,
-      },
+    const user = await prisma.$transaction(async (transaction) => {
+      const invite = await transaction.invite.findUnique({
+        where: { token: inviteToken },
+      });
+
+      if (!isInviteEligible(invite, email, now)) {
+        throw new InvalidInviteError();
+      }
+
+      const role = normalizeSpaceRole(invite.roleToAssign);
+      if (!role) {
+        throw new InvalidInviteError();
+      }
+
+      const claimed = await transaction.invite.updateMany({
+        where: {
+          id: invite.id,
+          isUsed: false,
+          expiresAt: { gt: now },
+        },
+        data: { isUsed: true },
+      });
+
+      if (claimed.count !== 1) {
+        throw new InvalidInviteError();
+      }
+
+      const createdUser = await transaction.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          instagram: instagram?.trim() || null,
+          codeOfConductAcceptedAt: now,
+        },
+      });
+
+      await transaction.userSpaceMembership.create({
+        data: {
+          userId: createdUser.id,
+          spaceId: invite.spaceId,
+          role,
+        },
+      });
+
+      return createdUser;
     });
 
     const session = await getSession(request);
-    const userForSession: Pick<
-      User,
-      "id" | "email" | "firstName" | "lastName"
-    > = {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-    };
-    session.set("user", userForSession);
+    session.set("userId", user.id);
 
     return redirect("/dashboard", {
       headers: {
@@ -69,7 +102,21 @@ export async function action({ request }: { request: Request }) {
       },
     });
   } catch (error) {
-    console.log(error);
+    if (error instanceof InvalidInviteError) {
+      return data(
+        {
+          errors: {
+            fieldErrors: {},
+            formErrors: [
+              "This invitation is invalid, expired, already used, or does not match this email.",
+            ],
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    console.error("Registration failed", error);
     return data(
       {
         errors: {
@@ -81,3 +128,5 @@ export async function action({ request }: { request: Request }) {
     );
   }
 }
+
+class InvalidInviteError extends Error {}

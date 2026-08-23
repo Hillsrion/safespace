@@ -1,5 +1,4 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { data } from "@remix-run/node"; // Added Response for throwing
+import { data, type LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useParams, useRouteError, isRouteErrorResponse } from "react-router"; // Added useRouteError, isRouteErrorResponse
 import { reportedEntityRepository } from "~/db/repositories/reportedEntities/index.server";
 import { requireUser } from "~/services/auth.server";
@@ -17,14 +16,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 
   try {
-    // Fetch the entity first
-    const entity = await reportedEntityRepository.getById(entityId);
+    const user = await requireUser(request);
+    const entity = await reportedEntityRepository.getAccessibleById(
+      entityId,
+      user.id
+    );
     if (!entity) {
       throw new Response("Reported entity not found.", { status: 404 });
     }
 
-    // Then fetch posts, requiring userId
-    const user = await requireUser(request); // Throws Response if not authenticated
     const posts = await reportedEntityRepository.getPosts(entityId, user.id);
 
     return data({ entity, posts });

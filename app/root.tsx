@@ -12,11 +12,14 @@ import {
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 import { Toaster } from "./components/ui/toaster";
-import { getSession } from "./services/session.server";
+import { getCurrentUser } from "./services/auth.server";
 
 import clsx from "clsx";
 import { PreventFlashOnWrongTheme, ThemeProvider, useTheme } from "remix-themes";
 import { themeSessionResolver } from "./services/session.server";
+import { SECURITY_HEADERS } from "./lib/security.server";
+
+export const headers = () => SECURITY_HEADERS;
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -34,8 +37,7 @@ export const links: Route.LinksFunction = () => [
 
 export const loader = async ({ request }: { request: Request }) => {
   const { getTheme } = await themeSessionResolver(request);
-  const session = await getSession(request);
-  const user = session.get("user");
+  const user = await getCurrentUser(request);
   return {
     theme: getTheme(),
     user,

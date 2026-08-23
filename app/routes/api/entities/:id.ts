@@ -1,13 +1,12 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { data } from "@remix-run/node";
+import { data, type LoaderFunctionArgs } from "react-router";
 import { reportedEntityRepository } from "~/db/repositories/reportedEntities/index.server";
-import { requireUser } from "~/services/auth.server";
+import { requireUserId } from "~/services/auth.server";
 import { errors } from "~/lib/api/http-error"; // Import custom errors utility
 import { HttpError } from "~/lib/api/http-error"; // Import HttpError for instanceof check
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   try {
-    await requireUser(request); // This might throw HttpError (e.g., errors.unauthorized)
+    const userId = await requireUserId(request);
 
     const { id } = params;
 
@@ -18,7 +17,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       );
     }
 
-    const reportedEntity = await reportedEntityRepository.getById(id);
+    const reportedEntity = await reportedEntityRepository.getAccessibleById(id, userId);
 
     if (!reportedEntity) {
       throw errors.notFound(

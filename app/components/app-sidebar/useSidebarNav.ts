@@ -7,8 +7,9 @@ import {
 } from "lucide-react";
 import { useSpaces } from "~/hooks/useSpaces";
 import { useAuthApi } from "~/services/api.client/auth";
+import type { EnhancedUser } from "~/lib/types";
 
-export const useSidebarNav = () => {
+export const useSidebarNav = (user: EnhancedUser) => {
   const { spaces } = useSpaces();
   const { logout } = useAuthApi();
   const data = {
@@ -18,11 +19,11 @@ export const useSidebarNav = () => {
       avatar: "/avatars/shadcn.jpg",
     },
     navMain: [
-      {
+      ...(user.isSuperAdmin ? [{
         title: "Créer un espace",
         url: "/dashboard/spaces/new",
         icon: PlusIcon,
-      },
+      }] : []),
       {
         title: "Blacklist",
         url: "/dashboard/blacklist",
@@ -42,7 +43,7 @@ export const useSidebarNav = () => {
       },
       {
         title: "Déconnexion",
-        url: "/logout",
+        url: "/auth/logout",
         icon: LogOutIcon,
         callback: async (e: React.MouseEvent<HTMLButtonElement>) => {
           e.preventDefault();

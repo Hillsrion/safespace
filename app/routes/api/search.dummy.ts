@@ -32,16 +32,6 @@ import { loader } from './search';
 
 const mockPost = {
   id: 'post1',
-  prisma: {
-    post: { findMany: vi.fn() },
-    reportedEntity: { findMany: vi.fn() },
-    reportedEntityHandle: { findMany: vi.fn() },
-    user: { findMany: vi.fn() },
-  },
-}));
-
-const mockPost = {
-  id: 'post1',
   description: 'This is a test post about Remix.',
   reportedEntity: { id: 're1', name: 'Entity in Post' },
 };

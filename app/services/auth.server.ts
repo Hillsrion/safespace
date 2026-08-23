@@ -3,17 +3,48 @@ import { FormStrategy } from "remix-auth-form";
 import { prisma } from "~/db/client.server";
 import bcrypt from "bcryptjs";
 import { throwHttpError } from "~/lib/api/http-error";
-import type { User } from "~/generated/prisma";
-import { getSession } from "./session.server";
+import type { Prisma } from "~/generated/prisma";
+import { destroySession, getSession } from "./session.server";
 import { redirect } from "react-router";
 
+const authenticatedUserSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  instagram: true,
+  isSuperAdmin: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.UserSelect;
+
+export type AuthenticatedUser = Prisma.UserGetPayload<{
+  select: typeof authenticatedUserSelect;
+}>;
+
+export function withoutPassword(
+  user: AuthenticatedUser & { password: string }
+): AuthenticatedUser {
+  const { password: _password, ...safeUser } = user;
+  return safeUser;
+}
+
 // Create an instance of the authenticator
-export const authenticator = new Authenticator<User>();
+export const authenticator = new Authenticator<AuthenticatedUser>();
 
 const errorMessage = "Invalid credentials";
 
-export async function login(email: string, password: string): Promise<User> {
-  const user = await prisma.user.findUnique({ where: { email } });
+export async function login(
+  email: string,
+  password: string
+): Promise<AuthenticatedUser> {
+  const user = await prisma.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+    select: {
+      ...authenticatedUserSelect,
+      password: true,
+    },
+  });
   if (!user) {
     throw new Error(errorMessage);
   }
@@ -23,7 +54,7 @@ export async function login(email: string, password: string): Promise<User> {
     throw new Error(errorMessage);
   }
 
-  return user;
+  return withoutPassword(user);
 }
 
 export async function isAuthenticated(request: Request) {
@@ -37,19 +68,25 @@ export async function isAuthenticated(request: Request) {
 
 export async function getCurrentUser(request: Request) {
   const session = await getSession(request);
-  const user = session.get("user") as User | null;
+  const userId = session.get("userId");
 
-  if (!user) {
+  if (typeof userId !== "string") {
     return null;
   }
 
-  return user;
+  // Always re-read authorization-sensitive attributes from the database so a
+  // role revocation or account deletion takes effect on the next request.
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: authenticatedUserSelect,
+  });
 }
 
 export async function logout(request: Request) {
   const session = await getSession(request);
-  session.unset("user");
-  return redirect("/auth/login");
+  return redirect("/auth/login", {
+    headers: { "Set-Cookie": await destroySession(session) },
+  });
 }
 
 // Configure FormStrategy for email/password authentication
@@ -75,4 +112,8 @@ export async function requireUser(request: Request) {
     throwHttpError(401, "Unauthorized", "unauthorized:auth");
   }
   return user;
+}
+
+export async function requireUserId(request: Request): Promise<string> {
+  return (await requireUser(request)).id;
 }

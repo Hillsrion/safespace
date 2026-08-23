@@ -11,11 +11,15 @@ type PostAuthor = Pick<AuthorProfile, "id" | "name" | "username" | "avatarUrl" |
 // Represents the structure of the space data as selected
 type PostSpace = Pick<SpaceInfo, "id" | "name"> & { url?: string }; // url might be constructed
 // Represents the structure of the reported entity data within a post
-type PostReportedEntity = PrismaReportedEntity & { handles: Array<{ id: string; handle: string }> };
+type PostReportedEntity = Pick<PrismaReportedEntity, "id" | "name" | "createdAt" | "updatedAt"> & {
+  handles: Array<{ id: string; handle: string; platform?: string }>;
+};
 
 
-export type ReportedEntityWithHandles = PrismaReportedEntity & {
-  // Add other ReportedEntity fields here if not covered by PrismaReportedEntity
+export type ReportedEntityWithHandles = Pick<
+  PrismaReportedEntity,
+  "id" | "name" | "createdAt" | "updatedAt"
+> & {
   handles: Array<{ id: string; handle: string; platform?: string }>; // Added platform to handle
 };
 

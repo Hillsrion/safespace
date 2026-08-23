@@ -1,4 +1,4 @@
-import { type ActionFunctionArgs } from "@remix-run/node";
+import { type ActionFunctionArgs } from "react-router";
 import { getCurrentUser } from "~/services/auth.server";
 import {
   deletePost,
@@ -6,21 +6,31 @@ import {
 } from "~/db/repositories/posts/queries.server";
 import { getUserSpaceRole } from "~/db/repositories/spaces/queries.server";
 import type { ActionResult } from "~/db/repositories/posts/types";
-import { createError } from '~/lib/error/parse';
 import type { AppError } from '~/lib/error/types';
 import { errorResponse } from '~/lib/api/response';
+import { requireSameOrigin } from "~/lib/security.server";
 
 export async function action({
   request,
   params,
 }: ActionFunctionArgs) {
   try {
+    requireSameOrigin(request);
     const { id: postId } = params;
     if (!postId) {
       return errorResponse(
         'Post ID is required',
         'bad_request:api',
         400
+      );
+    }
+
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return errorResponse(
+        'Authentication required',
+        'unauthorized:api',
+        401
       );
     }
 
@@ -39,15 +49,6 @@ export async function action({
         'Post does not belong to a space',
         'bad_request:api',
         400
-      );
-    }
-
-    const user = await getCurrentUser(request);
-    if (!user) {
-      return errorResponse(
-        'Authentication required',
-        'unauthorized:api',
-        401
       );
     }
 

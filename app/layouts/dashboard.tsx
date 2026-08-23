@@ -1,4 +1,4 @@
-import { Outlet, useMatches, Link, useLoaderData } from "react-router";
+import { Outlet, useMatches, Link, useLoaderData, redirect, data } from "react-router";
 import { SidebarProvider } from "~/components/ui/sidebar";
 import { AppSidebar } from "~/components/app-sidebar";
 import { SidebarTrigger } from "~/components/ui/sidebar";
@@ -13,6 +13,7 @@ import {
 import { ModeToggle } from "~/components/mode-toggle";
 import { useToastTrigger } from "~/hooks/use-toast-trigger";
 import { commitSession, getSession } from "~/services/session.server";
+import { getCurrentUser } from "~/services/auth.server";
 
 interface RouteMatch {
   pathname: string;
@@ -22,6 +23,11 @@ interface RouteMatch {
 }
 
 export async function loader({ request }: { request: Request }) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    throw redirect("/auth/login");
+  }
+
   const session = await getSession(request);
   const toastData = session.get("toast");
   
@@ -30,12 +36,12 @@ export async function loader({ request }: { request: Request }) {
     session.unset("toast");
   }
 
-  return { 
-    toast: toastData || null,
-    headers: {
+  return data(
+    { toast: toastData || null, user },
+    { headers: {
       "Set-Cookie": await commitSession(session),
-    },
-  };
+    } }
+  );
 }
 
 export default function DashboardLayout() {

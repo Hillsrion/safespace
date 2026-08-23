@@ -1,11 +1,12 @@
 import { useMatches } from "react-router";
 import { useMemo } from "react";
 import type { EnhancedUser } from "~/lib/types";
+import type { AuthenticatedUser } from "~/services/auth.server";
 import type { UIMatch } from "react-router";
 import { getRole } from "~/lib/utils";
 
 type RouteDataWithUser = {
-  user: EnhancedUser | null;
+  user: AuthenticatedUser | null;
   [key: string]: unknown;
 };
 
@@ -16,7 +17,7 @@ export function useUser(): EnhancedUser {
 
   const userData = useMemo(() => {
     const match = matches.find((match): match is RouteMatch => {
-      return (
+      return Boolean(
         match.data && typeof match.data === "object" && "user" in match.data
       );
     });

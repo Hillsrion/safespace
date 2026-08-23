@@ -13,6 +13,20 @@ type GetSpacePostsOptions = GetUserPostsOptions & {
   spaceId?: string;
 };
 
+export function toCursorPage<T extends { id: string }>(
+  items: T[],
+  limit: number
+) {
+  const hasNextPage = items.length > limit;
+  const pageItems = hasNextPage ? items.slice(0, limit) : items;
+
+  return {
+    posts: pageItems,
+    nextCursor: hasNextPage ? pageItems.at(-1)?.id : undefined,
+    hasNextPage,
+  };
+}
+
 export async function getUserPosts(
   userId: string,
   options: GetUserPostsOptions = {}
@@ -33,8 +47,12 @@ export async function getUserPosts(
     },
     include: {
       reportedEntity: {
-        include: {
-          handles: true,
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true,
+          handles: { select: { id: true, handle: true, platform: true } },
         },
       },
       media: true,
@@ -52,16 +70,7 @@ export async function getUserPosts(
     cursor: cursor ? { id: cursor } : undefined,
   });
 
-  let hasNextPage = false;
-  let nextCursor: string | undefined = undefined;
-
-  if (posts.length > actualLimit) {
-    hasNextPage = true;
-    const nextItem = posts.pop();
-    nextCursor = nextItem!.id;
-  }
-
-  return { posts, nextCursor, hasNextPage };
+  return toCursorPage(posts, actualLimit);
 }
 
 export async function getTotalPosts() {
@@ -88,7 +97,7 @@ export async function getSpacePosts(
 
   const spaceIds = userSpaces.map((us: { spaceId: string }) => us.spaceId);
 
-  if (spaceIds.length === 0) {
+  if (spaceIds.length === 0 || (spaceId && !spaceIds.includes(spaceId))) {
     return { posts: [], nextCursor: undefined, hasNextPage: false };
   }
 
@@ -115,8 +124,12 @@ export async function getSpacePosts(
     },
     include: {
       reportedEntity: {
-        include: {
-          handles: true,
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true,
+          handles: { select: { id: true, handle: true, platform: true } },
         },
       },
       media: true,
@@ -141,16 +154,22 @@ export async function getSpacePosts(
     cursor: cursor ? { id: cursor } : undefined,
   });
 
-  let hasNextPage = false;
-  let nextCursor: string | undefined = undefined;
+  const safePosts = posts.map((post) =>
+    post.isAnonymous
+      ? {
+          ...post,
+          authorId: null,
+          author: {
+            id: "anonymous",
+            firstName: "Anonymous",
+            lastName: "",
+            instagram: null,
+          },
+        }
+      : post
+  );
 
-  if (posts.length > actualLimit) {
-    hasNextPage = true;
-    const nextItem = posts.pop();
-    nextCursor = nextItem!.id;
-  }
-
-  return { posts, nextCursor, hasNextPage };
+  return toCursorPage(safePosts, actualLimit);
 }
 
 // NOTE: This function is so critical that it should be protected by a super admin check
@@ -172,8 +191,12 @@ export async function getAllPosts(
   const posts = await prisma.post.findMany({
     include: {
       reportedEntity: {
-        include: {
-          handles: true,
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true,
+          handles: { select: { id: true, handle: true, platform: true } },
         },
       },
       media: true,
@@ -198,16 +221,7 @@ export async function getAllPosts(
     cursor: cursor ? { id: cursor } : undefined,
   });
 
-  let hasNextPage = false;
-  let nextCursor: string | undefined = undefined;
-
-  if (posts.length > actualLimit) {
-    hasNextPage = true;
-    const nextItem = posts.pop();
-    nextCursor = nextItem!.id;
-  }
-
-  return { posts, nextCursor, hasNextPage };
+  return toCursorPage(posts, actualLimit);
 }
 
 export async function deletePost(postId: string) {

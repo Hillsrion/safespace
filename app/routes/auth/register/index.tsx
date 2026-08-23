@@ -1,5 +1,5 @@
-import { redirect } from "@remix-run/node";
-import { Form as RemixForm, Link } from "react-router";
+import { redirect } from "react-router";
+import { Form as RemixForm, Link, useLoaderData } from "react-router";
 import { Check, HelpCircle, AlertCircle } from "lucide-react";
 import {
   Form,
@@ -14,13 +14,15 @@ import { Input } from "~/components/ui/input";
 import { PasswordInput } from "~/components/ui/password-input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { Button } from "~/components/ui/button";
+import { Checkbox } from "~/components/ui/checkbox";
 import { Card, CardContent } from "~/components/ui/card";
 import { cn } from "~/lib/utils";
 import {
   checkPasswordRequirements,
   type PasswordRequirement,
 } from "~/lib/password";
-import { getSession } from "~/services/session.server";
+import { getCurrentUser } from "~/services/auth.server";
+import { prisma } from "~/db/client.server";
 import { useRegister } from "~/hooks/useRegister";
 import { action as registerAction } from "../register/action";
 
@@ -29,14 +31,45 @@ export async function action({ request }: { request: Request }) {
 }
 
 export async function loader({ request }: { request: Request }) {
-  const session = await getSession(request);
-  const user = session.get("user");
+  const user = await getCurrentUser(request);
   if (user) return redirect("/dashboard");
-  return null;
+
+  const token = new URL(request.url).searchParams.get("token")?.trim() ?? "";
+  if (!token) {
+    return { invite: null, token: "" };
+  }
+
+  const invite = await prisma.invite.findUnique({
+    where: { token },
+    select: {
+      email: true,
+      roleToAssign: true,
+      expiresAt: true,
+      isUsed: true,
+      space: { select: { name: true } },
+    },
+  });
+
+  const isValid = Boolean(
+    invite && !invite.isUsed && invite.expiresAt > new Date()
+  );
+
+  return {
+    invite: isValid
+      ? {
+          email: invite!.email,
+          role: invite!.roleToAssign,
+          spaceName: invite!.space.name,
+          expiresAt: invite!.expiresAt.toISOString(),
+        }
+      : null,
+    token: isValid ? token : "",
+  };
 }
 
 export default function Register() {
-  const { form, actionData } = useRegister();
+  const { invite, token } = useLoaderData<typeof loader>();
+  const { form, actionData } = useRegister(invite?.email ?? "", token);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen">
@@ -47,6 +80,23 @@ export default function Register() {
             <p className="text-sm text-muted-foreground mt-1">Create your account</p>
           </div>
           <CardContent>
+            {!invite ? (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Invitation required</AlertTitle>
+                <AlertDescription>
+                  This registration link is missing, invalid, expired, or already used.
+                  Ask a space administrator for a new invitation.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert className="mb-4">
+                <AlertTitle>Invitation to {invite.spaceName}</AlertTitle>
+                <AlertDescription>
+                  You are joining as {invite.role}. This invitation is reserved for {invite.email}.
+                </AlertDescription>
+              </Alert>
+            )}
             {actionData?.errors?.formErrors?.map((error, index) => (
               <Alert key={index} variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
@@ -56,6 +106,7 @@ export default function Register() {
             ))}
             <Form {...form}>
               <RemixForm method="post" className="space-y-4">
+                <input type="hidden" {...form.register("inviteToken")} />
                 <FormField
                   control={form.control}
                   name="firstName"
@@ -188,7 +239,29 @@ export default function Register() {
                   )}
                 />
 
-                <Button type="submit" className="w-full mt-6">
+                <FormField
+                  control={form.control}
+                  name="codeOfConductAccepted"
+                  render={({ field }) => (
+                    <FormItem className="flex items-start gap-3 rounded-md border p-3">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          name={field.name}
+                        />
+                      </FormControl>
+                      <div>
+                        <FormLabel>I accept the Code of Conduct *</FormLabel>
+                        <FormMessage>
+                          {actionData?.errors?.fieldErrors?.codeOfConductAccepted?.[0]}
+                        </FormMessage>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+
+                <Button type="submit" className="w-full mt-6" disabled={!invite}>
                   Register
                 </Button>
               </RemixForm>

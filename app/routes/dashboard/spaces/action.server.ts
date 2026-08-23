@@ -4,9 +4,9 @@ import { createSpaceSchema } from "~/lib/schemas/spaceSchemas";
 import { getCurrentUser } from "~/services/auth.server";
 import { getSession, commitSession } from "~/services/session.server";
 import {
-  createSpace,
-  addUserToSpace,
+  createSpaceWithAdmin,
 } from "~/db/repositories/spaces/queries.server";
+import { requireSameOrigin } from "~/lib/security.server";
 
 export type ActionData = {
   errors?: {
@@ -17,11 +17,19 @@ export type ActionData = {
 };
 
 export async function action({ request }: ActionFunctionArgs) {
+  requireSameOrigin(request);
   const user = await getCurrentUser(request);
   if (!user) {
     return data<ActionData>(
       { message: "Utilisateur non authentifié." },
       { status: 401 }
+    );
+  }
+
+  if (!user.isSuperAdmin) {
+    return data<ActionData>(
+      { message: "Seul un super-administrateur peut créer un espace." },
+      { status: 403 }
     );
   }
 
@@ -43,8 +51,11 @@ export async function action({ request }: ActionFunctionArgs) {
     const { name, description } = validatedFields.data;
     const userId = user.id;
 
-    const newSpace = await createSpace(name, description || null, userId);
-    await addUserToSpace(userId, newSpace.id, "ADMIN");
+    const newSpace = await createSpaceWithAdmin(
+      name,
+      description || null,
+      userId
+    );
 
     const session = await getSession(request);
     session.flash("toast", {

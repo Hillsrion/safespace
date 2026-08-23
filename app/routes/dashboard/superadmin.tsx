@@ -10,7 +10,7 @@ import {
   CardContent,
 } from "~/components/ui/card";
 import { redirect, useLoaderData } from "react-router";
-import type { LoaderFunction } from "@remix-run/node";
+import type { LoaderFunction } from "react-router";
 
 export const handle = {
   crumb: "SuperAdmin Dashboard",

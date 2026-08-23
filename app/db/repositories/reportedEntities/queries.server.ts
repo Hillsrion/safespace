@@ -12,8 +12,42 @@ export async function getReportedEntityById(
 ): Promise<ReportedEntityWithHandles | null> {
   return prisma.reportedEntity.findUnique({
     where: { id: reportedEntityId },
-    include: {
-      handles: true, // Assuming 'handles' is a relation on the ReportedEntity model
+    select: {
+      id: true,
+      name: true,
+      createdAt: true,
+      updatedAt: true,
+      handles: { select: { id: true, handle: true, platform: true } },
+    },
+  });
+}
+
+export async function getAccessibleReportedEntityById(
+  reportedEntityId: string,
+  userId: string
+): Promise<ReportedEntityWithHandles | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isSuperAdmin: true },
+  });
+
+  if (!user) return null;
+
+  if (user.isSuperAdmin) {
+    return getReportedEntityById(reportedEntityId);
+  }
+
+  return prisma.reportedEntity.findFirst({
+    where: {
+      id: reportedEntityId,
+      space: { memberships: { some: { userId } } },
+    },
+    select: {
+      id: true,
+      name: true,
+      createdAt: true,
+      updatedAt: true,
+      handles: { select: { id: true, handle: true, platform: true } },
     },
   });
 }
@@ -33,8 +67,7 @@ export async function getReportedEntityPosts(
     where: { id: userId },
     include: {
       memberships: {
-        // Assuming 'spaceMemberships' is the relation name on the User model
-        select: { spaceId: true },
+        select: { spaceId: true, role: true },
       },
     },
   });
@@ -47,18 +80,27 @@ export async function getReportedEntityPosts(
   const userSpaceIds = user.memberships.map((sm) => sm.spaceId);
 
   // Base conditions for fetching posts related to the ReportedEntity
-  const whereConditions: any = {
-    reportedEntityId: reportedEntityId,
-  };
-
-  if (!user.isSuperAdmin) {
-    whereConditions.OR = [
-      // User's own posts
-      { userId: userId },
-      // Posts in spaces the user is a member of
-      { spaceId: { in: userSpaceIds } },
-    ];
-  }
+  const whereConditions = user.isSuperAdmin
+    ? { reportedEntityId }
+    : {
+        reportedEntityId,
+        spaceId: { in: userSpaceIds },
+        status: "active" as const,
+        OR: [
+          { isAdminOnly: false },
+          {
+            isAdminOnly: true,
+            space: {
+              memberships: {
+                some: {
+                  userId,
+                  role: { in: ["ADMIN", "MODERATOR", "Admin", "Moderator"] },
+                },
+              },
+            },
+          },
+        ],
+      };
   // SuperAdmins can see all posts for the reported entity, so no additional OR conditions are needed.
 
   const posts = await prisma.post.findMany({
@@ -87,8 +129,12 @@ export async function getReportedEntityPosts(
       // This is distinct from the reportedEntityId used in the where clause,
       // which refers to the entity whose profile page is being viewed.
       reportedEntity: {
-        include: {
-          handles: true, // To match TPost's ReportedEntity, which includes handles
+        select: {
+          id: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true,
+          handles: { select: { id: true, handle: true, platform: true } },
         },
       },
       // Add other includes like 'flags' if TPost requires them and they are relations
@@ -101,11 +147,15 @@ export async function getReportedEntityPosts(
   // TODO: Temporary mapping to satisfy TPost more closely until Prisma types are fully aligned
   // or until we ensure all fields like author.name, space.url are directly available.
   // This mapping step might be removed if Prisma select/include directly matches TPost structure.
-  return posts.map((post) => ({
-    ...post,
+  return posts.map((post) => {
+    const { authorId: _authorId, ...postWithoutAuthorId } = post;
+    return {
+    ...postWithoutAuthorId,
     // Ensure author structure matches AuthorProfile, especially if 'name' isn't direct.
     // Prisma's select will return null for relations if they don't exist, which is fine for optional TPost fields.
-    author: post.author
+    author: post.isAnonymous
+      ? { id: "anonymous", name: "Anonymous", role: "user" }
+      : post.author
       ? {
           ...post.author,
           name: post.author.firstName || post.author.lastName || "Unknown User", // Fallback for name
@@ -119,5 +169,6 @@ export async function getReportedEntityPosts(
     // Ensure createdAt is a string
     createdAt: post.createdAt.toISOString(),
     updatedAt: post.updatedAt ? post.updatedAt.toISOString() : undefined,
-  })) as unknown as ReportedEntityPost[]; // Cast needed because the intermediate mapping might not perfectly match the defined (but soon to be updated) ReportedEntityPost
+  };
+  }) as unknown as ReportedEntityPost[]; // Cast needed because the intermediate mapping might not perfectly match the defined (but soon to be updated) ReportedEntityPost
 }

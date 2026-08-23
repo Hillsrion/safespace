@@ -1,7 +1,8 @@
-import { redirect } from "@remix-run/node";
+import { redirect } from "react-router";
 import { commitSession, getSession } from "~/services/session.server";
 import { login, isAuthenticated } from "~/services/auth.server";
 import { DASHBOARD_PATH, LOGIN_PATH } from "~/routes";
+import { requireSameOrigin } from "~/lib/security.server";
 
 async function redirectToLogin(session: any): Promise<Response> {
   return redirect(LOGIN_PATH, {
@@ -13,6 +14,7 @@ async function redirectToLogin(session: any): Promise<Response> {
 }
 
 export async function action({ request }: { request: Request }) {
+  requireSameOrigin(request);
   const session = await getSession(request);
   if (await isAuthenticated(request)) {
     return redirect(DASHBOARD_PATH);
@@ -28,7 +30,7 @@ export async function action({ request }: { request: Request }) {
 
   try {
     const user = await login(email, password);
-    session.set("user", user);
+    session.set("userId", user.id);
     return redirect(`/${DASHBOARD_PATH}`, {
       headers: {
         "Set-Cookie": await commitSession(session),

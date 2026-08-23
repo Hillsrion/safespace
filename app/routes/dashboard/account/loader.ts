@@ -1,14 +1,9 @@
-import { json, type LoaderFunctionArgs } from "@remix-run/node";
-import { getSession } from "~/services/session.server";
+import { data, type LoaderFunctionArgs } from "react-router";
+import { requireUserId } from "~/services/auth.server";
 import { prisma } from "~/db/client.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const session = await getSession(request);
-  const userId = session.get("user")?.id;
-
-  if (!userId) {
-    throw new Response("Non autorisé", { status: 401 });
-  }
+  const userId = await requireUserId(request);
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -27,5 +22,5 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw new Response("Utilisateur non trouvé", { status: 404 });
   }
 
-  return json(user);
+  return data(user);
 }

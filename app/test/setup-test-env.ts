@@ -1,6 +1,9 @@
 import "@testing-library/jest-dom/vitest";
 import { vi } from "vitest";
 
+process.env.SESSION_SECRET ??= "test-only-session-secret-at-least-32-characters";
+process.env.DATABASE_URL ??= "postgresql://test:test@localhost:5432/safespace_test";
+
 // You can add other global setup files here, for example, mocking a global API
 // import { server } from './mocks/server'; // Example for MSW
 // beforeAll(() => server.listen());

@@ -1,4 +1,4 @@
-import { data, type LoaderFunction } from "@remix-run/node";
+import { data, type LoaderFunction } from "react-router";
 import { getCurrentUser } from "~/services/auth.server";
 import { getUserSpaces } from "~/db/repositories/spaces/queries.server";
 

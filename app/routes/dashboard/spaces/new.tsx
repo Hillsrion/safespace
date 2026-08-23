@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form as RemixForm, useActionData } from 'react-router';
+import { Form as RemixForm, useActionData, redirect } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
@@ -18,10 +18,13 @@ import { createSpaceSchema } from '~/lib/schemas/spaceSchemas';
 
 import { action, type ActionData } from './action.server';
 import { FormAlert } from '~/components/ui/form-alert';
-import { loginRedirect } from '~/lib/redirects';
+import { getCurrentUser } from '~/services/auth.server';
 
 export async function loader({ request }: { request: Request }) {
-  return loginRedirect(request);
+  const user = await getCurrentUser(request);
+  if (!user) throw redirect('/auth/login');
+  if (!user.isSuperAdmin) throw redirect('/dashboard');
+  return null;
 }
 
 export { action };

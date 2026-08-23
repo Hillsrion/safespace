@@ -1,13 +1,29 @@
-import { createCookieSessionStorage } from "@remix-run/node";
+import { createCookieSessionStorage } from "react-router";
 import { createThemeSessionResolver } from "remix-themes";
+
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8;
+const sessionSecret = process.env.SESSION_SECRET;
+
+if (
+  !sessionSecret ||
+  sessionSecret.length < 24 ||
+  sessionSecret === "your_session_secret_here"
+) {
+  throw new Error(
+    "SESSION_SECRET must be configured with a strong, private value"
+  );
+}
 
 export const sessionStorage = createCookieSessionStorage({
   cookie: {
-    name: "__session",
+    // Versioning the name invalidates legacy cookies that contained the complete
+    // User record (including the password hash).
+    name: "safespace_session_v2",
     httpOnly: true,
+    maxAge: SESSION_MAX_AGE_SECONDS,
     path: "/",
     sameSite: "lax",
-    secrets: [process.env.SESSION_SECRET!], 
+    secrets: [sessionSecret],
     secure: process.env.NODE_ENV === "production",
   },
 });

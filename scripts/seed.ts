@@ -297,7 +297,7 @@ async function main() {
       memberships.push({
         userId: creatorId,
         spaceId: space.id,
-        role: "Admin",
+        role: "ADMIN",
       });
     }
 
@@ -306,7 +306,7 @@ async function main() {
       memberships.push({
         userId: user.id,
         spaceId: space.id,
-        role: Math.random() < 0.2 ? "Moderator" : "Member",
+        role: Math.random() < 0.2 ? "MODERATOR" : "READ_ONLY",
       });
     }
   }

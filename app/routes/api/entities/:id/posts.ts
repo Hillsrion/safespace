@@ -1,5 +1,4 @@
-import type { LoaderFunctionArgs } from "@remix-run/node";
-import { data } from "@remix-run/node"; // Using data for success
+import { data, type LoaderFunctionArgs } from "react-router";
 import { reportedEntityRepository } from "~/db/repositories/reportedEntities/index.server";
 import { requireUserId } from "~/services/auth.server";
 import { errors } from "~/lib/api/http-error"; // Import custom errors utility
@@ -16,7 +15,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
 
     // Check if the parent ReportedEntity exists first
-    const reportedEntity = await reportedEntityRepository.getById(reportedEntityId);
+    const reportedEntity = await reportedEntityRepository.getAccessibleById(
+      reportedEntityId,
+      userId
+    );
     if (!reportedEntity) {
       // Use a specific error code if available, or the default not_found:api
       throw errors.notFound("Reported entity not found", "not_found:reported_entity");
@@ -39,7 +41,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
     // Specific handling for "User not found" from the repository layer, if it's not an HttpError already
     if (error instanceof Error && error.message === "User not found") {
-      throw errors.notFound("User not found for posts query", "not_found:user");
+      throw errors.notFound("User not found for posts query", "not_found:users");
     }
     // For any other unexpected errors
     throw errors.internalServerError("An unexpected error occurred while fetching posts for the reported entity.");
