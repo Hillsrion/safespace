@@ -28,6 +28,7 @@ function selectedPost(overrides: Record<string, unknown> = {}) {
 
 function createDatabaseMock() {
   const tx = {
+    user: { findUnique: vi.fn() },
     userSpaceMembership: { findUnique: vi.fn() },
     reportedEntity: { findMany: vi.fn(), create: vi.fn() },
     reportedEntityHandle: { createMany: vi.fn() },
@@ -40,6 +41,7 @@ function createDatabaseMock() {
     ),
   };
 
+  tx.user.findUnique.mockResolvedValue({ isSuperAdmin: false });
   tx.userSpaceMembership.findUnique.mockResolvedValue({ role: "Editor" });
   tx.reportedEntity.findMany.mockResolvedValue([]);
   tx.reportedEntity.create.mockResolvedValue({ id: ENTITY_ID });
@@ -92,6 +94,7 @@ describe("report write service", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           action: "entity_add",
+          actorUserId: null,
           targetEntityId: ENTITY_ID,
         }),
       })
@@ -101,6 +104,7 @@ describe("report write service", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           action: "post_create",
+          actorUserId: null,
           targetEntityId: POST_ID,
         }),
       })
@@ -139,6 +143,31 @@ describe("report write service", () => {
     expect(tx.reportedEntity.findMany).not.toHaveBeenCalled();
     expect(tx.post.create).not.toHaveBeenCalled();
     expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("re-reads super-admin rights inside the write transaction", async () => {
+    const revoked = createDatabaseMock();
+    revoked.tx.user.findUnique.mockResolvedValue({ isSuperAdmin: false });
+    revoked.tx.userSpaceMembership.findUnique.mockResolvedValue(null);
+
+    await expect(
+      createReport(
+        { id: ACTOR_ID, isSuperAdmin: true },
+        createInput,
+        revoked.client
+      )
+    ).rejects.toMatchObject({ status: 403 });
+
+    const current = createDatabaseMock();
+    current.tx.user.findUnique.mockResolvedValue({ isSuperAdmin: true });
+    current.tx.userSpaceMembership.findUnique.mockResolvedValue(null);
+    await expect(
+      createReport(
+        { id: ACTOR_ID, isSuperAdmin: false },
+        createInput,
+        current.client
+      )
+    ).resolves.toMatchObject({ success: true });
   });
 
   it("adds new handles to the uniquely matching named entity and audits it", async () => {
@@ -224,7 +253,9 @@ describe("report write service", () => {
       id: POST_ID,
       spaceId: SPACE_ID,
       authorId: ACTOR_ID,
+      isAnonymous: true,
     });
+    tx.post.update.mockResolvedValue(selectedPost({ isAnonymous: false }));
 
     await updateReport(
       POST_ID,
@@ -248,7 +279,10 @@ describe("report write service", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           action: "post_update",
-          details: { changedFields: ["description", "isAnonymous"] },
+          details: {
+            changedFields: ["description", "isAnonymous"],
+            isAnonymous: false,
+          },
         }),
       })
     );
@@ -287,6 +321,33 @@ describe("report write service", () => {
     );
 
     expect(tx.post.update).toHaveBeenCalledOnce();
+  });
+
+  it("does not attribute an anonymous author's edit in audit logs", async () => {
+    const { tx, client } = createDatabaseMock();
+    tx.post.findUnique.mockResolvedValue({
+      id: POST_ID,
+      spaceId: SPACE_ID,
+      authorId: ACTOR_ID,
+      isAnonymous: true,
+    });
+
+    await updateReport(
+      POST_ID,
+      { id: ACTOR_ID, isSuperAdmin: false },
+      { description: "Still anonymous" },
+      client
+    );
+
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: "post_update",
+          actorUserId: null,
+          details: expect.objectContaining({ isAnonymous: true }),
+        }),
+      })
+    );
   });
 
   it("rejects missing posts and cross-space update guards before writing", async () => {

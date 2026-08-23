@@ -12,8 +12,46 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   if (!user) throw redirect("/auth/login");
   if (!params.id) throw new Response("Signalement introuvable", { status: 404 });
 
-  const post = await prisma.post.findUnique({
-    where: { id: params.id },
+  const post = await prisma.post.findFirst({
+    where: {
+      id: params.id,
+      ...(user.isSuperAdmin
+        ? {}
+        : {
+            OR: [
+              {
+                authorId: user.id,
+                space: {
+                  memberships: {
+                    some: {
+                      userId: user.id,
+                      role: { in: ["EDITOR", "Editor", "editor"] },
+                    },
+                  },
+                },
+              },
+              {
+                space: {
+                  memberships: {
+                    some: {
+                      userId: user.id,
+                      role: {
+                        in: [
+                          "ADMIN",
+                          "Admin",
+                          "admin",
+                          "MODERATOR",
+                          "Moderator",
+                          "moderator",
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          }),
+    },
     select: {
       id: true,
       authorId: true,
@@ -36,7 +74,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const mayModerate = role === "ADMIN" || role === "MODERATOR";
   const mayEditOwn = role === "EDITOR" && post.authorId === user.id;
   if (!mayModerate && !mayEditOwn) {
-    throw new Response("Accès refusé", { status: 403 });
+    throw new Response("Signalement introuvable", { status: 404 });
   }
 
   return {

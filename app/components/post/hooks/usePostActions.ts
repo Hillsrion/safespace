@@ -6,6 +6,7 @@ import type { PostAction } from "~/services/api.client/posts";
 
 interface UsePostActionsProps {
   postId: string;
+  spaceId?: string;
 }
 
 type ActionStatus = "idle" | "loading" | "success" | "error";
@@ -16,10 +17,10 @@ const ACTION_LABELS: Record<PostAction, string> = {
   unhide: "unhidden",
 } as const;
 
-export function usePostActions({ postId }: UsePostActionsProps) {
+export function usePostActions({ postId, spaceId }: UsePostActionsProps) {
   const [status, setStatus] = useState<ActionStatus>("idle");
   const { removePost, updatePostStatus: updatePostInStore } = usePostStore();
-  const { deletePost, updatePostStatus } = usePostActionsApi();
+  const { deletePost, flagPost, updatePostStatus } = usePostActionsApi();
 
   const handlePostAction = async (action: PostAction) => {
     setStatus("loading");
@@ -63,8 +64,28 @@ export function usePostActions({ postId }: UsePostActionsProps) {
     return { success: true };
   };
 
+  const handleFlagPost = async (reason?: string) => {
+    if (!spaceId) return { success: false, error: "Espace introuvable" };
+    setStatus("loading");
+    const { data, error } = await flagPost(postId, spaceId, reason);
+    setStatus("idle");
+
+    if (error || !data?.success) {
+      const errorMessage = error?.message || "Impossible de signaler ce rapport";
+      toast({ title: "Erreur", description: errorMessage, variant: "destructive" });
+      return { success: false, error: errorMessage };
+    }
+
+    toast({
+      title: "Signalement transmis",
+      description: "L’équipe de modération examinera ce rapport.",
+    });
+    return { success: true };
+  };
+
   return {
     handlePostAction,
+    handleFlagPost,
     isSubmitting: status === "loading",
     status,
   } as const;

@@ -59,7 +59,12 @@ async function getWriteRole(
   actor: Actor,
   spaceId: string
 ): Promise<string> {
-  if (actor.isSuperAdmin) return "SUPER_ADMIN";
+  const currentActor = await tx.user.findUnique({
+    where: { id: actor.id },
+    select: { isSuperAdmin: true },
+  });
+  if (!currentActor) return "";
+  if (currentActor.isSuperAdmin) return "SUPER_ADMIN";
 
   // Membership presence is the current schema's definition of active
   // membership. This lookup intentionally happens inside the write transaction.
@@ -83,7 +88,7 @@ function canEdit(role: string, isAuthor: boolean): boolean {
 async function resolveEntity(
   tx: TransactionClient,
   spaceId: string,
-  actorId: string,
+  actorId: string | null,
   target: ReportedEntityTargetInput
 ): Promise<EntityResolution> {
   const matches = await tx.reportedEntity.findMany({
@@ -166,7 +171,7 @@ async function resolveEntity(
 
 async function auditEntityResolution(
   tx: TransactionClient,
-  actorId: string,
+  actorId: string | null,
   spaceId: string,
   resolution: EntityResolution
 ): Promise<void> {
@@ -252,12 +257,12 @@ export async function createReport(
     const entityResolution = await resolveEntity(
       tx,
       input.spaceId,
-      actor.id,
+      input.isAnonymous ? null : actor.id,
       input.entity
     );
     await auditEntityResolution(
       tx,
-      actor.id,
+      input.isAnonymous ? null : actor.id,
       input.spaceId,
       entityResolution
     );
@@ -275,7 +280,7 @@ export async function createReport(
 
     await tx.auditLog.create({
       data: {
-        actorUserId: actor.id,
+        actorUserId: input.isAnonymous ? null : actor.id,
         action: "post_create",
         targetEntityType: "Post",
         targetEntityId: post.id,
@@ -301,7 +306,7 @@ export async function updateReport(
   return runSerializable(client, async (tx) => {
     const current = await tx.post.findUnique({
       where: { id: postId },
-      select: { id: true, spaceId: true, authorId: true },
+      select: { id: true, spaceId: true, authorId: true, isAnonymous: true },
     });
     if (!current) throw errors.notFound("Post not found");
 
@@ -314,13 +319,17 @@ export async function updateReport(
       throw errors.badRequest("A report cannot be moved to another space");
     }
 
+    const resultingAnonymous = input.isAnonymous ?? current.isAnonymous;
+    const authorIsEditingAnonymously =
+      resultingAnonymous && current.authorId === actor.id;
+    const auditActorId = authorIsEditingAnonymously ? null : actor.id;
     const entityResolution = input.entity
-      ? await resolveEntity(tx, current.spaceId, actor.id, input.entity)
+      ? await resolveEntity(tx, current.spaceId, auditActorId, input.entity)
       : undefined;
     if (entityResolution) {
       await auditEntityResolution(
         tx,
-        actor.id,
+        auditActorId,
         current.spaceId,
         entityResolution
       );
@@ -345,12 +354,12 @@ export async function updateReport(
 
     await tx.auditLog.create({
       data: {
-        actorUserId: actor.id,
+        actorUserId: auditActorId,
         action: "post_update",
         targetEntityType: "Post",
         targetEntityId: post.id,
         spaceId: current.spaceId,
-        details: { changedFields },
+        details: { changedFields, isAnonymous: post.isAnonymous },
       },
     });
 

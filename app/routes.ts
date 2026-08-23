@@ -38,6 +38,7 @@ export default [
   route(DASHBOARD_PATH, layoutPath("dashboard.tsx"), [
     index(routePath("dashboard/index.tsx")),
     route("account", routePath("dashboard/account/index.tsx")),
+    route("moderation", routePath("dashboard/moderation.tsx")),
     route("superadmin", routePath("dashboard/superadmin.tsx")),
     route("spaces/new", routePath("dashboard/spaces/new.tsx")),
     route("spaces/:spaceId", routePath("dashboard/spaces/:spaceId.tsx")),
@@ -49,9 +50,17 @@ export default [
   layout(layoutPath("api.tsx"), [
     ...prefix(RESOURCES_API_PREFIX, [
       route(`search`, routePath("api/search.ts")),
+      route(`superadmin/spaces`, routePath("api/superadmin/spaces.ts")),
+      route(`superadmin/spaces/:spaceId`, routePath("api/superadmin/spaces/:spaceId.ts")),
+      route(`superadmin/audit-logs`, routePath("api/superadmin/audit-logs.ts")),
       route(`spaces`, routePath("api/spaces.ts")),
       route(`spaces/:spaceId/members/:userId/role`, routePath("api/spaces/:spaceId/members/:userId/role.ts")),
       route(`spaces/:spaceId/members/:userId/kick`, routePath("api/spaces/:spaceId/members/:userId/kick.ts")),
+      route(`spaces/:spaceId/leave`, routePath("api/spaces/:spaceId/leave.ts")),
+      route(`account/delete`, routePath("api/account/delete.ts")),
+      route(`spaces/:spaceId/posts/:postId/flag`, routePath("api/spaces/:spaceId/posts/:postId/flag.ts")),
+      route(`spaces/:spaceId/moderation/flags`, routePath("api/spaces/:spaceId/moderation/flags.ts")),
+      route(`spaces/:spaceId/moderation/flags/:flagId`, routePath("api/spaces/:spaceId/moderation/flags/:flagId.ts")),
       route(`posts/feed`, routePath("api/posts/feed.ts")),
       route(`posts/create`, routePath("api/posts/create.ts")),
       route(`posts/:id/update`, routePath("api/posts/:id/update.ts")),

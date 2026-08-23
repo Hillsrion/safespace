@@ -44,6 +44,8 @@ enum AuditAction {
   user_invite     // User invited another user
   user_kick       // User was kicked from space
   user_role_change // User role changed
+  user_leave      // User left a space
+  account_delete  // User deleted their account
   post_create     // Post created
   post_update     // Post updated
   post_delete     // Post deleted
@@ -147,11 +149,11 @@ model ReportedEntity {
   name          String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
-  addedByUserId String    @db.Uuid
+  addedByUserId String?   @db.Uuid
   spaceId       String    @db.Uuid
 
   // Relations
-  addedBy       User      @relation("EntityAdders", fields: [addedByUserId], references: [id])
+  addedBy       User?     @relation("EntityAdders", fields: [addedByUserId], references: [id], onDelete: SetNull)
   space         Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   handles       ReportedEntityHandle[]
   posts         Post[]
@@ -240,6 +242,8 @@ model PostFlag {
 
   @@index([postId])
   @@index([status])
+  // Pending-only uniqueness is enforced by the partial unique index in
+  // 20260823194500_add_pending_post_flag_uniqueness/migration.sql.
 }
 
 model AuditLog {

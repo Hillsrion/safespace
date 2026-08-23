@@ -1,4 +1,4 @@
-import { MoreHorizontal, Trash2, Eye, EyeOff, Pencil } from "lucide-react";
+import { MoreHorizontal, Trash2, Eye, EyeOff, Pencil, Flag } from "lucide-react";
 import { Link } from "react-router";
 import { Button } from "~/components/ui/button";
 import {
@@ -18,6 +18,7 @@ interface PostActionsMenuProps {
   onDeletePost?: () => void;
   onHidePost?: () => void;
   onUnhidePost?: () => void;
+  onFlagPost?: () => void;
 }
 
 export function PostActionsMenu({
@@ -30,6 +31,7 @@ export function PostActionsMenu({
   onDeletePost,
   onHidePost,
   onUnhidePost,
+  onFlagPost,
 }: PostActionsMenuProps) {
   return (
     <DropdownMenu>
@@ -45,6 +47,13 @@ export function PostActionsMenu({
               <Pencil className="h-4 w-4 mr-2" />
               <span>Modifier le signalement</span>
             </Link>
+          </DropdownMenuItem>
+        )}
+
+        {onFlagPost && (
+          <DropdownMenuItem onClick={onFlagPost} disabled={isSubmitting}>
+            <Flag className="h-4 w-4 mr-2" />
+            <span>Signaler à la modération</span>
           </DropdownMenuItem>
         )}
 

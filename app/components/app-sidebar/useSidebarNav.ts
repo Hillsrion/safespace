@@ -3,6 +3,7 @@ import {
   UserIcon,
   UsersIcon,
   PlusIcon,
+  ShieldAlertIcon,
 } from "lucide-react";
 import { useSpaces } from "~/hooks/useSpaces";
 import { useAuthApi } from "~/services/api.client/auth";
@@ -22,6 +23,14 @@ export const useSidebarNav = (user: EnhancedUser) => {
         title: "Créer un espace",
         url: "/dashboard/spaces/new",
         icon: PlusIcon,
+      }] : []),
+      ...((user.isSuperAdmin || spaces.some(({ role }) => {
+        const normalized = role.trim().toUpperCase();
+        return normalized === "ADMIN" || normalized === "MODERATOR";
+      })) ? [{
+        title: "Modération",
+        url: "/dashboard/moderation",
+        icon: ShieldAlertIcon,
       }] : []),
       {
         title: "Entités signalées",

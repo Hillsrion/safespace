@@ -5,6 +5,7 @@ export interface SpaceNavItem {
   id: string;
   name: string;
   url: string;
+  role: string;
 }
 
 export const useSpaces = () => {
@@ -21,6 +22,7 @@ export const useSpaces = () => {
       id: space.id,
       name: space.name,
       url: `/dashboard/spaces/${space.id}`,
+      role: space.role,
     })) || [];
 
   return {

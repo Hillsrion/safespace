@@ -37,9 +37,20 @@ export function usePostActionsApi() {
     });
   };
 
+  const flagPost = async (postId: string, spaceId: string, reason?: string) => {
+    return callApi(
+      `${RESOURCES_API_PREFIX}/spaces/${spaceId}/posts/${postId}/flag`,
+      {
+        method: "POST",
+        body: reason?.trim() ? { reason: reason.trim() } : {},
+      }
+    );
+  };
+
   return {
     deletePost,
     updatePostStatus,
+    flagPost,
     ...rest,
   };
 }

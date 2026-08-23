@@ -43,8 +43,9 @@ export function Post({
   const [isMediaDialogOpen, setIsMediaDialogOpen] = useState(false);
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0);
 
-  const { handlePostAction, isSubmitting } = usePostActions({
+  const { handleFlagPost, handlePostAction, isSubmitting } = usePostActions({
     postId: id,
+    spaceId: space?.id,
   });
 
   const handleMediaClick = (index: number) => {
@@ -105,6 +106,12 @@ export function Post({
             onDeletePost={() => handlePostAction('delete')}
             onHidePost={() => handlePostAction('hide')}
             onUnhidePost={() => handlePostAction('unhide')}
+            onFlagPost={space ? () => {
+              const reason = window.prompt(
+                "Pourquoi souhaitez-vous signaler ce rapport ? (facultatif)"
+              );
+              if (reason !== null) void handleFlagPost(reason);
+            } : undefined}
           />
         </div>
       </CardHeader>

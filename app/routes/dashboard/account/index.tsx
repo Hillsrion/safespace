@@ -24,6 +24,7 @@ import { checkPasswordRequirements } from "~/lib/password";
 import { useAccount } from "~/hooks/useAccount";
 import { action } from "./action";
 import { loader } from "./loader";
+import { AccountDangerZone } from "~/components/account-danger-zone";
 
 export { action, loader };
 
@@ -283,6 +284,15 @@ export default function AccountPage() {
               </div>
             </RemixForm>
           </Form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Confidentialité et suppression</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AccountDangerZone memberships={user.memberships} />
         </CardContent>
       </Card>
     </div>

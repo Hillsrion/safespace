@@ -15,6 +15,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
       instagram: true,
       createdAt: true,
       updatedAt: true,
+      memberships: {
+        orderBy: { joinedAt: "asc" },
+        select: {
+          role: true,
+          space: { select: { id: true, name: true } },
+        },
+      },
     },
   });
 
