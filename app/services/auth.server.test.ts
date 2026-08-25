@@ -1,5 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { withoutPassword } from "./auth.server";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../db/client.server", () => ({
+  prisma: { user: { findUnique: vi.fn() } },
+}));
+vi.mock("bcryptjs", () => ({
+  default: { compare: vi.fn() },
+}));
+
+import bcrypt from "bcryptjs";
+import { prisma } from "../db/client.server";
+import { login, withoutPassword } from "./auth.server";
 
 describe("authenticated user projection", () => {
   it("keeps password hashes out of session-safe user data", () => {
@@ -17,5 +27,21 @@ describe("authenticated user projection", () => {
 
     expect(user).not.toHaveProperty("password");
     expect(user.id).toBe("user-1");
+  });
+});
+
+describe("login timing safety", () => {
+  it("performs a bcrypt comparison even when the email does not exist", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+
+    await expect(
+      login("missing@example.com", "Wrong-password-1!")
+    ).rejects.toThrow("Invalid credentials");
+
+    expect(bcrypt.compare).toHaveBeenCalledWith(
+      "Wrong-password-1!",
+      expect.stringMatching(/^\$2b\$12\$/)
+    );
   });
 });

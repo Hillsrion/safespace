@@ -18,3 +18,21 @@ for = "/*"
   X-Content-Type-Options = "nosniff"
   X-DNS-Prefetch-Control = "off"
   X-Frame-Options = "DENY"
+
+[[headers]]
+for = "/dashboard/*"
+
+  [headers.values]
+  Cache-Control = "private, no-store"
+
+[[headers]]
+for = "/resources/api/*"
+
+  [headers.values]
+  Cache-Control = "private, no-store"
+
+[[headers]]
+for = "/auth/*"
+
+  [headers.values]
+  Cache-Control = "private, no-store"

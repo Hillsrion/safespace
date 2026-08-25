@@ -33,6 +33,10 @@ export function withoutPassword(
 export const authenticator = new Authenticator<AuthenticatedUser>();
 
 const errorMessage = "Invalid credentials";
+// A valid, non-secret bcrypt hash keeps the missing-user path computationally
+// equivalent to the wrong-password path and avoids an email enumeration signal.
+const INVALID_LOGIN_PASSWORD_HASH =
+  "$2b$12$sNfRvwDCcSBHi9fsBUTC9euzo4zPGBupSR.Zli50.dVdczq1FtEbK";
 
 export async function login(
   email: string,
@@ -45,12 +49,11 @@ export async function login(
       password: true,
     },
   });
-  if (!user) {
-    throw new Error(errorMessage);
-  }
-
-  const isValidPassword = await bcrypt.compare(password, user.password);
-  if (!isValidPassword) {
+  const isValidPassword = await bcrypt.compare(
+    password,
+    user?.password ?? INVALID_LOGIN_PASSWORD_HASH
+  );
+  if (!user || !isValidPassword) {
     throw new Error(errorMessage);
   }
 

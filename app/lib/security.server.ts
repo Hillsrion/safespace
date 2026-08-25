@@ -3,6 +3,7 @@ import { errors } from "~/lib/api/http-error";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export const SECURITY_HEADERS = {
+  "Cache-Control": "private, no-store",
   "Content-Security-Policy": [
     "default-src 'self'",
     "base-uri 'self'",

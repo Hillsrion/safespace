@@ -34,6 +34,7 @@ describe("security headers", () => {
   it("prevents framing and MIME sniffing", () => {
     expect(SECURITY_HEADERS["X-Frame-Options"]).toBe("DENY");
     expect(SECURITY_HEADERS["X-Content-Type-Options"]).toBe("nosniff");
+    expect(SECURITY_HEADERS["Cache-Control"]).toBe("private, no-store");
     expect(SECURITY_HEADERS["Strict-Transport-Security"]).toContain(
       "max-age=63072000"
     );
