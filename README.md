@@ -114,6 +114,10 @@ credentials when invitation email delivery is enabled. Apply migrations with
 `yarn prisma:deploy` before starting the new application version. Never run the
 development seed against a production database.
 
+Chaque push et pull request vers `main` exécute aussi les migrations sur une
+instance PostgreSQL 16 éphémère, puis la génération Prisma, le typecheck, les
+tests et le build de production via [CI](.github/workflows/ci.yml).
+
 ## 🎨 Styling
 
 This project uses [Tailwind CSS](https://tailwindcss.com/) for styling. The configuration can be found in `tailwind.config.js`.
