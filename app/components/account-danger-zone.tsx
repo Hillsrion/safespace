@@ -125,6 +125,20 @@ export function AccountDangerZone({
       )}
 
       <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+          <div>
+            <p className="font-medium">Exporter mes données</p>
+            <p className="text-sm text-muted-foreground">
+              Téléchargez une copie JSON de votre profil, vos adhésions,
+              contributions et actions de modération.
+            </p>
+          </div>
+          <Button asChild size="sm" variant="outline">
+            <a href="/resources/api/account/export" download>
+              Télécharger l’export
+            </a>
+          </Button>
+        </div>
         <h3 className="font-semibold">Mes espaces</h3>
         {memberships.map((membership) => (
           <div

@@ -63,6 +63,7 @@ export default [
       route(`spaces/:spaceId/entities`, routePath("api/spaces/:spaceId/entities.ts")),
       route(`spaces/:spaceId/entities/:entityId`, routePath("api/spaces/:spaceId/entities/:entityId.ts")),
       route(`account/delete`, routePath("api/account/delete.ts")),
+      route(`account/export`, routePath("api/account/export.ts")),
       route(`spaces/:spaceId/posts/:postId/flag`, routePath("api/spaces/:spaceId/posts/:postId/flag.ts")),
       route(`spaces/:spaceId/moderation/flags`, routePath("api/spaces/:spaceId/moderation/flags.ts")),
       route(`spaces/:spaceId/moderation/flags/:flagId`, routePath("api/spaces/:spaceId/moderation/flags/:flagId.ts")),
