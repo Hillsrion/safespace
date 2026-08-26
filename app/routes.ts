@@ -51,6 +51,8 @@ export default [
   layout(layoutPath("api.tsx"), [
     ...prefix(RESOURCES_API_PREFIX, [
       route(`search`, routePath("api/search.ts")),
+      route(`saved-searches`, routePath("api/saved-searches.ts")),
+      route(`saved-searches/:savedSearchId`, routePath("api/saved-searches/:savedSearchId.ts")),
       route(`superadmin/spaces`, routePath("api/superadmin/spaces.ts")),
       route(`superadmin/spaces/:spaceId`, routePath("api/superadmin/spaces/:spaceId.ts")),
       route(`superadmin/audit-logs`, routePath("api/superadmin/audit-logs.ts")),

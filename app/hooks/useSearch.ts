@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import debounce from "lodash-es/debounce";
 import { useSearchApi } from "~/services/api.client/search";
 import type { SearchResults } from "~/services/api.client/search";
+import type { SearchFilters } from "~/services/api.client/search";
 
 // Define types for results based on the API response structure
 // The API returns an array of objects, each with a 'type' and 'data' field.
@@ -22,11 +23,12 @@ interface SearchResultItem {
 
 export function useSearch() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState<SearchFilters>({ type: "all" });
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
   const { search } = useSearchApi();
 
-  const fetchResults = useCallback(async (query: string) => {
+  const fetchResults = useCallback(async (query: string, nextFilters: SearchFilters) => {
     if (!query.trim()) {
       setResults(null);
       setLoading(false);
@@ -34,7 +36,7 @@ export function useSearch() {
     }
     setLoading(true);
     try {
-      const response = await search(query);
+      const response = await search(query, nextFilters);
       if (!response.data) {
         setResults(null);
         return;
@@ -46,19 +48,20 @@ export function useSearch() {
     } finally {
       setLoading(false);
     }
+  // `search` is backed by the generic API hook and is intentionally captured
+  // once; recreating the debounced callback on each loading-state render would
+  // issue duplicate requests.
   }, []);
 
-  const debouncedFetchResults = useCallback(debounce(fetchResults, 500), [
-    fetchResults,
-  ]);
+  const debouncedFetchResults = useCallback(debounce(fetchResults, 500), [fetchResults]);
 
   useEffect(() => {
-    debouncedFetchResults(searchTerm);
+    debouncedFetchResults(searchTerm, filters);
 
     return () => {
       debouncedFetchResults.cancel();
     };
-  }, [searchTerm, debouncedFetchResults]);
+  }, [searchTerm, filters, debouncedFetchResults]);
 
-  return { searchTerm, setSearchTerm, results, loading };
+  return { searchTerm, setSearchTerm, filters, setFilters, results, loading };
 }

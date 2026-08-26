@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import {
   Command,
   CommandInput,
@@ -8,9 +9,20 @@ import {
   CommandEmpty,
   CommandGroup,
 } from "~/components/ui/command";
-import { FileText, ShieldAlert, Loader2 } from "lucide-react";
-import { useSearch } from "~/hooks/useSearch"; // Import the new hook
+import { Bookmark, FileText, ShieldAlert, Loader2, SlidersHorizontal } from "lucide-react";
+import {
+  AdvancedSearchFilters,
+  type AdvancedSearchFilterValues,
+} from "~/components/advanced-search-filters";
+import { Button } from "~/components/ui/button";
+import { useSearch } from "~/hooks/useSearch";
+import { useSpaces } from "~/hooks/useSpaces";
 import { isSearchShortcut } from "~/lib/search-shortcut";
+import {
+  createSavedSearch,
+  listSavedSearches,
+  type SavedSearch,
+} from "~/services/api.client/saved-searches";
 
 interface SearchResultItemData {
   id: string;
@@ -28,8 +40,15 @@ interface SearchResult {
 }
 
 export function SearchBar() {
-  const { searchTerm, setSearchTerm, results, loading } = useSearch();
+  const { searchTerm, setSearchTerm, filters, setFilters, results, loading } = useSearch();
+  const { spaces } = useSpaces();
   const [isOpen, setIsOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [alertEnabled, setAlertEnabled] = useState(false);
+  const [alertHandle, setAlertHandle] = useState("");
+  const [savedSearchName, setSavedSearchName] = useState("");
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const navigate = useNavigate();
   const commandRef = useRef<HTMLDivElement>(null);
@@ -53,6 +72,21 @@ export function SearchBar() {
     document.addEventListener("keydown", handleGlobalKeyDown);
     return () => document.removeEventListener("keydown", handleGlobalKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    listSavedSearches()
+      .then((items) => {
+        if (active) setSavedSearches(items);
+      })
+      .catch(() => {
+        // Search itself remains usable if saved-search loading fails.
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
 
   // Effect to open/close the list based on search term and results
   useEffect(() => {
@@ -131,6 +165,63 @@ export function SearchBar() {
     }
   };
 
+  const advancedValue: AdvancedSearchFilterValues = {
+    ...filters,
+    alertEnabled,
+    alertHandle,
+  };
+
+  const handleAdvancedChange = (next: AdvancedSearchFilterValues) => {
+    setFilters({
+      type: next.type,
+      spaceId: next.spaceId,
+      severity: next.severity,
+      verification: next.verification,
+    });
+    setAlertEnabled(next.alertEnabled);
+    setAlertHandle(next.alertHandle);
+  };
+
+  const handleSaveSearch = async () => {
+    if (searchTerm.trim().length < 2 || !savedSearchName.trim()) {
+      toast.error("Enter a query and a name before saving the search.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const saved = await createSavedSearch({
+        name: savedSearchName.trim(),
+        query: searchTerm.trim(),
+        type: filters.type,
+        spaceId: filters.spaceId,
+        severity: filters.severity,
+        verificationStatus: filters.verification,
+        alertEnabled,
+        alertHandle: alertEnabled ? alertHandle : undefined,
+      });
+      setSavedSearches((current) => [saved, ...current]);
+      setSavedSearchName("");
+      toast.success("Search saved.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save this search.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const applySavedSearch = (saved: SavedSearch) => {
+    setSearchTerm(saved.query);
+    setFilters({
+      type: saved.type,
+      spaceId: saved.spaceId ?? undefined,
+      severity: saved.severity ?? undefined,
+      verification: saved.verificationStatus ?? undefined,
+    });
+    setAlertEnabled(saved.alertEnabled);
+    setAlertHandle(saved.alertHandle ?? "");
+    setShowAdvanced(true);
+  };
+
 
   return (
     <div ref={commandRef} className="relative w-full max-w-xl mx-auto">
@@ -144,6 +235,46 @@ export function SearchBar() {
             className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             onFocus={handleInputFocus}
           />
+        </div>
+        <div className="px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowAdvanced((current) => !current)}
+              aria-expanded={showAdvanced}
+            >
+              <SlidersHorizontal /> Filters
+            </Button>
+            {savedSearches.length > 0 ? (
+              <div className="flex max-w-full items-center gap-1 overflow-x-auto" aria-label="Saved searches">
+                {savedSearches.slice(0, 5).map((saved) => (
+                  <Button
+                    key={saved.id}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => applySavedSearch(saved)}
+                  >
+                    <Bookmark /> {saved.name}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          {showAdvanced ? (
+            <AdvancedSearchFilters
+              value={advancedValue}
+              spaces={spaces}
+              onChange={handleAdvancedChange}
+              onSave={handleSaveSearch}
+              savedSearchName={savedSearchName}
+              onSavedSearchNameChange={setSavedSearchName}
+              saving={saving}
+            />
+          ) : null}
         </div>
         {isOpen && (
           <CommandList className="absolute top-full mt-1 w-full bg-card border rounded-b-lg shadow-lg max-h-[350px] overflow-y-auto z-50">
