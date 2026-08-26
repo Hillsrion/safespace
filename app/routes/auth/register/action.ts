@@ -6,6 +6,7 @@ import { registerSchema } from "~/hooks/useRegister";
 import { requireSameOrigin } from "~/lib/security.server";
 import { isInviteEligible, normalizeSpaceRole } from "~/lib/invitations";
 import { getInviteTokenCandidates } from "~/lib/invite-token.server";
+import { runWithDbContext } from "~/db/context.server";
 
 export async function action({ request }: { request: Request }) {
   requireSameOrigin(request);
@@ -45,54 +46,58 @@ export async function action({ request }: { request: Request }) {
     const hashedPassword = await hashPassword(password);
     const now = new Date();
 
-    const user = await prisma.$transaction(async (transaction) => {
-      const invite = await transaction.invite.findFirst({
-        where: { token: { in: getInviteTokenCandidates(inviteToken) } },
-      });
+    const inviteTokens = getInviteTokenCandidates(inviteToken);
+    const user = await runWithDbContext(
+      { mode: "registration", email, inviteTokens },
+      () => prisma.$transaction(async (transaction) => {
+        const invite = await transaction.invite.findFirst({
+          where: { token: { in: inviteTokens } },
+        });
 
-      if (!isInviteEligible(invite, email, now)) {
-        throw new InvalidInviteError();
-      }
+        if (!isInviteEligible(invite, email, now)) {
+          throw new InvalidInviteError();
+        }
 
-      const role = normalizeSpaceRole(invite.roleToAssign);
-      if (!role) {
-        throw new InvalidInviteError();
-      }
+        const role = normalizeSpaceRole(invite.roleToAssign);
+        if (!role) {
+          throw new InvalidInviteError();
+        }
 
-      const claimed = await transaction.invite.updateMany({
-        where: {
-          id: invite.id,
-          isUsed: false,
-          expiresAt: { gt: now },
-        },
-        data: { isUsed: true },
-      });
+        const claimed = await transaction.invite.updateMany({
+          where: {
+            id: invite.id,
+            isUsed: false,
+            expiresAt: { gt: now },
+          },
+          data: { isUsed: true },
+        });
 
-      if (claimed.count !== 1) {
-        throw new InvalidInviteError();
-      }
+        if (claimed.count !== 1) {
+          throw new InvalidInviteError();
+        }
 
-      const createdUser = await transaction.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          instagram: instagram?.trim() || null,
-          codeOfConductAcceptedAt: now,
-        },
-      });
+        const createdUser = await transaction.user.create({
+          data: {
+            email,
+            password: hashedPassword,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            instagram: instagram?.trim() || null,
+            codeOfConductAcceptedAt: now,
+          },
+        });
 
-      await transaction.userSpaceMembership.create({
-        data: {
-          userId: createdUser.id,
-          spaceId: invite.spaceId,
-          role,
-        },
-      });
+        await transaction.userSpaceMembership.create({
+          data: {
+            userId: createdUser.id,
+            spaceId: invite.spaceId,
+            role,
+          },
+        });
 
-      return createdUser;
-    });
+        return createdUser;
+      })
+    );
 
     const session = await getSession(request);
     session.set("userId", user.id);

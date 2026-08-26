@@ -54,6 +54,8 @@ enum AuditAction {
   entity_add      // Reported entity added
   entity_update   // Reported entity updated
   entity_delete   // Reported entity deleted
+  media_upload    // Private evidence uploaded and attached to a post
+  media_delete    // Evidence detached and queued for storage deletion
   space_create    // Space created
   space_update    // Space updated
   space_delete    // Space deleted
@@ -88,6 +90,7 @@ model User {
   resolvedFlags PostFlag[] @relation("FlagResolvers")
   auditLogs     AuditLog[] @relation("AuditActors")
   addedEntities ReportedEntity[] @relation("EntityAdders")
+  savedSearches SavedSearch[]
 }
 
 // Space model represents a community/organization within the platform
@@ -212,7 +215,11 @@ model Media {
   fileName         String
   mimeType         String
   fileSize         Int
+  originalFileSize Int?
+  sha256           String?
   metadataStripped Boolean   @default(false)
+  metadataRemoved  Boolean   @default(false)
+  removedMetadataKinds Json?
   isBlurred        Boolean   @default(true)
   createdAt        DateTime  @default(now())
 
@@ -221,6 +228,25 @@ model Media {
   uploader         User      @relation("MediaUploaders", fields: [uploaderId], references: [id])
 
   @@index([postId])
+}
+
+// Durable outbox for object-storage deletion. It intentionally has no foreign
+// key so post/account cascades cannot erase the only record of an R2 object
+// that still needs to be removed.
+model MediaDeletionJob {
+  id            String    @id @default(uuid()) @db.Uuid
+  storageKey    String    @unique
+  requestedByUserId String? @db.Uuid
+  spaceId       String?   @db.Uuid
+  attempts      Int       @default(0)
+  lastError     String?
+  lastAttemptAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  @@index([createdAt])
+  @@index([requestedByUserId])
+  @@index([spaceId])
 }
 
 // PostFlag model represents user reports about posts
@@ -265,5 +291,28 @@ model AuditLog {
   @@index([actorUserId])
   @@index([action]) // Index for filtering by action type
   @@index([targetEntityId])
+  @@index([spaceId])
+}
+
+// A SavedSearch belongs to exactly one user. Space scoping is intentionally
+// stored as an identifier rather than a relation: access is revalidated when
+// the search is used, so leaving a space immediately revokes its visibility.
+model SavedSearch {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  userId             String                  @db.Uuid
+  name               String
+  query              String
+  type               String                  @default("all")
+  spaceId            String?                 @db.Uuid
+  severity           PostSeverity?
+  verificationStatus PostVerificationStatus?
+  alertEnabled       Boolean                 @default(false)
+  alertHandle        String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @default(now()) @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
   @@index([spaceId])
 }

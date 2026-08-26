@@ -114,6 +114,12 @@ credentials when invitation email delivery is enabled. Apply migrations with
 `yarn prisma:deploy` before starting the new application version. Never run the
 development seed against a production database.
 
+`DATABASE_URL` doit utiliser un rôle PostgreSQL applicatif non propriétaire et
+`NOBYPASSRLS`. Les migrations, seeds et jobs système utilisent séparément
+`SYSTEM_DATABASE_URL`. La création des rôles, les droits requis et la procédure
+de vérification RLS sont détaillés dans
+[docs/database-row-level-security.md](docs/database-row-level-security.md).
+
 Chaque push et pull request vers `main` exécute aussi les migrations sur une
 instance PostgreSQL 16 éphémère, puis la génération Prisma, le typecheck, les
 tests et le build de production via [CI](.github/workflows/ci.yml).

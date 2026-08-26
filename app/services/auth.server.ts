@@ -6,6 +6,10 @@ import { throwHttpError } from "~/lib/api/http-error";
 import type { Prisma } from "~/generated/prisma";
 import { destroySession, getSession } from "./session.server";
 import { redirect } from "react-router";
+import {
+  enterAuthenticatedDbContext,
+  runWithDbContext,
+} from "~/db/context.server";
 
 const authenticatedUserSelect = {
   id: true,
@@ -42,13 +46,18 @@ export async function login(
   email: string,
   password: string
 ): Promise<AuthenticatedUser> {
-  const user = await prisma.user.findUnique({
-    where: { email: email.trim().toLowerCase() },
-    select: {
-      ...authenticatedUserSelect,
-      password: true,
-    },
-  });
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await runWithDbContext(
+    { mode: "authentication", email: normalizedEmail },
+    () =>
+      prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: {
+          ...authenticatedUserSelect,
+          password: true,
+        },
+      })
+  );
   const isValidPassword = await bcrypt.compare(
     password,
     user?.password ?? INVALID_LOGIN_PASSWORD_HASH
@@ -79,10 +88,19 @@ export async function getCurrentUser(request: Request) {
 
   // Always re-read authorization-sensitive attributes from the database so a
   // role revocation or account deletion takes effect on the next request.
-  return prisma.user.findUnique({
-    where: { id: userId },
-    select: authenticatedUserSelect,
-  });
+  const user = await runWithDbContext(
+    { mode: "user", userId, isSuperAdmin: false },
+    () =>
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: authenticatedUserSelect,
+      })
+  );
+
+  if (user) {
+    enterAuthenticatedDbContext(user.id, user.isSuperAdmin);
+  }
+  return user;
 }
 
 export async function logout(request: Request) {

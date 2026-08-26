@@ -27,7 +27,43 @@ const generateName = (): string => {
   return name.replace(honorificPattern, '').trim();
 };
 
-const prisma = new PrismaClient();
+const systemDatabaseUrl =
+  process.env.SYSTEM_DATABASE_URL?.trim() || process.env.DATABASE_URL;
+const prisma = new PrismaClient({ datasourceUrl: systemDatabaseUrl });
+
+type SeedRoleCapability = {
+  roleName: string;
+  canBypassRls: boolean;
+  ownsAllTables: boolean;
+};
+
+async function assertSeedRoleCanBypassRls(): Promise<void> {
+  const [capability] = await prisma.$queryRaw<SeedRoleCapability[]>`
+    SELECT
+      current_user::text AS "roleName",
+      role.rolbypassrls AS "canBypassRls",
+      bool_and(table_class.relowner = role.oid) AS "ownsAllTables"
+    FROM pg_catalog.pg_roles role
+    CROSS JOIN pg_catalog.pg_class table_class
+    JOIN pg_catalog.pg_namespace namespace
+      ON namespace.oid = table_class.relnamespace
+    WHERE role.rolname = current_user
+      AND namespace.nspname = 'public'
+      AND table_class.relname IN (
+        'User', 'Space', 'UserSpaceMembership', 'Invite',
+        'ReportedEntity', 'ReportedEntityHandle', 'Post', 'Media',
+        'PostFlag', 'AuditLog', 'SavedSearch', 'MediaDeletionJob'
+      )
+    GROUP BY role.oid, role.rolbypassrls
+  `;
+
+  if (!capability?.canBypassRls && !capability?.ownsAllTables) {
+    throw new Error(
+      `Seed role ${capability?.roleName ?? "<unknown>"} cannot bypass RLS. ` +
+        "Set SYSTEM_DATABASE_URL to the migration owner or an explicit BYPASSRLS role."
+    );
+  }
+}
 
 // --- Configuration ---
 const NUM_USERS = process.env.SEED_NUM_USERS
@@ -159,10 +195,16 @@ async function main() {
     );
   }
 
+  // The destructive seed is a system job, never an end-user request. Refuse
+  // to rely on the application role or on user-controlled RLS session values.
+  await assertSeedRoleCanBypassRls();
+
   console.log(`🌱 Starting seeding process...`);
   console.log(`🎲 Using ${faker.seed()} as faker seed`);
 
   console.log("🧹 Deleting existing data (order is important)...");
+  await prisma.mediaDeletionJob.deleteMany({});
+  await prisma.savedSearch.deleteMany({});
   await prisma.userSpaceMembership.deleteMany({});
   await prisma.postFlag.deleteMany({}); // Added PostFlag
   await prisma.media.deleteMany({}); // Added Media
