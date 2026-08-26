@@ -9,6 +9,7 @@ import {
 } from "~/services/media-storage.server";
 import { deleteMedia, getAuthorizedMediaObject } from "~/services/media.server";
 import { requireUser } from "~/services/auth.server";
+import { captureServerException } from "~/services/observability.server";
 
 const mediaIdSchema = z.string().uuid("Invalid media ID");
 const singleByteRangePattern = /^bytes=(?:\d+-\d*|-\d+)$/;
@@ -18,7 +19,17 @@ function mediaIdFrom(params: Record<string, string | undefined>): string {
   if (!parsed.success) throw errors.badRequest("Invalid media ID");
   return parsed.data;
 }
-function storageFailure(error: MediaStorageError | MediaStorageConfigurationError): Response {
+async function storageFailure(
+  error: MediaStorageError | MediaStorageConfigurationError,
+  operation: "media.delete" | "media.download"
+): Promise<Response> {
+  await captureServerException(error, {
+    operation,
+    outcome: "failure",
+    errorCode: "server_error:api",
+    httpStatus: error instanceof MediaStorageError && error.status === 416 ? 416 : 503,
+    storageProvider: "r2",
+  });
   console.error("Private media storage failure", {
     errorType: error.name,
     status: error instanceof MediaStorageError ? error.status : undefined,
@@ -59,9 +70,17 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   } catch (error) {
     if (error instanceof HttpError) return error.toResponse();
     if (error instanceof MediaStorageError || error instanceof MediaStorageConfigurationError) {
-      return storageFailure(error);
+      return storageFailure(error, "media.download");
     }
-    console.error("Unexpected private media download failure", error);
+    await captureServerException(error, {
+      operation: "media.download",
+      outcome: "failure",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
+    console.error("Unexpected private media download failure", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     return errorResponse("Media download failed", "server_error:api", 500);
   }
 }
@@ -82,9 +101,17 @@ export async function action({ request, params }: ActionFunctionArgs) {
   } catch (error) {
     if (error instanceof HttpError) return error.toResponse();
     if (error instanceof MediaStorageError || error instanceof MediaStorageConfigurationError) {
-      return storageFailure(error);
+      return storageFailure(error, "media.delete");
     }
-    console.error("Unexpected private media deletion failure", error);
+    await captureServerException(error, {
+      operation: "media.delete",
+      outcome: "failure",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
+    console.error("Unexpected private media deletion failure", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     return errorResponse("Media deletion failed", "server_error:api", 500);
   }
 }

@@ -11,6 +11,7 @@ import {
 } from "~/services/media-storage.server";
 import { uploadMedia } from "~/services/media.server";
 import { requireUser } from "~/services/auth.server";
+import { captureServerException } from "~/services/observability.server";
 
 const uuidSchema = z.string().uuid();
 
@@ -53,13 +54,28 @@ export async function action({ request }: ActionFunctionArgs) {
   } catch (error) {
     if (error instanceof HttpError) return error.toResponse();
     if (error instanceof MediaStorageError || error instanceof MediaStorageConfigurationError) {
+      await captureServerException(error, {
+        operation: "media.upload",
+        outcome: "failure",
+        errorCode: "server_error:api",
+        httpStatus: 503,
+        storageProvider: "r2",
+      });
       console.error("Private media upload storage failure", {
         errorType: error.name,
         status: error instanceof MediaStorageError ? error.status : undefined,
       });
       return errorResponse("Media storage is temporarily unavailable", "server_error:api", 503);
     }
-    console.error("Unexpected private media upload failure", error);
+    await captureServerException(error, {
+      operation: "media.upload",
+      outcome: "failure",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
+    console.error("Unexpected private media upload failure", {
+      errorType: error instanceof Error ? error.name : "UnknownError",
+    });
     return errorResponse("Media upload failed", "server_error:api", 500);
   }
 }
