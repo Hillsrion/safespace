@@ -15,6 +15,8 @@ function selectedPost(overrides: Record<string, unknown> = {}) {
     description: "Report body",
     isAnonymous: true,
     isAdminOnly: false,
+    severity: "high",
+    verificationStatus: "verified",
     createdAt: new Date("2026-08-23T10:00:00.000Z"),
     updatedAt: new Date("2026-08-23T10:01:00.000Z"),
     reportedEntity: {
@@ -117,6 +119,8 @@ describe("report write service", () => {
         description: "Report body",
         isAnonymous: true,
         isAdminOnly: false,
+        severity: "high",
+        verificationStatus: "verified",
         createdAt: "2026-08-23T10:00:00.000Z",
         updatedAt: "2026-08-23T10:01:00.000Z",
         reportedEntity: {
@@ -143,6 +147,20 @@ describe("report write service", () => {
     expect(tx.reportedEntity.findMany).not.toHaveBeenCalled();
     expect(tx.post.create).not.toHaveBeenCalled();
     expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("prevents Editors from self-certifying a report", async () => {
+    const { tx, client } = createDatabaseMock();
+
+    await expect(
+      createReport(
+        { id: ACTOR_ID, isSuperAdmin: false },
+        { ...createInput, verificationStatus: "verified" },
+        client
+      )
+    ).rejects.toMatchObject({ status: 403 });
+    expect(tx.reportedEntity.findMany).not.toHaveBeenCalled();
+    expect(tx.post.create).not.toHaveBeenCalled();
   });
 
   it("re-reads super-admin rights inside the write transaction", async () => {
@@ -316,11 +334,27 @@ describe("report write service", () => {
     await updateReport(
       POST_ID,
       { id: ACTOR_ID, isSuperAdmin: false },
-      { isAdminOnly: true },
+      { isAdminOnly: true, severity: "high", verificationStatus: "verified" },
       client
     );
 
-    expect(tx.post.update).toHaveBeenCalledOnce();
+    expect(tx.post.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          severity: "high",
+          verificationStatus: "verified",
+        }),
+      })
+    );
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          details: expect.objectContaining({
+            changedFields: ["isAdminOnly", "severity", "verificationStatus"],
+          }),
+        }),
+      })
+    );
   });
 
   it("does not attribute an anonymous author's edit in audit logs", async () => {

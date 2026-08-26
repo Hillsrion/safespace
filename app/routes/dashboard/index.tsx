@@ -176,6 +176,8 @@ export default function Dashboard() {
         : typedPost.isAdminOnly
           ? "admin_only"
           : "published",
+      severity: typedPost.severity,
+      verificationStatus: typedPost.verificationStatus,
       reportedEntity: typedPost.reportedEntity || undefined,
       space: typedPost.space ? mapPrismaSpaceToSpaceInfo(typedPost.space) : undefined,
       currentUser,

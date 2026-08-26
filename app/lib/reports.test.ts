@@ -88,6 +88,22 @@ describe("report payload schemas", () => {
     ).toEqual({ spaceId: SPACE_ID, isAnonymous: false });
   });
 
+  it("accepts only the supported classification values", () => {
+    expect(
+      createReportSchema.parse({
+        spaceId: SPACE_ID,
+        entity: { name: "Person", handles: ["valid"] },
+        description: "Report",
+        severity: "high",
+        verificationStatus: "pending",
+      })
+    ).toMatchObject({ severity: "high", verificationStatus: "pending" });
+    expect(updateReportSchema.safeParse({ severity: "critical" }).success).toBe(false);
+    expect(
+      updateReportSchema.safeParse({ verificationStatus: "approved" }).success
+    ).toBe(false);
+  });
+
   it("validates UUID route identifiers", () => {
     expect(reportIdSchema.parse(SPACE_ID)).toBe(SPACE_ID);
     expect(reportIdSchema.safeParse("not-a-uuid").success).toBe(false);

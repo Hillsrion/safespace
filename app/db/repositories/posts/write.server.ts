@@ -20,6 +20,8 @@ const POST_RESPONSE_SELECT = {
   description: true,
   isAnonymous: true,
   isAdminOnly: true,
+  severity: true,
+  verificationStatus: true,
   createdAt: true,
   updatedAt: true,
   reportedEntity: {
@@ -37,6 +39,8 @@ type SelectedPost = {
   description: string;
   isAnonymous: boolean;
   isAdminOnly: boolean;
+  severity: "low" | "medium" | "high" | null;
+  verificationStatus: "unverified" | "pending" | "verified" | "disputed" | null;
   createdAt: Date;
   updatedAt: Date;
   reportedEntity: {
@@ -83,6 +87,10 @@ function canCreate(role: string): boolean {
 function canEdit(role: string, isAuthor: boolean): boolean {
   if (["MODERATOR", "ADMIN", "SUPER_ADMIN"].includes(role)) return true;
   return role === "EDITOR" && isAuthor;
+}
+
+function canVerify(role: string): boolean {
+  return ["MODERATOR", "ADMIN", "SUPER_ADMIN"].includes(role);
 }
 
 async function resolveEntity(
@@ -232,6 +240,8 @@ function toResponse(post: SelectedPost): ReportWriteResponse {
       description: post.description,
       isAnonymous: post.isAnonymous,
       isAdminOnly: post.isAdminOnly,
+      severity: post.severity,
+      verificationStatus: post.verificationStatus,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString(),
       reportedEntity: {
@@ -252,6 +262,13 @@ export async function createReport(
     const role = await getWriteRole(tx, actor, input.spaceId);
     if (!canCreate(role)) {
       throw errors.forbidden("An active Editor membership or higher is required");
+    }
+    if (
+      input.verificationStatus !== undefined &&
+      input.verificationStatus !== "unverified" &&
+      !canVerify(role)
+    ) {
+      throw errors.forbidden("Moderator rights are required to verify a report");
     }
 
     const entityResolution = await resolveEntity(
@@ -274,6 +291,8 @@ export async function createReport(
         description: input.description,
         isAnonymous: input.isAnonymous,
         isAdminOnly: input.isAdminOnly,
+        severity: input.severity,
+        verificationStatus: input.verificationStatus ?? "unverified",
       },
       select: POST_RESPONSE_SELECT,
     });
@@ -289,6 +308,8 @@ export async function createReport(
           reportedEntityId: entityResolution.id,
           isAnonymous: input.isAnonymous,
           isAdminOnly: input.isAdminOnly,
+          severity: input.severity ?? null,
+          verificationStatus: input.verificationStatus ?? "unverified",
         },
       },
     });
@@ -313,6 +334,9 @@ export async function updateReport(
     const role = await getWriteRole(tx, actor, current.spaceId);
     if (!canEdit(role, current.authorId === actor.id)) {
       throw errors.forbidden("You do not have permission to edit this report");
+    }
+    if (input.verificationStatus !== undefined && !canVerify(role)) {
+      throw errors.forbidden("Moderator rights are required to change verification status");
     }
 
     if (input.spaceId && input.spaceId !== current.spaceId) {
@@ -339,6 +363,8 @@ export async function updateReport(
       input.description !== undefined ? "description" : null,
       input.isAnonymous !== undefined ? "isAnonymous" : null,
       input.isAdminOnly !== undefined ? "isAdminOnly" : null,
+      input.severity !== undefined ? "severity" : null,
+      input.verificationStatus !== undefined ? "verificationStatus" : null,
     ].filter((field): field is string => field !== null);
 
     const post = await tx.post.update({
@@ -348,6 +374,8 @@ export async function updateReport(
         description: input.description,
         isAnonymous: input.isAnonymous,
         isAdminOnly: input.isAdminOnly,
+        severity: input.severity,
+        verificationStatus: input.verificationStatus,
       },
       select: POST_RESPONSE_SELECT,
     });

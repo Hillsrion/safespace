@@ -12,7 +12,7 @@ import {
 } from "~/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge, type BadgeVariant } from "~/components/ui/badge";
-import { ShieldUser } from "lucide-react";
+import { ShieldAlert, ShieldUser } from "lucide-react";
 import { 
   Tooltip,
   TooltipContent,
@@ -34,6 +34,8 @@ export function Post({
   content,
   media,
   status,
+  severity,
+  verificationStatus,
   reportedEntity,
   space,
   viewerCanDelete = false,
@@ -95,6 +97,22 @@ export function Post({
           </div>
         </div>
         <div className="flex items-center">
+          {severity && (
+            <Badge className="mr-2" variant={severity === "high" ? "destructive" : "outline"}>
+              Sensibilité {severity === "high" ? "élevée" : severity === "medium" ? "moyenne" : "faible"}
+            </Badge>
+          )}
+          {verificationStatus && (
+            <Badge className="mr-2" variant="secondary">
+              {verificationStatus === "verified"
+                ? "Vérifié"
+                : verificationStatus === "pending"
+                  ? "Vérification en cours"
+                  : verificationStatus === "disputed"
+                    ? "Contesté"
+                    : "Non vérifié"}
+            </Badge>
+          )}
           {getStatusBadge()}
           <PostActionsMenu
             status={status}
@@ -117,6 +135,15 @@ export function Post({
       </CardHeader>
 
       <CardContent className="prose prose-p:mb-4 prose-p:whitespace-pre-wrap">
+        {severity === "high" && (
+          <div className="not-prose mb-4 flex gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+            <p>
+              Contenu particulièrement sensible. Prenez soin de vous avant de poursuivre
+              et ouvrez les preuves uniquement si nécessaire.
+            </p>
+          </div>
+        )}
         <p>{content}</p>
         
         {media && media.length > 0 && (

@@ -6,6 +6,14 @@ export const REPORTED_ENTITY_HANDLE_MAX_LENGTH = 30;
 export const REPORTED_ENTITY_HANDLES_MAX_COUNT = 20;
 
 const instagramHandlePattern = /^[a-zA-Z0-9._]+$/;
+const optionalSeverity = z.preprocess(
+  (value) => (value === "" || value === null ? undefined : value),
+  z.enum(["low", "medium", "high"]).optional()
+);
+const optionalVerificationStatus = z.preprocess(
+  (value) => (value === "" || value === null ? undefined : value),
+  z.enum(["unverified", "pending", "verified", "disputed"]).optional()
+);
 
 function normalizeHandle(value: string): string {
   return value.trim().replace(/^@/, "").toLowerCase();
@@ -48,6 +56,8 @@ export const createReportSchema = z
       .max(REPORT_DESCRIPTION_MAX_LENGTH),
     isAnonymous: z.boolean().default(false),
     isAdminOnly: z.boolean().default(false),
+    severity: optionalSeverity,
+    verificationStatus: optionalVerificationStatus,
   })
   .strict();
 
@@ -67,14 +77,18 @@ export const updateReportSchema = z
       .optional(),
     isAnonymous: z.boolean().optional(),
     isAdminOnly: z.boolean().optional(),
+    severity: optionalSeverity,
+    verificationStatus: optionalVerificationStatus,
   })
   .strict()
   .refine(
-    ({ entity, description, isAnonymous, isAdminOnly }) =>
+    ({ entity, description, isAnonymous, isAdminOnly, severity, verificationStatus }) =>
       entity !== undefined ||
       description !== undefined ||
       isAnonymous !== undefined ||
-      isAdminOnly !== undefined,
+      isAdminOnly !== undefined ||
+      severity !== undefined ||
+      verificationStatus !== undefined,
     { message: "At least one editable field is required" }
   );
 
@@ -92,6 +106,8 @@ export type ReportWriteResponse = {
     description: string;
     isAnonymous: boolean;
     isAdminOnly: boolean;
+    severity: "low" | "medium" | "high" | null;
+    verificationStatus: "unverified" | "pending" | "verified" | "disputed" | null;
     createdAt: string;
     updatedAt: string;
     reportedEntity: {

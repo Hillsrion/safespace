@@ -39,6 +39,8 @@ export default function NewReportPage() {
           description: "",
           isAnonymous: false,
           isAdminOnly: false,
+          severity: "medium",
+          verificationStatus: "unverified",
         }}
         method="POST"
         spaces={spaces}

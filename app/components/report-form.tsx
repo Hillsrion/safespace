@@ -48,6 +48,13 @@ export function ReportForm({
     defaultValues: initialValues,
   });
   const handles = form.watch("entity.handles");
+  const selectedSpaceId = form.watch("spaceId");
+  const selectedRole = spaces
+    .find((space) => space.id === selectedSpaceId)
+    ?.role.trim()
+    .toUpperCase()
+    .replaceAll("-", "_");
+  const mayVerify = selectedRole === "ADMIN" || selectedRole === "MODERATOR";
 
   const replaceHandles = (nextHandles: string[]) => {
     form.setValue("entity.handles", nextHandles, {
@@ -58,11 +65,17 @@ export function ReportForm({
 
   const submit = form.handleSubmit(async (values) => {
     setServerError(null);
+    const authorizedValues = {
+      ...values,
+      // Never send a moderation-only field from an Editor form, including a
+      // retained default value from an existing verified report.
+      verificationStatus: mayVerify ? values.verificationStatus : undefined,
+    };
     const response = await fetch(submitUrl, {
       method,
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
+      body: JSON.stringify(authorizedValues),
     });
     const payload = (await response.json().catch(() => ({}))) as
       | ReportWriteResponse
@@ -203,6 +216,40 @@ export function ReportForm({
           </div>
 
           <div className="space-y-4 rounded-md border p-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="severity">Niveau de sensibilité</Label>
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  id="severity"
+                  {...form.register("severity")}
+                >
+                  <option value="">Non classé</option>
+                  <option value="low">Faible</option>
+                  <option value="medium">Moyen</option>
+                  <option value="high">Élevé — avertissement de sécurité</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="verificationStatus">Statut de vérification</Label>
+                {mayVerify ? (
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                    id="verificationStatus"
+                    {...form.register("verificationStatus")}
+                  >
+                    <option value="unverified">Non vérifié</option>
+                    <option value="pending">Vérification en cours</option>
+                    <option value="verified">Vérifié</option>
+                    <option value="disputed">Contesté</option>
+                  </select>
+                ) : (
+                  <p className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+                    Non vérifié · modifiable uniquement par la modération
+                  </p>
+                )}
+              </div>
+            </div>
             <label className="flex items-start gap-3">
               <Checkbox
                 checked={form.watch("isAnonymous")}

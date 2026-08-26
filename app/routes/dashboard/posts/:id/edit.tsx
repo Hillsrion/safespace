@@ -59,6 +59,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       description: true,
       isAnonymous: true,
       isAdminOnly: true,
+      severity: true,
+      verificationStatus: true,
       space: { select: { id: true, name: true } },
       reportedEntity: {
         select: {
@@ -84,6 +86,8 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       description: post.description,
       isAnonymous: post.isAnonymous,
       isAdminOnly: post.isAdminOnly,
+      severity: post.severity ?? undefined,
+      verificationStatus: post.verificationStatus ?? "unverified",
       entity: {
         name: post.reportedEntity.name,
         handles: post.reportedEntity.handles.map(({ handle }) => handle),
@@ -109,6 +113,8 @@ export default function EditReportPage() {
           description: post.description,
           isAnonymous: post.isAnonymous,
           isAdminOnly: post.isAdminOnly,
+          severity: post.severity,
+          verificationStatus: post.verificationStatus,
         }}
         method="PATCH"
         spaces={spaces}
