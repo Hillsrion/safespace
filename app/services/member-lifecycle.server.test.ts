@@ -65,7 +65,11 @@ async function createHarness(options: HarnessOptions = {}) {
       deleteMany: calls.membershipsDelete,
     },
     post: { deleteMany: calls.postDelete, updateMany: calls.postUpdate },
-    media: { deleteMany: calls.mediaDelete },
+    media: {
+      findMany: vi.fn(async () => []),
+      deleteMany: calls.mediaDelete,
+    },
+    mediaDeletionJob: { createMany: vi.fn(async () => ({ count: 0 })) },
     postFlag: { deleteMany: calls.flagDelete, updateMany: calls.flagUpdate },
     invite: { deleteMany: calls.inviteDelete },
     space: {

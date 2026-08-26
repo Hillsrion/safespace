@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "~/components/ui/carousel";
+import { Button } from "~/components/ui/button";
 import { type EvidenceMedia } from "~/lib/types";
 
 interface MediaCarouselProps {
@@ -14,7 +16,16 @@ export function MediaCarousel({
   className = "",
   itemClassName = "md:basis-1/2 lg:basis-1/3"
 }: MediaCarouselProps) {
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(() => new Set());
   if (!media || media.length === 0) return null;
+
+  const revealOrOpen = (item: EvidenceMedia, index: number) => {
+    if (!revealedIds.has(item.id)) {
+      setRevealedIds((current) => new Set(current).add(item.id));
+      return;
+    }
+    onMediaClick(index);
+  };
 
   return (
     <div className={className}>
@@ -31,22 +42,44 @@ export function MediaCarousel({
               key={mediaItem.id} 
               className={itemClassName}
             >
-              <div className="aspect-square overflow-hidden rounded-md border">
+              <div className="relative aspect-square overflow-hidden rounded-md border bg-muted">
                 {mediaItem.type === "image" ? (
                   <img 
                     src={mediaItem.url} 
                     alt={mediaItem.altText || `Evidence ${index + 1}`} 
-                    className="h-full w-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => onMediaClick(index)}
+                    className={`h-full w-full cursor-pointer rounded-lg object-cover transition-all ${
+                      revealedIds.has(mediaItem.id) ? "hover:opacity-90" : "scale-110 blur-2xl"
+                    }`}
+                    onClick={() => revealOrOpen(mediaItem, index)}
+                  />
+                ) : mediaItem.type === "audio" && revealedIds.has(mediaItem.id) ? (
+                  <div className="flex h-full items-center p-4">
+                    <audio src={mediaItem.url} controls className="w-full" />
+                  </div>
+                ) : mediaItem.type === "video" && revealedIds.has(mediaItem.id) ? (
+                  <video
+                    src={mediaItem.url}
+                    controls
+                    preload="metadata"
+                    className="h-full w-full object-contain bg-black"
                   />
                 ) : (
-                  <div 
-                    className="h-full w-full flex items-center justify-center bg-black text-white cursor-pointer"
-                    onClick={() => onMediaClick(index)}
-                  >
-                    <p>Video: {mediaItem.altText || `Evidence ${index + 1}`}</p>
+                  <div className="flex h-full w-full items-center justify-center bg-black text-white">
+                    <p>{mediaItem.type === "audio" ? "Preuve audio" : "Preuve vidéo"}</p>
                   </div>
                 )}
+                {!revealedIds.has(mediaItem.id) ? (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 p-4">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => revealOrOpen(mediaItem, index)}
+                      aria-label={`Afficher ${mediaItem.altText || `la preuve ${index + 1}`}`}
+                    >
+                      Afficher la preuve sensible
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </CarouselItem>
           ))}

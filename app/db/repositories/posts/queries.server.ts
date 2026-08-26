@@ -2,6 +2,11 @@ import { prisma } from "~/db/client.server";
 import type { PostStatus, PrismaClient } from "~/generated/prisma";
 import { errors } from "~/lib/api/http-error";
 import { redactAnonymousPost } from "~/lib/post-privacy";
+import {
+  enqueueMediaDeletionJobs,
+  processMediaDeletionJobs,
+} from "~/services/media-deletion.server";
+import type { MediaStorage } from "~/services/media-storage.server";
 
 export { redactAnonymousPost } from "~/lib/post-privacy";
 
@@ -336,9 +341,10 @@ async function getCurrentSpaceAccess(
 export async function deletePost(
   postId: string,
   actorId: string,
-  client: PrismaClient = prisma
+  client: PrismaClient = prisma,
+  options: { storage?: MediaStorage } = {}
 ) {
-  return client.$transaction(
+  const outcome = await client.$transaction(
     async (tx) => {
       const post = await tx.post.findUnique({
         where: { id: postId },
@@ -348,6 +354,7 @@ export async function deletePost(
           authorId: true,
           isAnonymous: true,
           isAdminOnly: true,
+          media: { select: { storageKey: true } },
         },
       });
       if (!post) throw errors.notFound("Post not found");
@@ -371,6 +378,11 @@ export async function deletePost(
         throw errors.forbidden("You do not have permission to delete this post");
       }
 
+      const storageKeys = await enqueueMediaDeletionJobs(
+        tx,
+        (post.media ?? []).map(({ storageKey }) => storageKey),
+        { requestedByUserId: actorId, spaceId: post.spaceId }
+      );
       await tx.post.delete({ where: { id: post.id } });
       await tx.auditLog.create({
         data: {
@@ -386,10 +398,15 @@ export async function deletePost(
         },
       });
 
-      return post;
+      return { post, storageKeys };
     },
     { isolationLevel: "Serializable" }
   );
+  await processMediaDeletionJobs(outcome.storageKeys, {
+    client,
+    storage: options.storage,
+  });
+  return outcome.post;
 }
 
 /** Revalidate the moderator role and audit the status change atomically. */

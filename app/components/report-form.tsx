@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2 } from "lucide-react";
+import { FileLock2, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
@@ -40,6 +41,8 @@ export function ReportForm({
 }: ReportFormProps) {
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const form = useForm<CreateReportInput>({
     resolver: zodResolver(createReportSchema) as Resolver<CreateReportInput>,
     defaultValues: initialValues,
@@ -72,6 +75,35 @@ export function ReportForm({
           : "Impossible d’enregistrer le rapport."
       );
       return;
+    }
+
+    if (evidenceFiles.length > 0) {
+      setIsUploading(true);
+      let failedUploads = 0;
+      for (const file of evidenceFiles) {
+        try {
+          const upload = new FormData();
+          upload.set("file", file);
+          upload.set("spaceId", payload.post.spaceId);
+          upload.set("postId", payload.post.id);
+          const uploadResponse = await fetch("/resources/api/media/upload", {
+            method: "POST",
+            credentials: "include",
+            body: upload,
+          });
+          if (!uploadResponse.ok) failedUploads += 1;
+        } catch {
+          failedUploads += 1;
+        }
+      }
+      setIsUploading(false);
+      if (failedUploads > 0) {
+        toast.error(
+          `${failedUploads} preuve${failedUploads > 1 ? "s" : ""} n’a pas pu être téléversée. Le rapport a bien été enregistré.`
+        );
+      } else {
+        toast.success("Rapport et preuves enregistrés en sécurité.");
+      }
     }
 
     navigate(`/dashboard/entities/${payload.post.reportedEntity.id}`);
@@ -193,10 +225,48 @@ export function ReportForm({
             </label>
           </div>
 
+          <div className="space-y-3 rounded-md border p-4">
+            <div className="flex items-start gap-3">
+              <FileLock2 className="mt-0.5 h-5 w-5 text-muted-foreground" />
+              <div>
+                <Label htmlFor="evidence-files">Preuves privées</Label>
+                <p className="text-sm text-muted-foreground">
+                  Images, audio ou vidéo. Les métadonnées sont retirées et les fichiers restent privés et floutés par défaut.
+                </p>
+              </div>
+            </div>
+            <Input
+              id="evidence-files"
+              type="file"
+              multiple
+              accept="image/jpeg,image/png,image/webp,image/gif,audio/mpeg,audio/wav,video/mp4,video/quicktime"
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []).slice(0, 10);
+                setEvidenceFiles(files);
+                if ((event.target.files?.length ?? 0) > 10) {
+                  toast.error("Un rapport peut contenir au maximum 10 preuves.");
+                }
+              }}
+            />
+            {evidenceFiles.length > 0 ? (
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                {evidenceFiles.map((file) => (
+                  <li key={`${file.name}-${file.lastModified}`} className="truncate">
+                    {file.name} · {(file.size / 1024 / 1024).toFixed(1)} Mo
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>Annuler</Button>
-            <Button type="submit" disabled={form.formState.isSubmitting || spaces.length === 0}>
-              {form.formState.isSubmitting ? "Enregistrement…" : submitLabel}
+            <Button type="submit" disabled={form.formState.isSubmitting || isUploading || spaces.length === 0}>
+              {isUploading
+                ? "Sécurisation des preuves…"
+                : form.formState.isSubmitting
+                  ? "Enregistrement…"
+                  : submitLabel}
             </Button>
           </div>
         </form>

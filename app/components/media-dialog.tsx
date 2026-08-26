@@ -50,6 +50,10 @@ export function MediaDialog({
               className="max-h-[80vh] w-full object-contain" 
               loading="lazy"
             />
+          ) : currentMedia.type === "audio" ? (
+            <div className="flex h-64 w-full items-center justify-center bg-black p-8">
+              <audio src={currentMedia.url} controls autoPlay className="w-full" />
+            </div>
           ) : (
             <div className="h-[80vh] w-full flex items-center justify-center bg-black">
               <video 

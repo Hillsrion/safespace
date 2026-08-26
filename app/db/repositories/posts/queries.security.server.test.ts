@@ -38,6 +38,8 @@ const anonymousPost = {
     {
       id: "media-1",
       uploaderId: "secret-author",
+      storageKey: "evidence/private.jpg",
+      sha256: "private-hash",
       fileName: "proof.jpg",
     },
   ],
@@ -75,6 +77,12 @@ describe("secured post feed queries", () => {
       viewerCanModerate: true,
     });
     expect(result.posts[0].media[0]).not.toHaveProperty("uploaderId");
+    expect(result.posts[0].media[0]).not.toHaveProperty("storageKey");
+    expect(result.posts[0].media[0]).not.toHaveProperty("sha256");
+    expect(result.posts[0].media[0]).toHaveProperty(
+      "url",
+      "/resources/api/media/media-1"
+    );
   });
 
   it("returns no data when a requested space is outside current memberships", async () => {

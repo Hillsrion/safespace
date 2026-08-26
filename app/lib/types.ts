@@ -34,7 +34,7 @@ export type AuthorProfile = UserProfile & {
 export type EvidenceMedia = {
   id: string;
   url: string; // URL to the media
-  type: "image" | "video"; // Type of media
+  type: "audio" | "image" | "video"; // Type of media
   altText?: string; // Alt text for accessibility
   thumbnailUrl?: string; // Optional: for video previews or image thumbnails
 };

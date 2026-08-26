@@ -27,6 +27,28 @@ describe("post cursor pagination", () => {
 });
 
 describe("post read security", () => {
+  it("never serializes private object-storage locators", () => {
+    const safe = redactAnonymousPost({
+      id: "post-1",
+      isAnonymous: false,
+      media: [
+        {
+          id: "media-1",
+          uploaderId: "uploader-1",
+          storageKey: "evidence/v1/private.jpg",
+          sha256: "private-hash",
+          fileName: "proof.jpg",
+        },
+      ],
+    });
+
+    expect(safe.media[0]).toEqual({
+      id: "media-1",
+      fileName: "proof.jpg",
+      url: "/resources/api/media/media-1",
+    });
+  });
+
   it("removes direct and indirect author identity from anonymous posts", () => {
     const safe = redactAnonymousPost({
       id: "post-1",
@@ -34,7 +56,13 @@ describe("post read security", () => {
       authorId: "secret-author",
       author: { id: "secret-author", firstName: "Secret" },
       media: [
-        { id: "media-1", uploaderId: "secret-author", fileName: "proof.jpg" },
+        {
+          id: "media-1",
+          uploaderId: "secret-author",
+          storageKey: "evidence/private.jpg",
+          sha256: "private-hash",
+          fileName: "proof.jpg",
+        },
       ],
     });
 
@@ -44,6 +72,9 @@ describe("post read security", () => {
       expect.objectContaining({ firstName: "Secret" })
     );
     expect(safe.media[0]).not.toHaveProperty("uploaderId");
+    expect(safe.media[0]).not.toHaveProperty("storageKey");
+    expect(safe.media[0]).not.toHaveProperty("sha256");
+    expect(safe.media[0]).toHaveProperty("url", "/resources/api/media/media-1");
   });
 
   it("lets an anonymous Editor see edit capability without exposing ownership", () => {

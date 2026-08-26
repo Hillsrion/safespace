@@ -2,6 +2,11 @@ import type { PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
 import { normalizeSpaceRole } from "~/lib/invitations";
 import { verifyPassword } from "~/lib/password";
+import {
+  enqueueMediaDeletionForWhere,
+  processMediaDeletionJobs,
+} from "~/services/media-deletion.server";
+import type { MediaStorage } from "~/services/media-storage.server";
 
 type TransactionClient = Parameters<
   Parameters<PrismaClient["$transaction"]>[0]
@@ -54,7 +59,19 @@ async function handleSpaceContributions(
   userId: string,
   spaceId: string,
   policy: ContributionPolicy
-): Promise<void> {
+): Promise<string[]> {
+  const storageKeys = await enqueueMediaDeletionForWhere(
+    tx,
+    policy === "delete"
+      ? {
+          OR: [
+            { post: { authorId: userId, spaceId } },
+            { uploaderId: userId, post: { spaceId } },
+          ],
+        }
+      : { uploaderId: userId, post: { spaceId } },
+    { requestedByUserId: userId }
+  );
   if (policy === "delete") {
     await tx.post.deleteMany({ where: { authorId: userId, spaceId } });
   } else {
@@ -77,14 +94,16 @@ async function handleSpaceContributions(
     where: { resolvedByUserId: userId, post: { spaceId } },
     data: { resolvedByUserId: null },
   });
+  return storageKeys;
 }
 
 export async function leaveSpace(
   actor: LifecycleActor,
   input: { spaceId: string; contributionPolicy: ContributionPolicy },
-  client: PrismaClient = prisma
+  client: PrismaClient = prisma,
+  options: { storage?: MediaStorage } = {}
 ): Promise<{ spaceId: string; contributionPolicy: ContributionPolicy }> {
-  return client.$transaction(async (tx) => {
+  const outcome = await client.$transaction(async (tx) => {
     // Identity and membership are re-read inside the write transaction to
     // prevent a stale session or concurrent role change from authorizing leave.
     const currentUser = await tx.user.findUnique({
@@ -101,7 +120,7 @@ export async function leaveSpace(
     if (!membership) notFound("Membership not found in this space");
 
     await assertNotLastAdmin(tx, actor.id, input.spaceId, membership.role);
-    await handleSpaceContributions(
+    const storageKeys = await handleSpaceContributions(
       tx,
       actor.id,
       input.spaceId,
@@ -122,16 +141,25 @@ export async function leaveSpace(
       },
     });
 
-    return { spaceId: input.spaceId, contributionPolicy: input.contributionPolicy };
+    return {
+      result: { spaceId: input.spaceId, contributionPolicy: input.contributionPolicy },
+      storageKeys,
+    };
   }, { isolationLevel: "Serializable" });
+  await processMediaDeletionJobs(outcome.storageKeys, {
+    client,
+    storage: options.storage,
+  });
+  return outcome.result;
 }
 
 export async function deleteAccount(
   actor: LifecycleActor,
   input: { password: string; contributionPolicy: ContributionPolicy },
-  client: PrismaClient = prisma
+  client: PrismaClient = prisma,
+  options: { storage?: MediaStorage } = {}
 ): Promise<{ deletedUserId: string; contributionPolicy: ContributionPolicy }> {
-  return client.$transaction(async (tx) => {
+  const outcome = await client.$transaction(async (tx) => {
     const currentUser = await tx.user.findUnique({
       where: { id: actor.id },
       select: { id: true, password: true, isSuperAdmin: true },
@@ -166,6 +194,14 @@ export async function deleteAccount(
         "Account owns spaces that must be transferred before deletion"
       );
     }
+
+    const storageKeys = await enqueueMediaDeletionForWhere(
+      tx,
+      input.contributionPolicy === "delete"
+        ? { OR: [{ post: { authorId: actor.id } }, { uploaderId: actor.id }] }
+        : { uploaderId: actor.id },
+      { requestedByUserId: actor.id }
+    );
 
     if (input.contributionPolicy === "delete") {
       await tx.post.deleteMany({ where: { authorId: actor.id } });
@@ -204,6 +240,14 @@ export async function deleteAccount(
     });
     await tx.user.delete({ where: { id: actor.id } });
 
-    return { deletedUserId: actor.id, contributionPolicy: input.contributionPolicy };
+    return {
+      result: { deletedUserId: actor.id, contributionPolicy: input.contributionPolicy },
+      storageKeys,
+    };
   }, { isolationLevel: "Serializable" });
+  await processMediaDeletionJobs(outcome.storageKeys, {
+    client,
+    storage: options.storage,
+  });
+  return outcome.result;
 }

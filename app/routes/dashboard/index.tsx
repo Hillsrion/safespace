@@ -95,9 +95,13 @@ const mapPrismaMediaToEvidence = (prismaMedia: any[] | undefined /* Replace any 
   if (!prismaMedia) return [];
   return prismaMedia.map(m => ({
     id: m.id,
-    url: m.url,
-    type: m.type === 'VIDEO' ? 'video' : 'image', // Example mapping
-    altText: m.altText || `Media ${m.id}`,
+    url: m.url || `/resources/api/media/${m.id}`,
+    type: m.mimeType?.startsWith("image/")
+      ? "image"
+      : m.mimeType?.startsWith("audio/")
+        ? "audio"
+        : "video",
+    altText: m.fileName || `Media ${m.id}`,
   }));
 };
 
