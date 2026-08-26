@@ -7,13 +7,17 @@ import {
 } from "react-router";
 
 import { ModerationFlagActions } from "~/components/moderation-flag-actions";
+import { ModerationAppealActions } from "~/components/moderation-appeal-actions";
+import { MemberGovernancePanel } from "~/components/member-governance-panel";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { getUserSpaces } from "~/db/repositories/spaces/queries.server";
 import { listModerationFlags } from "~/db/repositories/posts/flags.server";
+import { prisma } from "~/db/client.server";
 import { getCurrentUser } from "~/services/auth.server";
+import { listModerationAppeals } from "~/services/moderation-governance.server";
 
 export const handle = { crumb: "File de modération" };
 
@@ -34,19 +38,37 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const spaces = (await getUserSpaces(user.id)).filter(({ role }) => isElevated(role));
   const requestedSpaceId = url.searchParams.get("spaceId");
   const selectedSpace = spaces.find(({ id }) => id === requestedSpaceId) ?? spaces[0];
-  const queue = selectedSpace
-    ? await listModerationFlags(user, {
-        spaceId: selectedSpace.id,
-        status,
-        limit: 50,
-      })
-    : { flags: [], hasNextPage: false };
+  const [queue, appeals, members] = selectedSpace
+    ? await Promise.all([
+        listModerationFlags(user, {
+          spaceId: selectedSpace.id,
+          status,
+          limit: 50,
+        }),
+        listModerationAppeals(user, selectedSpace.id, {
+          status: "pending",
+          limit: 50,
+        }),
+        prisma.userSpaceMembership.findMany({
+          where: { spaceId: selectedSpace.id },
+          orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
+          select: {
+            role: true,
+            user: { select: { id: true, firstName: true, lastName: true } },
+          },
+        }),
+      ])
+    : [
+        { flags: [], hasNextPage: false },
+        { appeals: [], nextCursor: null, hasMore: false },
+        [],
+      ];
 
-  return { queue, selectedSpaceId: selectedSpace?.id ?? "", spaces, status };
+  return { appeals, members, queue, selectedSpaceId: selectedSpace?.id ?? "", spaces, status };
 }
 
 export default function ModerationPage() {
-  const { queue, selectedSpaceId, spaces, status } = useLoaderData<typeof loader>();
+  const { appeals, members, queue, selectedSpaceId, spaces, status } = useLoaderData<typeof loader>();
 
   if (spaces.length === 0) {
     return (
@@ -108,6 +130,34 @@ export default function ModerationPage() {
           <Card><CardContent className="py-10 text-center text-muted-foreground">Aucun signalement dans cette file.</CardContent></Card>
         )}
       </div>
+
+      <Card>
+        <CardHeader><CardTitle>Appels en attente ({appeals.appeals.length})</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {appeals.appeals.map((appeal) => (
+            <div className="space-y-3 rounded-md border p-4" key={appeal.id}>
+              <div className="flex flex-wrap justify-between gap-2 text-sm">
+                <strong>Seconde revue demandée</strong>
+                <span className="text-muted-foreground">
+                  {new Date(appeal.createdAt).toLocaleString("fr-FR")}
+                </span>
+              </div>
+              <p className="whitespace-pre-wrap text-sm">{appeal.reason}</p>
+              <ModerationAppealActions appealId={appeal.id} spaceId={selectedSpaceId} />
+            </div>
+          ))}
+          {appeals.appeals.length === 0 && (
+            <p className="text-sm text-muted-foreground">Aucun appel en attente.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Discipline progressive et historique</CardTitle></CardHeader>
+        <CardContent>
+          <MemberGovernancePanel members={members} spaceId={selectedSpaceId} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

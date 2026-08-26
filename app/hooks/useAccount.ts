@@ -14,8 +14,10 @@ export type ActionData = {
   };
 };
 
-// Password fields are all optional, but if any are provided, they must all be provided and valid
-const passwordSchema = z
+// A new password is optional. When supplied, it must be confirmed and the
+// current password is required. The current password may also be submitted on
+// its own to authorize a sensitive email change.
+const passwordChangeSchema = z
   .object({
     currentPassword: z
       .string()
@@ -41,19 +43,33 @@ const passwordSchema = z
 
 export const accountSchema = z
   .object({
-    email: z.string().email("Adresse email invalide"),
-    firstName: z.string().min(1, "Le prénom est requis"),
-    lastName: z.string().min(1, "Le nom est requis"),
-    instagram: z.string().optional(),
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Adresse email invalide")
+      .max(254, "Adresse email trop longue"),
+    firstName: z
+      .string()
+      .trim()
+      .min(1, "Le prénom est requis")
+      .max(100, "Prénom trop long"),
+    lastName: z
+      .string()
+      .trim()
+      .min(1, "Le nom est requis")
+      .max(100, "Nom trop long"),
+    instagram: z.string().trim().max(100, "Identifiant Instagram trop long").optional(),
     // Les champs de mot de passe sont optionnels au niveau supérieur
     currentPassword: z.string().optional(),
     newPassword: z.string().optional(),
     confirmPassword: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    // Ne valider les champs de mot de passe que si au moins un est rempli
-    if (data.newPassword || data.currentPassword || data.confirmPassword) {
-      const result = passwordSchema.safeParse({
+    // The current password alone is valid: the service uses it to reauthorize
+    // an email change. A new password still requires all three fields.
+    if (data.newPassword || data.confirmPassword) {
+      const result = passwordChangeSchema.safeParse({
         currentPassword: data.currentPassword,
         newPassword: data.newPassword,
         confirmPassword: data.confirmPassword,

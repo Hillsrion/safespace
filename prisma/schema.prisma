@@ -39,6 +39,24 @@ enum PostFlagStatus {
   rejected        // Flag was found invalid and rejected
 }
 
+enum ModerationAppealStatus {
+  pending
+  upheld
+  overturned
+}
+
+enum DisciplineActionKind {
+  warning
+  restriction
+  suspension
+}
+
+enum DisciplineActionStatus {
+  active
+  revoked
+  expired
+}
+
 // AuditLog actions represent different types of user/system actions
 enum AuditAction {
   user_invite     // User invited another user
@@ -46,6 +64,7 @@ enum AuditAction {
   user_role_change // User role changed
   user_leave      // User left a space
   account_delete  // User deleted their account
+  account_update  // Profile, email, or password updated
   post_create     // Post created
   post_update     // Post updated
   post_delete     // Post deleted
@@ -56,6 +75,10 @@ enum AuditAction {
   entity_delete   // Reported entity deleted
   media_upload    // Private evidence uploaded and attached to a post
   media_delete    // Evidence detached and queued for storage deletion
+  moderation_appeal_create
+  moderation_appeal_decide
+  discipline_issue
+  discipline_revoke
   space_create    // Space created
   space_update    // Space updated
   space_delete    // Space deleted
@@ -91,6 +114,11 @@ model User {
   auditLogs     AuditLog[] @relation("AuditActors")
   addedEntities ReportedEntity[] @relation("EntityAdders")
   savedSearches SavedSearch[]
+  filedModerationAppeals ModerationAppeal[] @relation("AppealFilers")
+  reviewedModerationAppeals ModerationAppeal[] @relation("AppealReviewers")
+  receivedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineSubjects")
+  issuedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineIssuers")
+  revokedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineRevokers")
 }
 
 // Space model represents a community/organization within the platform
@@ -111,6 +139,8 @@ model Space {
   invites     Invite[]
   auditLogs   AuditLog[]
   reportedEntities ReportedEntity[]
+  moderationAppeals ModerationAppeal[]
+  disciplinaryActions DisciplinaryAction[]
 
   @@index([name])
 }
@@ -266,11 +296,66 @@ model PostFlag {
   post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
   flagger         User      @relation("PostFlaggers", fields: [flaggerUserId], references: [id])
   resolver        User?     @relation("FlagResolvers", fields: [resolvedByUserId], references: [id])
+  appeals         ModerationAppeal[]
 
   @@index([postId])
   @@index([status])
   // Pending-only uniqueness is enforced by the partial unique index in
   // 20260823194500_add_pending_post_flag_uniqueness/migration.sql.
+}
+
+// A filer can request a second review once a flag has received a decision.
+// This never stores post-author information, so anonymous reporting remains
+// anonymous throughout the appeal workflow.
+model ModerationAppeal {
+  id               String                @id @default(uuid()) @db.Uuid
+  spaceId          String                @db.Uuid
+  postFlagId       String                @db.Uuid
+  filedByUserId    String                @db.Uuid
+  reason           String                @db.Text
+  status           ModerationAppealStatus @default(pending)
+  reviewedByUserId String?               @db.Uuid
+  decisionNote     String?               @db.Text
+  decidedAt        DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @default(now()) @updatedAt
+
+  space      Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  postFlag   PostFlag @relation(fields: [postFlagId], references: [id], onDelete: Cascade)
+  filer      User     @relation("AppealFilers", fields: [filedByUserId], references: [id], onDelete: Cascade)
+  reviewer   User?    @relation("AppealReviewers", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([spaceId, status, createdAt])
+  @@index([filedByUserId, createdAt])
+  // One open appeal per filer and flag is enforced with a partial unique
+  // index in the migration to permit a new appeal after a final decision.
+}
+
+// Immutable-by-default record of progressive disciplinary decisions. A
+// revocation changes only the resolution fields, retaining an auditable trail.
+model DisciplinaryAction {
+  id                 String                @id @default(uuid()) @db.Uuid
+  spaceId            String                @db.Uuid
+  userId             String?               @db.Uuid
+  issuedByUserId     String?               @db.Uuid
+  kind               DisciplineActionKind
+  level              Int
+  reason             String                @db.Text
+  status             DisciplineActionStatus @default(active)
+  expiresAt          DateTime?
+  revokedByUserId    String?               @db.Uuid
+  revokedAt          DateTime?
+  revocationReason   String?               @db.Text
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @default(now()) @updatedAt
+
+  space     Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user      User? @relation("DisciplineSubjects", fields: [userId], references: [id], onDelete: SetNull)
+  issuer    User? @relation("DisciplineIssuers", fields: [issuedByUserId], references: [id], onDelete: SetNull)
+  revoker   User? @relation("DisciplineRevokers", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([spaceId, userId, createdAt])
+  @@index([spaceId, status, createdAt])
 }
 
 model AuditLog {

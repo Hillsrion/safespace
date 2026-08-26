@@ -17,6 +17,8 @@ const MODEL_DELEGATES = new Set([
   "media",
   "mediaDeletionJob",
   "postFlag",
+  "moderationAppeal",
+  "disciplinaryAction",
   "auditLog",
   "savedSearch",
 ]);

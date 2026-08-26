@@ -25,6 +25,7 @@ import { useAccount } from "~/hooks/useAccount";
 import { action } from "./action";
 import { loader } from "./loader";
 import { AccountDangerZone } from "~/components/account-danger-zone";
+import { OwnModerationDecisions } from "~/components/own-moderation-decisions";
 
 export { action, loader };
 
@@ -173,7 +174,8 @@ export default function AccountPage() {
               <div className="pt-6 border-t mt-6">
                 <h3 className="text-lg font-medium mb-0.5">Changer le mot de passe</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Laissez ces champs vides pour conserver votre mot de passe actuel.
+                  Le mot de passe actuel est aussi requis si vous modifiez votre adresse email.
+                  Laissez les deux autres champs vides pour conserver votre mot de passe.
                 </p>
 
                 <div className="space-y-4">
@@ -284,6 +286,15 @@ export default function AccountPage() {
               </div>
             </RemixForm>
           </Form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Décisions de modération et appels</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <OwnModerationDecisions decisions={user.moderationDecisions} />
         </CardContent>
       </Card>
 

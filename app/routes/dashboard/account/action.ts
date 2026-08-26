@@ -1,9 +1,11 @@
 import { data, type ActionFunctionArgs } from "react-router";
 import { getCurrentUser } from "~/services/auth.server";
-import { verifyPassword, hashPassword } from "~/lib/password";
-import { prisma } from "~/db/client.server";
 import { accountSchema } from "~/hooks/useAccount";
 import { requireSameOrigin } from "~/lib/security.server";
+import {
+  AccountProfileError,
+  updateOwnAccount,
+} from "~/services/account-profile.server";
 
 export async function action({ request }: ActionFunctionArgs) {
   requireSameOrigin(request);
@@ -25,9 +27,10 @@ export async function action({ request }: ActionFunctionArgs) {
 
   // Process password fields
   const passwordFields = {
-    currentPassword: formValues.currentPassword?.toString().trim() || '',
-    newPassword: formValues.newPassword?.toString().trim() || '',
-    confirmPassword: formValues.confirmPassword?.toString().trim() || ''
+    // Password whitespace is significant and must never be normalized.
+    currentPassword: formValues.currentPassword?.toString() || '',
+    newPassword: formValues.newPassword?.toString() || '',
+    confirmPassword: formValues.confirmPassword?.toString() || ''
   };
   
   const hasPasswordFields = 
@@ -59,59 +62,23 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  const { currentPassword, newPassword, confirmPassword, ...updateData } = result.data;
-  const updatePayload: any = { ...updateData };
+  const { confirmPassword: _confirmPassword, ...accountUpdate } = result.data;
 
   try {
-    // If user is updating password
-    if (newPassword) {
-      // Verify current password
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { password: true },
-      });
-
-      if (!user) {
-        return data(
-          {
-            errors: {
-              formErrors: ["Utilisateur non trouvé"],
-            },
-          },
-          { status: 404 }
-        );
-      }
-
-      const isPasswordValid = await verifyPassword(
-        currentPassword || "",
-        user.password
-      );
-
-      if (!isPasswordValid) {
-        return data(
-          {
-            errors: {
-              fieldErrors: {
-                currentPassword: ["Le mot de passe actuel est incorrect"],
-              },
-            },
-          },
-          { status: 400 }
-        );
-      }
-
-      // Hash new password
-      updatePayload.password = await hashPassword(newPassword);
-    }
-
-    // Update user
-    await prisma.user.update({
-      where: { id: userId },
-      data: updatePayload,
-    });
+    await updateOwnAccount(userId, accountUpdate);
 
     return data({ success: true });
   } catch (error) {
+    if (error instanceof AccountProfileError) {
+      return data(
+        {
+          errors: error.field
+            ? { fieldErrors: { [error.field]: [error.message] } }
+            : { formErrors: [error.message] },
+        },
+        { status: error.status }
+      );
+    }
     console.error("Error updating account:", error);
     return data(
       {
