@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { getSearchAccessFilters, toSearchResults } from "./search";
+import {
+  getSearchAccessFilters,
+  toSearchResults,
+} from "~/services/search.server";
 
 describe("search access filters", () => {
   it("scopes posts and entities to a regular user's memberships", () => {
