@@ -144,6 +144,13 @@ describe("RLS migration", () => {
     ),
     "utf8"
   );
+  const disciplineSql = readFileSync(
+    resolve(
+      process.cwd(),
+      "prisma/migrations/20260827010000_enforce_active_discipline/migration.sql"
+    ),
+    "utf8"
+  );
   const tables = [
     "User",
     "Space",
@@ -199,5 +206,15 @@ describe("RLS migration", () => {
     expect(outboxSql).toContain('"requestedByUserId" = safespace_private.current_user_id()');
     expect(outboxSql).toContain("safespace_private.is_space_member(\"spaceId\")");
     expect(outboxSql).not.toContain("FORCE ROW LEVEL SECURITY");
+  });
+
+  it("enforces unexpired restrictions and suspensions in shared RLS helpers", () => {
+    expect(disciplineSql).toContain("active_discipline_kind");
+    expect(disciplineSql).toContain("action.status = 'active'");
+    expect(disciplineSql).toContain('action."expiresAt" > CURRENT_TIMESTAMP');
+    expect(disciplineSql).toContain("IS DISTINCT FROM 'suspension'");
+    expect(disciplineSql.match(/active_discipline_kind\(/g)?.length).toBeGreaterThanOrEqual(5);
+    expect(disciplineSql).toContain("SECURITY DEFINER");
+    expect(disciplineSql).toContain("SET search_path = pg_catalog, public, pg_temp");
   });
 });

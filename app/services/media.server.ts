@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
 import { errors } from "~/lib/api/http-error";
-import { normalizeSpaceRole } from "~/lib/invitations";
 import {
   createPrivateStorageKey,
   MEDIA_MAX_FILES_PER_POST,
@@ -23,6 +22,7 @@ import {
   getMediaStorage,
   type MediaStorage,
 } from "~/services/media-storage.server";
+import { getEffectiveSpaceAccess } from "~/services/effective-space-access.server";
 
 type Actor = { id: string };
 type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
@@ -79,17 +79,9 @@ async function currentRole(
   actorId: string,
   spaceId: string
 ): Promise<AuthorizedRole | "READ_ONLY" | null> {
-  const actor = await tx.user.findUnique({
-    where: { id: actorId },
-    select: { isSuperAdmin: true },
-  });
-  if (!actor) throw errors.unauthorized("Authentication is no longer valid");
-  if (actor.isSuperAdmin) return "SUPER_ADMIN";
-  const membership = await tx.userSpaceMembership.findUnique({
-    where: { userId_spaceId: { userId: actorId, spaceId } },
-    select: { role: true },
-  });
-  return normalizeSpaceRole(membership?.role ?? "");
+  const access = await getEffectiveSpaceAccess(tx, actorId, spaceId);
+  if (access.isSuperAdmin) return "SUPER_ADMIN";
+  return access.role;
 }
 
 async function requireUploadAccess(
@@ -192,6 +184,15 @@ export async function uploadMedia(
   const fileName = sanitizeOriginalFileName(input.fileName, validated.mimeType);
   const storageKey = createPrivateStorageKey(validated.mimeType);
   const disposition = mediaContentDisposition(fileName);
+
+  // Re-authorize after processing and enforce capacity before any bytes reach
+  // object storage. The final serializable transaction repeats both checks to
+  // close membership, discipline, and concurrent-upload races.
+  await client.$transaction(async (tx) => {
+    await requireUploadAccess(tx, actor.id, input.spaceId, input.postId);
+    await requireCapacity(tx, input.postId, processed.bytes.byteLength);
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+
   await storage.putObject({
     key: storageKey,
     body: processed.bytes,

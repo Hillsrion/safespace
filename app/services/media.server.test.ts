@@ -46,6 +46,7 @@ function database(options: {
   postStatus?: "active" | "hidden";
   mediaAdminOnly?: boolean;
   mediaUploaderId?: string;
+  discipline?: "restriction" | "suspension" | null;
 } = {}) {
   const role = options.role === undefined ? "EDITOR" : options.role;
   const post = {
@@ -76,6 +77,11 @@ function database(options: {
     user: { findUnique: vi.fn(async () => ({ isSuperAdmin: false })) },
     userSpaceMembership: {
       findUnique: vi.fn(async () => (role ? { role } : null)),
+    },
+    disciplinaryAction: {
+      findFirst: vi.fn(async () =>
+        options.discipline ? { kind: options.discipline } : null
+      ),
     },
     post: { findUnique: vi.fn(async () => post) },
     media: {
@@ -177,6 +183,50 @@ describe("secure media authorization", () => {
         }),
       })
     );
+  });
+
+  it("does not upload bytes when an active restriction blocks the actor", async () => {
+    const db = database({ discipline: "restriction" });
+    const storage = storageMock();
+
+    await expect(
+      uploadMedia(
+        { id: ACTOR_ID },
+        {
+          bytes: jpegWithExif(),
+          declaredMimeType: "image/jpeg",
+          fileName: "proof.jpg",
+          postId: POST_ID,
+          spaceId: SPACE_ID,
+        },
+        { client: db.client, storage }
+      )
+    ).rejects.toMatchObject({ status: 403 });
+    expect(storage.putObject).not.toHaveBeenCalled();
+  });
+
+  it("checks post capacity before writing an object to storage", async () => {
+    const db = database();
+    db.tx.media.aggregate.mockResolvedValue({
+      _count: { _all: 10 },
+      _sum: { fileSize: 500 },
+    });
+    const storage = storageMock();
+
+    await expect(
+      uploadMedia(
+        { id: ACTOR_ID },
+        {
+          bytes: jpegWithExif(),
+          declaredMimeType: "image/jpeg",
+          fileName: "proof.jpg",
+          postId: POST_ID,
+          spaceId: SPACE_ID,
+        },
+        { client: db.client, storage }
+      )
+    ).rejects.toMatchObject({ status: 400 });
+    expect(storage.putObject).not.toHaveBeenCalled();
   });
 
   it("returns a uniform 404 for admin-only media requested by an Editor", async () => {

@@ -2,6 +2,7 @@ import { Prisma, type PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
 import { errors } from "~/lib/api/http-error";
 import { normalizeSpaceRole, type SpaceRole } from "~/lib/invitations";
+import { getEffectiveSpaceAccess } from "~/services/effective-space-access.server";
 import type {
   AppealDecisionInput,
   AppealsQuery,
@@ -52,18 +53,8 @@ async function currentAccess(
   actor: GovernanceActor,
   spaceId: string
 ): Promise<Access> {
-  const user = await tx.user.findUnique({
-    where: { id: actor.id },
-    select: { isSuperAdmin: true },
-  });
-  if (!user) throw errors.unauthorized("Authentication is no longer valid");
-  if (user.isSuperAdmin) return { isSuperAdmin: true, role: null };
-
-  const membership = await tx.userSpaceMembership.findUnique({
-    where: { userId_spaceId: { userId: actor.id, spaceId } },
-    select: { role: true },
-  });
-  return { isSuperAdmin: false, role: normalizeSpaceRole(membership?.role ?? "") };
+  const access = await getEffectiveSpaceAccess(tx, actor.id, spaceId);
+  return { isSuperAdmin: access.isSuperAdmin, role: access.role };
 }
 
 function requireMember(access: Access, notFoundMessage: string) {

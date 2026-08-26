@@ -91,6 +91,21 @@ describe("moderation governance authorization", () => {
     expect(h.tx.moderationAppeal.findMany).not.toHaveBeenCalled();
   });
 
+  it("removes moderator powers while a restriction is active", async () => {
+    const h = harness({ actorRole: "MODERATOR" });
+    h.tx.disciplinaryAction.findFirst.mockResolvedValueOnce({ kind: "restriction" });
+
+    await expect(
+      listModerationAppeals(
+        { id: ACTOR_ID },
+        SPACE_ID,
+        { status: "pending", limit: 25 },
+        h.client
+      )
+    ).rejects.toMatchObject({ status: 403 });
+    expect(h.tx.moderationAppeal.findMany).not.toHaveBeenCalled();
+  });
+
   it("scopes an appeal to the caller's own flag in the requested space", async () => {
     const h = harness();
     h.tx.postFlag.findFirst.mockResolvedValue(null);

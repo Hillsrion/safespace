@@ -1,49 +1,50 @@
 import { prisma } from "~/db/client.server";
 import type { UserSpaceMembership, Space } from "~/generated/prisma";
-import { getUserById } from "../users.server";
+import { getEffectiveSpaceAccess } from "~/services/effective-space-access.server";
 
 interface UserSpace extends Pick<Space, "id" | "name"> {
   role: UserSpaceMembership["role"];
 }
 
 export async function getUserSpaces(userId: string): Promise<UserSpace[]> {
-  // First check if user is a superadmin
-  const user = await getUserById(userId, { isSuperAdmin: true } as const);
-
-  // If user is superadmin, return all spaces with admin role
-  if (user?.isSuperAdmin) {
-    const allSpaces = await prisma.space.findMany({
-      select: {
-        id: true,
-        name: true,
-      },
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { isSuperAdmin: true },
     });
+    if (!user) return [];
+    if (user.isSuperAdmin) {
+      const allSpaces = await tx.space.findMany({
+        select: { id: true, name: true },
+      });
+      return allSpaces.map((space) => ({ ...space, role: "Admin" }));
+    }
 
-    return allSpaces.map((space) => ({
-      id: space.id,
-      name: space.name,
-      role: "Admin", // Superadmins get admin role on all spaces
+    const memberships = await tx.userSpaceMembership.findMany({
+      where: { userId },
+      select: { spaceId: true },
+    });
+    const access = await Promise.all(
+      memberships.map(async ({ spaceId }) => ({
+        spaceId,
+        access: await getEffectiveSpaceAccess(tx, userId, spaceId),
+      }))
+    );
+    const effectiveRoles = new Map(
+      access
+        .filter(({ access: item }) => item.role !== null)
+        .map(({ spaceId, access: item }) => [spaceId, item.role!])
+    );
+    if (effectiveRoles.size === 0) return [];
+    const spaces = await tx.space.findMany({
+      where: { id: { in: [...effectiveRoles.keys()] } },
+      select: { id: true, name: true },
+    });
+    return spaces.map((space) => ({
+      ...space,
+      role: effectiveRoles.get(space.id)!,
     }));
-  }
-
-  // For regular users, return only their memberships
-  const memberships = await prisma.userSpaceMembership.findMany({
-    where: { userId: userId },
-    include: {
-      space: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
   });
-
-  return memberships.map((membership) => ({
-    id: membership.space.id,
-    name: membership.space.name,
-    role: membership.role,
-  }));
 }
 
 export async function getTotalSpaces() {
@@ -51,29 +52,10 @@ export async function getTotalSpaces() {
 }
 
 export async function getUserSpaceRole(userId: string, spaceId: string) {
-  // Check if user is superadmin first
-  const user = await getUserById(userId, { isSuperAdmin: true } as const);
-  if (user?.isSuperAdmin) {
-    return 'ADMIN' as const;
-  }
-
-  const membership = await prisma.userSpaceMembership.findFirst({
-    where: {
-      userId,
-      spaceId,
-    },
-    select: {
-      role: true,
-    },
+  return prisma.$transaction(async (tx) => {
+    const access = await getEffectiveSpaceAccess(tx, userId, spaceId);
+    return access.isSuperAdmin ? "ADMIN" as const : access.role;
   });
-
-  const role = membership?.role.trim().toUpperCase().replaceAll("-", "_");
-  return role === "ADMIN" ||
-    role === "MODERATOR" ||
-    role === "EDITOR" ||
-    role === "READ_ONLY"
-    ? role
-    : null;
 }
 
 /**

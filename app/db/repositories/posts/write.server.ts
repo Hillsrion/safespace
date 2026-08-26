@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
 import { errors } from "~/lib/api/http-error";
-import { normalizeSpaceRole } from "~/lib/invitations";
+import { getEffectiveSpaceAccess } from "~/services/effective-space-access.server";
 import type {
   CreateReportInput,
   ReportedEntityTargetInput,
@@ -63,21 +63,8 @@ async function getWriteRole(
   actor: Actor,
   spaceId: string
 ): Promise<string> {
-  const currentActor = await tx.user.findUnique({
-    where: { id: actor.id },
-    select: { isSuperAdmin: true },
-  });
-  if (!currentActor) return "";
-  if (currentActor.isSuperAdmin) return "SUPER_ADMIN";
-
-  // Membership presence is the current schema's definition of active
-  // membership. This lookup intentionally happens inside the write transaction.
-  const membership = await tx.userSpaceMembership.findUnique({
-    where: { userId_spaceId: { userId: actor.id, spaceId } },
-    select: { role: true },
-  });
-
-  return membership ? normalizeSpaceRole(membership.role) ?? "" : "";
+  const access = await getEffectiveSpaceAccess(tx, actor.id, spaceId);
+  return access.isSuperAdmin ? "SUPER_ADMIN" : access.role ?? "";
 }
 
 function canCreate(role: string): boolean {

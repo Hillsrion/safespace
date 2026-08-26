@@ -32,6 +32,7 @@ function createDatabaseMock() {
   const tx = {
     user: { findUnique: vi.fn() },
     userSpaceMembership: { findUnique: vi.fn() },
+    disciplinaryAction: { findFirst: vi.fn() },
     reportedEntity: { findMany: vi.fn(), create: vi.fn() },
     reportedEntityHandle: { createMany: vi.fn() },
     post: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
@@ -45,6 +46,7 @@ function createDatabaseMock() {
 
   tx.user.findUnique.mockResolvedValue({ isSuperAdmin: false });
   tx.userSpaceMembership.findUnique.mockResolvedValue({ role: "Editor" });
+  tx.disciplinaryAction.findFirst.mockResolvedValue(null);
   tx.reportedEntity.findMany.mockResolvedValue([]);
   tx.reportedEntity.create.mockResolvedValue({ id: ENTITY_ID });
   tx.reportedEntityHandle.createMany.mockResolvedValue({ count: 0 });
@@ -147,6 +149,20 @@ describe("report write service", () => {
     expect(tx.reportedEntity.findMany).not.toHaveBeenCalled();
     expect(tx.post.create).not.toHaveBeenCalled();
     expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("downgrades a restricted Editor to read-only before writing", async () => {
+    const { tx, client } = createDatabaseMock();
+    tx.disciplinaryAction.findFirst.mockResolvedValue({ kind: "restriction" });
+
+    await expect(
+      createReport(
+        { id: ACTOR_ID, isSuperAdmin: false },
+        createInput,
+        client
+      )
+    ).rejects.toMatchObject({ status: 403 });
+    expect(tx.post.create).not.toHaveBeenCalled();
   });
 
   it("prevents Editors from self-certifying a report", async () => {
