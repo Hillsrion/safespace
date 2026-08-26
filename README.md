@@ -4,7 +4,7 @@ A secure, invite-only platform for sharing confidential information about report
 
 ### Prerequisites
 
-- Node.js 20+ and Yarn 1.22+
+- Node.js 22.22.0+ and Yarn 1.22+
 - PostgreSQL 16+
 
 ### Installation
