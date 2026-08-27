@@ -9,6 +9,11 @@ const media = z.object({
   id: z.string(), fileName: z.string(), mimeType: z.string(), fileSize: z.number(),
   metadataStripped: z.boolean(), isBlurred: z.boolean(), createdAt: z.string(),
 }).strict();
+const ownReviewsSchema = z.array(z.object({
+  id: z.string(), postId: z.string(), revision: z.number().int().positive(),
+  stage: z.number().int().min(1).max(3), outcome: z.enum(["approve", "request_changes"]),
+  note: z.string(), createdAt: z.string(),
+}).strict());
 // Fail closed if a future SQL change adds credentials, keys or other identities.
 const ownDataSchema = z.object({
   contributions: z.array(z.object({
@@ -44,12 +49,14 @@ export async function exportAccountData(actor: AccountExportActor, client: Prism
       },
     });
     if (!user) throw errors.unauthorized("Authentication is no longer valid");
-    const [self] = await tx.$queryRaw<Array<{ userId: string | null; ownData: unknown }>>`
+    const [self] = await tx.$queryRaw<Array<{ userId: string | null; ownData: unknown; ownReviews: unknown }>>`
       SELECT safespace_private.current_user_id() AS "userId",
-        safespace_private.export_own_contributions() AS "ownData"
+        safespace_private.export_own_contributions() AS "ownData",
+        safespace_private.export_own_sensitive_review_decisions() AS "ownReviews"
     `;
     if (self?.userId !== actor.id) throw errors.unauthorized("Authentication is no longer valid");
     const ownData = ownDataSchema.parse(self.ownData);
+    const sensitiveReviewDecisions = ownReviewsSchema.parse(self.ownReviews);
     const [spaces, savedSearches, appeals, disciplinaryActions] = await Promise.all([
       tx.space.findMany({ where: { id: { in: user.memberships.map(({ spaceId }) => spaceId) } }, select: { id: true, name: true } }),
       tx.savedSearch.findMany({ where: { userId: actor.id }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, query: true, spaceId: true, severity: true, verificationStatus: true, alertEnabled: true, alertHandle: true, type: true, createdAt: true, updatedAt: true } }),
@@ -59,7 +66,7 @@ export async function exportAccountData(actor: AccountExportActor, client: Prism
     const names = new Map(spaces.map((space) => [space.id, space.name]));
     const { memberships, auditLogs } = user;
     return {
-      format: "safespace-account-export", version: 2, generatedAt: new Date().toISOString(),
+      format: "safespace-account-export", version: 3, generatedAt: new Date().toISOString(),
       profile: {
         id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName,
         instagram: user.instagram, isSuperAdmin: user.isSuperAdmin,
@@ -69,7 +76,7 @@ export async function exportAccountData(actor: AccountExportActor, client: Prism
       memberships: memberships.map(({ spaceId, role, joinedAt }) => ({ spaceId, role, joinedAt, spaceName: names.get(spaceId) ?? null })),
       contributions: ownData.contributions, uploadedMedia: ownData.uploadedMedia,
       moderationFlags: ownData.moderationFlags, auditHistory: auditLogs,
-      savedSearches, appeals, disciplinaryActions,
+      savedSearches, appeals, disciplinaryActions, sensitiveReviewDecisions,
       activitySummary: { sentInviteCount: ownData.sentInviteCount },
       scope: "Own contributions and media metadata, including inaccessible spaces. No media bytes, storage keys, invitation recipients, or other members' identities.",
     };

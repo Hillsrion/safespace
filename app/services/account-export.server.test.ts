@@ -29,7 +29,7 @@ describe("account data export", () => {
       memberships: [{ spaceId: "suspended", role: "EDITOR", joinedAt: new Date(date) }], auditLogs: [],
       password: "must-not-be-forwarded-even-if-a-query-changes",
     });
-    tx.$queryRaw.mockResolvedValue([{ userId: actorId, ownData }]);
+    tx.$queryRaw.mockResolvedValue([{ userId: actorId, ownData, ownReviews: [] }]);
     tx.space.findMany.mockResolvedValue([]);
     tx.savedSearch.findMany.mockResolvedValue([]);
     tx.moderationAppeal.findMany.mockResolvedValue([]);
@@ -39,7 +39,7 @@ describe("account data export", () => {
   it("exports owned data after access loss without credentials, storage keys or third-party identity", async () => {
     const result = await exportAccountData({ id: actorId }, client);
     const serialized = JSON.stringify(result);
-    expect(result.version).toBe(2);
+    expect(result.version).toBe(3);
     expect(result.profile.email).toBe("member@example.com");
     expect(result.contributions[0].media[0]).toMatchObject({ fileName: "proof.jpg", metadataStripped: true });
     expect(result.memberships[0]).toMatchObject({ spaceId: "suspended", spaceName: null });
@@ -59,6 +59,14 @@ describe("account data export", () => {
 
   it("fails closed if the SQL export grows an unsafe field", async () => {
     tx.$queryRaw.mockResolvedValue([{ userId: actorId, ownData: { ...ownData, storageKey: "secret" } }]);
+    await expect(exportAccountData({ id: actorId }, client)).rejects.toThrow();
+  });
+
+  it("exports only the current reviewer's decisions through the strict SQL boundary", async () => {
+    const ownReviews = [{ id: "decision", postId: "post", revision: 1, stage: 2, outcome: "request_changes", note: "My correction request", createdAt: date }];
+    tx.$queryRaw.mockResolvedValue([{ userId: actorId, ownData, ownReviews }]);
+    expect((await exportAccountData({ id: actorId }, client)).sensitiveReviewDecisions).toEqual(ownReviews);
+    tx.$queryRaw.mockResolvedValue([{ userId: actorId, ownData, ownReviews: [{ ...ownReviews[0], reviewerUserId: "private" }] }]);
     await expect(exportAccountData({ id: actorId }, client)).rejects.toThrow();
   });
 });

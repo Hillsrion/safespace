@@ -107,3 +107,16 @@ Les fixtures et rôles sont supprimés à la fin ; ne cibler qu’une base jetab
 
 Les tests API/UI vérifient CSRF, JSON strict, révision attendue, permissions,
 conflits, minimisation et classement distinct d’une approbation.
+
+## Retour à l’auteur et export personnel
+
+Le formulaire d’édition montre à l’auteur les demandes de correction de la
+révision courante, sans identité de reviewer ni notes d’approbation internes.
+La primitive `own_sensitive_review_feedback` vérifie à la fois l’identité de
+l’auteur et l’accès actuel au rapport ; elle n’ouvre pas la file de modération.
+Une modification effective ouvre une nouvelle révision et retire de cet écran
+les anciennes demandes, conservées dans l’historique de modération.
+
+L’export de compte (version 3) inclut les décisions rédigées par le compte,
+même après perte de ses droits dans l’espace, sans notes des autres reviewers
+ni texte du rapport. Les tests PostgreSQL couvrent ces deux frontières.

@@ -1,104 +1,12 @@
-import { redirect, useLoaderData, type LoaderFunctionArgs } from "react-router";
-
+import { useLoaderData } from "react-router";
 import { ReportForm } from "~/components/report-form";
-import { prisma } from "~/db/client.server";
-import { getUserSpaceRole } from "~/db/repositories/spaces/queries.server";
-import { getCurrentUser } from "~/services/auth.server";
+import { loadReportForEditing as loader } from "~/services/report-edit-loader.server";
 
+export { loader };
 export const handle = { crumb: "Modifier le signalement" };
 
-export async function loader({ request, params }: LoaderFunctionArgs) {
-  const user = await getCurrentUser(request);
-  if (!user) throw redirect("/auth/login");
-  if (!params.id) throw new Response("Signalement introuvable", { status: 404 });
-
-  const post = await prisma.post.findFirst({
-    where: {
-      id: params.id,
-      ...(user.isSuperAdmin
-        ? {}
-        : {
-            OR: [
-              {
-                authorId: user.id,
-                space: {
-                  memberships: {
-                    some: {
-                      userId: user.id,
-                      role: { in: ["EDITOR", "Editor", "editor"] },
-                    },
-                  },
-                },
-              },
-              {
-                space: {
-                  memberships: {
-                    some: {
-                      userId: user.id,
-                      role: {
-                        in: [
-                          "ADMIN",
-                          "Admin",
-                          "admin",
-                          "MODERATOR",
-                          "Moderator",
-                          "moderator",
-                        ],
-                      },
-                    },
-                  },
-                },
-              },
-            ],
-          }),
-    },
-    select: {
-      id: true,
-      authorId: true,
-      spaceId: true,
-      description: true,
-      isAnonymous: true,
-      isAdminOnly: true,
-      severity: true,
-      verificationStatus: true,
-      space: { select: { id: true, name: true } },
-      reportedEntity: {
-        select: {
-          name: true,
-          handles: { orderBy: { createdAt: "asc" }, select: { handle: true } },
-        },
-      },
-    },
-  });
-  if (!post) throw new Response("Signalement introuvable", { status: 404 });
-
-  const role = await getUserSpaceRole(user.id, post.spaceId);
-  const mayModerate = role === "ADMIN" || role === "MODERATOR";
-  const mayEditOwn = role === "EDITOR" && post.authorId === user.id;
-  if (!mayModerate && !mayEditOwn) {
-    throw new Response("Signalement introuvable", { status: 404 });
-  }
-
-  return {
-    post: {
-      id: post.id,
-      spaceId: post.spaceId,
-      description: post.description,
-      isAnonymous: post.isAnonymous,
-      isAdminOnly: post.isAdminOnly,
-      severity: post.severity ?? undefined,
-      verificationStatus: post.verificationStatus ?? "unverified",
-      entity: {
-        name: post.reportedEntity.name,
-        handles: post.reportedEntity.handles.map(({ handle }) => handle),
-      },
-    },
-    spaces: [{ ...post.space, role: role ?? "" }],
-  };
-}
-
 export default function EditReportPage() {
-  const { post, spaces } = useLoaderData<typeof loader>();
+  const { post, spaces, reviewFeedback } = useLoaderData<typeof loader>();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
@@ -106,7 +14,13 @@ export default function EditReportPage() {
         <h1 className="text-2xl font-bold">Modifier le signalement</h1>
         <p className="text-sm text-muted-foreground">Chaque modification est enregistrée dans le journal d’audit.</p>
       </div>
+      {reviewFeedback?.status === "changes_requested" && <section className="space-y-2 rounded-md border p-4" aria-label="Corrections demandées">
+        <h2 className="font-semibold">Corrections demandées — révision {reviewFeedback.revision}</h2>
+        {reviewFeedback.corrections.map((correction) => <p key={correction.stage} className="whitespace-pre-wrap text-sm">{correction.note}</p>)}
+        <p className="text-sm text-muted-foreground">Modifiez le contenu ou les preuves pour ouvrir une nouvelle revue. Enregistrer sans changement ne relance pas le parcours.</p>
+      </section>}
       <ReportForm
+        key={post.id}
         initialValues={{
           spaceId: post.spaceId,
           entity: post.entity,
@@ -121,6 +35,8 @@ export default function EditReportPage() {
         submitLabel="Enregistrer les modifications"
         submitUrl={`/resources/api/posts/${post.id}/update`}
         title="Contenu du rapport"
+        existingEvidence={post.evidence}
+        requiresSensitiveReview={post.requiresSensitiveReview}
       />
     </div>
   );

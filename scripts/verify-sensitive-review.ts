@@ -7,6 +7,8 @@ import { decideSensitiveReview, listSensitiveReviews, requireSensitiveReview } f
 import { HttpError } from "../app/lib/api/http-error";
 import { deleteAccount } from "../app/services/member-lifecycle.server";
 import { hashPassword } from "../app/lib/password";
+import { getOwnSensitiveReviewFeedback } from "../app/services/sensitive-review-feedback.server";
+import { exportAccountData } from "../app/services/account-export.server";
 
 type Actor = { id: string; isSuperAdmin?: boolean };
 type Fixture = { admin: string; moderator: string; editor: string; reader: string; outsider: string; superadmin: string; spaceA: string; spaceB: string };
@@ -212,6 +214,34 @@ export async function verifySensitiveReview({ admin, runtime, scoped, runtimeUrl
     const revised = await current(post.id);
     await assert.rejects(() => decide(moderator, revised, 1), http(403));
     await assert.rejects(() => as(superadmin, () => scoped.$executeRaw`UPDATE "Post" SET "authorId" = ${ids.editor}::uuid WHERE id = ${post.id}::uuid`), sqlDenied);
+  });
+
+  await check("sensitive feedback: only the visible author receives correction requests, never reviewer identities or approval notes", async () => {
+    const post = await fresh();
+    await decide(moderator, post, 1);
+    await decide(administrator, post, 2, "request_changes");
+    const feedback = await as(editor, () => getOwnSensitiveReviewFeedback(post.id, scoped));
+    assert.equal(feedback?.status, "changes_requested");
+    assert.deepEqual(feedback?.corrections.map(({ stage }) => stage), [2]);
+    for (const value of [ids.admin, ids.moderator, "reviewerUserId"]) assert.ok(!JSON.stringify(feedback).includes(value));
+    assert.equal(await as(moderator, () => getOwnSensitiveReviewFeedback(post.id, scoped)), null);
+    assert.equal(await as({ id: ids.outsider }, () => getOwnSensitiveReviewFeedback(post.id, scoped)), null);
+    assert.equal(await getOwnSensitiveReviewFeedback(post.id, runtime), null);
+    await admin.post.update({ where: { id: post.id }, data: { description: "Author clarified the facts" } });
+    assert.deepEqual((await as(editor, () => getOwnSensitiveReviewFeedback(post.id, scoped)))?.corrections, []);
+  });
+  await check("sensitive export: own decisions survive access loss without exposing any other reviewer's note or report", async () => {
+    const post = await fresh(); await decide(moderator, post, 1); await decide(administrator, post, 2, "request_changes");
+    const restriction = await admin.disciplinaryAction.create({ data: { spaceId: ids.spaceA, userId: ids.moderator, issuedByUserId: ids.admin, kind: "suspension", level: 1, reason: "Disposable export test", status: "active" } });
+    try {
+      const exported = await as(moderator, () => exportAccountData(moderator, scoped));
+      const decisions = exported.sensitiveReviewDecisions.filter((item) => item.postId === post.id);
+      assert.equal(decisions.length, 1); assert.equal(decisions[0].stage, 1);
+      assert.ok(!JSON.stringify(decisions).includes("Sensitive allegation fixture"));
+      assert.ok(!JSON.stringify(decisions).includes(ids.admin));
+      assert.equal(await as(moderator, () => scoped.sensitiveReviewDecision.count()), 0);
+    } finally { await admin.disciplinaryAction.delete({ where: { id: restriction.id } }); }
+    await assert.rejects(() => runtime.$queryRaw`SELECT safespace_private.export_own_sensitive_review_decisions()`, sqlDenied);
   });
 
   const concurrentUrl = new URL(runtimeUrl); concurrentUrl.searchParams.set("connection_limit", "4");
