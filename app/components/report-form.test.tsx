@@ -89,4 +89,13 @@ describe("report persistence and evidence recovery", () => {
     expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).not.toHaveProperty("verificationStatus");
     expect(screen.queryByRole("option", { name: "Vérifié" })).not.toBeInTheDocument();
   });
+
+  it("previews locally with privacy indicators without submitting or uploading", async () => {
+    setup(); files("draft.jpg");
+    fireEvent.click(screen.getByRole("button", { name: "Aperçu" }));
+    expect(await screen.findByRole("dialog", { name: "Aperçu du signalement" })).toBeInTheDocument();
+    expect(screen.getByText("Auteur anonyme")).toBeInTheDocument();
+    expect(screen.getByText(/1 fichier\(s\) encore à téléverser/)).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled(); expect(navigate).not.toHaveBeenCalled();
+  });
 });

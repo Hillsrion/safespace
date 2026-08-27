@@ -13,6 +13,7 @@ import { EvidenceEditor, type ExistingEvidence, type PendingEvidence } from "~/c
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
+import { ReportPreview } from "~/components/report-preview";
 import {
   createReportSchema,
   type CreateReportInput,
@@ -46,6 +47,7 @@ export function ReportForm({
 }: ReportFormProps) {
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [pendingEvidence, setPendingEvidence] = useState<PendingEvidence[]>([]);
   const [savedEvidence, setSavedEvidence] = useState<ExistingEvidence[]>(existingEvidence);
   const [reviewRequired, setReviewRequired] = useState(requiresSensitiveReview);
@@ -389,6 +391,7 @@ export function ReportForm({
 
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>Annuler</Button>
+            <Button type="button" variant="outline" onClick={async () => { if (await form.trigger()) setPreviewOpen(true); }}>Aperçu</Button>
             <Button type="submit" disabled={form.formState.isSubmitting || isUploading || spaces.length === 0}>
               {isUploading
                 ? "Sécurisation des preuves…"
@@ -399,6 +402,7 @@ export function ReportForm({
           </div>
           </fieldset>
         </form>
+        <ReportPreview open={previewOpen} onOpenChange={setPreviewOpen} values={form.watch()} savedEvidenceCount={savedEvidence.length} pendingEvidenceCount={pendingEvidence.length} />
       </CardContent>
     </Card>
   );
