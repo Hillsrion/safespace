@@ -27,6 +27,7 @@ import { useRegister } from "~/hooks/useRegister";
 import { action as registerAction } from "../register/action";
 import { getInviteTokenCandidates } from "~/lib/invite-token.server";
 import { runWithDbContext } from "~/db/context.server";
+import { CommunityPolicy } from "~/components/community-policy";
 
 export async function action({ request }: { request: Request }) {
   return await registerAction({ request });
@@ -260,6 +261,9 @@ export default function Register() {
                       </FormControl>
                       <div>
                         <FormLabel>I accept the Code of Conduct *</FormLabel>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Read the rules below before accepting. <Link to="/community-policy" target="_blank" rel="noopener noreferrer" className="underline">Open the full policy in a new tab</Link>.
+                        </p>
                         <FormMessage>
                           {actionData?.errors?.fieldErrors?.codeOfConductAccepted?.[0]}
                         </FormMessage>
@@ -267,6 +271,11 @@ export default function Register() {
                     </FormItem>
                   )}
                 />
+
+                <details className="rounded-md border p-3">
+                  <summary className="cursor-pointer text-sm font-medium">Read the Code of Conduct and content rules</summary>
+                  <div className="mt-4"><CommunityPolicy /></div>
+                </details>
 
                 <Button type="submit" className="w-full mt-6" disabled={!invite}>
                   Register

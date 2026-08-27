@@ -5,6 +5,8 @@ import {
   layout,
   prefix,
 } from "@react-router/dev/routes";
+import { DASHBOARD_PATH, LOGIN_PATH, REGISTER_PATH, RESOURCES_API_PREFIX } from "./lib/route-paths";
+export { DASHBOARD_PATH, LOGIN_PATH, REGISTER_PATH, API_PATH, RESOURCES_API_PREFIX } from "./lib/route-paths";
 
 const ROUTES_PREFIX = "routes";
 const LAYOUTS_PREFIX = "layouts";
@@ -24,14 +26,9 @@ function layoutPath(path: string): string {
   return routePrefix(LAYOUTS_PREFIX, path);
 }
 
-export const DASHBOARD_PATH = "dashboard";
-export const LOGIN_PATH = "auth/login";
-export const REGISTER_PATH = "auth/register";
-export const API_PATH = "api";
-export const RESOURCES_API_PREFIX = "resources/api";
-
 export default [
   index(routePath("home.tsx")),
+  route("community-policy", routePath("community-policy.tsx")),
   route(REGISTER_PATH, routePath("auth/register/index.tsx")),
   route(LOGIN_PATH, routePath("auth/login/index.tsx")),
   route(":spaceId/login", routePath("space-login.tsx")),
@@ -39,6 +36,7 @@ export default [
   route("auth/logout", routePath("auth/logout.tsx")),
   route(DASHBOARD_PATH, layoutPath("dashboard.tsx"), [
     index(routePath("dashboard/index.tsx")),
+    route("welcome", routePath("dashboard/welcome.tsx")),
     route("account", routePath("dashboard/account/index.tsx")),
     route("moderation", routePath("dashboard/moderation.tsx")),
     route("superadmin", routePath("dashboard/superadmin.tsx")),

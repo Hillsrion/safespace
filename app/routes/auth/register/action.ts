@@ -7,6 +7,7 @@ import { requireSameOrigin } from "~/lib/security.server";
 import { isInviteEligible, normalizeSpaceRole } from "~/lib/invitations";
 import { getInviteTokenCandidates } from "~/lib/invite-token.server";
 import { runWithDbContext } from "~/db/context.server";
+import { logServerException } from "~/lib/error/server-error.server";
 
 export async function action({ request }: { request: Request }) {
   requireSameOrigin(request);
@@ -47,7 +48,7 @@ export async function action({ request }: { request: Request }) {
     const now = new Date();
 
     const inviteTokens = getInviteTokenCandidates(inviteToken);
-    const user = await runWithDbContext(
+    const { user, spaceId } = await runWithDbContext(
       { mode: "registration", email, inviteTokens },
       () => prisma.$transaction(async (transaction) => {
         const invite = await transaction.invite.findFirst({
@@ -95,14 +96,15 @@ export async function action({ request }: { request: Request }) {
           },
         });
 
-        return createdUser;
+        return { user: createdUser, spaceId: invite.spaceId };
       })
     );
 
     const session = await getSession(request);
     session.set("userId", user.id);
 
-    return redirect("/dashboard", {
+    return redirect(`/dashboard/welcome?${new URLSearchParams({ spaceId })}`, {
+      status: 303,
       headers: {
         "Set-Cookie": await commitSession(session),
       },
@@ -122,7 +124,7 @@ export async function action({ request }: { request: Request }) {
       );
     }
 
-    console.error("Registration failed", error);
+    logServerException(error, { operation: "auth.register", errorCode: "server_error:api", httpStatus: 500 });
     return data(
       {
         errors: {

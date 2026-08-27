@@ -44,6 +44,7 @@ export default function AccountPage() {
         <p className="text-sm text-muted-foreground">
           Mettez à jour vos informations personnelles et votre mot de passe
         </p>
+        <Link to="/community-policy" className="text-sm underline">Charte de conduite et règles de publication</Link>
       </div>
 
       <Card>
