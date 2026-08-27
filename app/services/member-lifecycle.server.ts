@@ -176,10 +176,9 @@ export async function deleteAccount(
     });
     // Retain the audit event but remove its personal identifier before the
     // account is deleted. AuditLog.actorUserId is nullable by design.
-    await tx.auditLog.updateMany({
-      where: { actorUserId: actor.id },
-      data: { actorUserId: null },
-    });
+    // RLS must not reveal an anonymous audit row after the actor leaves every
+    // space. A self-scoped primitive performs this identity-only transition.
+    await tx.$queryRaw`SELECT safespace_private.detach_own_audit_identity()`;
     await tx.user.delete({ where: { id: actor.id } });
 
     return {

@@ -84,6 +84,7 @@ export default function ModerationPage() {
       <div>
         <h1 className="text-2xl font-bold">File de modération</h1>
         <p className="text-sm text-muted-foreground">Examinez les signalements sans exposer l’identité de leurs auteurs.</p>
+        <Link to="/dashboard/sensitive-reviews" className="mt-2 inline-block text-sm underline">Revue des allégations sensibles à trois niveaux</Link>
       </div>
 
       <Card>

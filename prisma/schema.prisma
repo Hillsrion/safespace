@@ -57,6 +57,19 @@ enum DisciplineActionStatus {
   expired
 }
 
+enum SensitiveReviewStatus {
+  pending
+  changes_requested
+  approved
+  superseded
+  blocked
+}
+
+enum SensitiveReviewOutcome {
+  approve
+  request_changes
+}
+
 // AuditLog actions represent different types of user/system actions
 enum AuditAction {
   user_invite     // User invited another user
@@ -79,6 +92,9 @@ enum AuditAction {
   moderation_appeal_decide
   discipline_issue
   discipline_revoke
+  sensitive_review_require
+  sensitive_review_decide
+  sensitive_review_invalidate
   space_create    // Space created
   space_update    // Space updated
   space_delete    // Space deleted
@@ -119,6 +135,7 @@ model User {
   receivedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineSubjects")
   issuedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineIssuers")
   revokedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineRevokers")
+  sensitiveReviewDecisions SensitiveReviewDecision[]
 }
 
 // Space model represents a community/organization within the platform
@@ -223,6 +240,8 @@ model Post {
   status             PostStatus @default(active) // Post visibility status: active, hidden, deleted
   severity           PostSeverity? // Severity level of the reported issue: low, medium, high
   verificationStatus PostVerificationStatus? // Verification status of the report: unverified, pending, verified, disputed
+  requiresSensitiveReview Boolean @default(false)
+  contentRevision    Int       @default(1)
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @default(now()) @updatedAt
 
@@ -232,9 +251,41 @@ model Post {
   reportedEntity     ReportedEntity @relation(fields: [reportedEntityId], references: [id])
   media              Media[]
   flags              PostFlag[]
+  sensitiveReviewRounds SensitiveReviewRound[]
 
   @@index([createdAt])
   @@index([updatedAt])
+}
+
+// No content snapshots or hidden author identity: a detached author blocks
+// further review. Historical rounds are invalidated, never reused after edits.
+model SensitiveReviewRound {
+  id           String @id @default(uuid()) @db.Uuid
+  postId       String @db.Uuid
+  revision     Int
+  status       SensitiveReviewStatus @default(pending)
+  reason       String @db.Text
+  createdAt    DateTime @default(now())
+  post         Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  decisions    SensitiveReviewDecision[]
+
+  @@unique([postId, revision])
+  @@index([status, createdAt])
+}
+
+model SensitiveReviewDecision {
+  id             String @id @default(uuid()) @db.Uuid
+  roundId        String @db.Uuid
+  stage          Int // 1: space moderator, 2: space admin, 3: superadmin
+  reviewerUserId String? @db.Uuid
+  outcome        SensitiveReviewOutcome
+  note           String @db.Text
+  createdAt      DateTime @default(now())
+  round          SensitiveReviewRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  reviewer       User? @relation(fields: [reviewerUserId], references: [id], onDelete: SetNull)
+
+  @@unique([roundId, stage])
+  @@unique([roundId, reviewerUserId])
 }
 
 model Media {

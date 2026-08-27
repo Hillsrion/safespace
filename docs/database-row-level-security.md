@@ -83,7 +83,8 @@ WHERE relnamespace = 'public'::regnamespace
   AND relname IN ('User', 'Space', 'UserSpaceMembership', 'Invite',
                   'ReportedEntity', 'ReportedEntityHandle', 'Post', 'Media',
                   'PostFlag', 'AuditLog', 'SavedSearch', 'MediaDeletionJob',
-                  'ModerationAppeal', 'DisciplinaryAction')
+                  'ModerationAppeal', 'DisciplinaryAction',
+                  'SensitiveReviewRound', 'SensitiveReviewDecision')
 ORDER BY relname;
 ```
 
@@ -145,6 +146,12 @@ actif ne peut pas partir au profit d'administrateurs suspendus.
 L'observation finale utilise le propriétaire afin de détecter les lignes
 toujours présentes mais cachées par RLS.
 Le test vérifie enfin que le pool Prisma n'a conservé aucune identité.
+
+La [revue sensible à trois niveaux](sensitive-review.md) ajoute des scénarios
+de décisions indépendantes et ordonnées, d’invalidation des révisions, de
+discipline active/expirée, de confidentialité et de concurrence réelle sur
+plusieurs connexions. La suppression d’un reviewer est testée avec le vrai
+workflow `deleteAccount`, sans rôle propriétaire pour l’opération.
 
 Les mutations SQL d'autorisation sont annulées individuellement ; les workflows
 de départ sont validés après commit. Les fixtures portent des UUID et préfixes

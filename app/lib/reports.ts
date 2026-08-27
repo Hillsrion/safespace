@@ -108,6 +108,8 @@ export type ReportWriteResponse = {
     isAdminOnly: boolean;
     severity: "low" | "medium" | "high" | null;
     verificationStatus: "unverified" | "pending" | "verified" | "disputed" | null;
+    requiresSensitiveReview: boolean;
+    contentRevision: number;
     createdAt: string;
     updatedAt: string;
     reportedEntity: {

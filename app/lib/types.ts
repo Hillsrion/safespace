@@ -64,6 +64,7 @@ export type TPost = {
   status: "published" | "hidden" | "admin_only" | "pending_review"; // Post visibility status
   severity?: "low" | "medium" | "high" | null;
   verificationStatus?: "unverified" | "pending" | "verified" | "disputed" | null;
+  requiresSensitiveReview?: boolean;
   reportedEntity?: Pick<ReportedEntity, "id" | "name" | "createdAt" | "updatedAt"> & {
     handles?: Array<Pick<ReportedEntityHandle, "id" | "handle" | "platform">>;
   }; // Information about the user being reported

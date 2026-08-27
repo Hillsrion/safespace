@@ -31,6 +31,10 @@ export const useSidebarNav = (user: EnhancedUser) => {
         title: "Modération",
         url: "/dashboard/moderation",
         icon: ShieldAlertIcon,
+      }, {
+        title: "Revue des allégations sensibles",
+        url: "/dashboard/sensitive-reviews",
+        icon: ShieldAlertIcon,
       }] : []),
       {
         title: "Entités signalées",

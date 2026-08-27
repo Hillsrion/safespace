@@ -191,6 +191,7 @@ export default function Dashboard() {
           : "published",
       severity: typedPost.severity,
       verificationStatus: typedPost.verificationStatus,
+      requiresSensitiveReview: typedPost.requiresSensitiveReview,
       reportedEntity: typedPost.reportedEntity || undefined,
       space: typedPost.space ? mapPrismaSpaceToSpaceInfo(typedPost.space) : undefined,
       currentUser,

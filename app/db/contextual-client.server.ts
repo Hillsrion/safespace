@@ -19,6 +19,8 @@ const MODEL_DELEGATES = new Set([
   "postFlag",
   "moderationAppeal",
   "disciplinaryAction",
+  "sensitiveReviewRound",
+  "sensitiveReviewDecision",
   "auditLog",
   "savedSearch",
 ]);

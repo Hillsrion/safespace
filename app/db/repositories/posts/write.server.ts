@@ -22,6 +22,8 @@ const POST_RESPONSE_SELECT = {
   isAdminOnly: true,
   severity: true,
   verificationStatus: true,
+  requiresSensitiveReview: true,
+  contentRevision: true,
   createdAt: true,
   updatedAt: true,
   reportedEntity: {
@@ -41,6 +43,8 @@ type SelectedPost = {
   isAdminOnly: boolean;
   severity: "low" | "medium" | "high" | null;
   verificationStatus: "unverified" | "pending" | "verified" | "disputed" | null;
+  requiresSensitiveReview: boolean;
+  contentRevision: number;
   createdAt: Date;
   updatedAt: Date;
   reportedEntity: {
@@ -229,6 +233,8 @@ function toResponse(post: SelectedPost): ReportWriteResponse {
       isAdminOnly: post.isAdminOnly,
       severity: post.severity,
       verificationStatus: post.verificationStatus,
+      requiresSensitiveReview: post.requiresSensitiveReview,
+      contentRevision: post.contentRevision,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString(),
       reportedEntity: {
@@ -256,6 +262,9 @@ export async function createReport(
       !canVerify(role)
     ) {
       throw errors.forbidden("Moderator rights are required to verify a report");
+    }
+    if (input.severity === "high" && input.verificationStatus === "verified") {
+      throw errors.conflict("Sensitive reports require three independent internal reviews");
     }
 
     const entityResolution = await resolveEntity(
@@ -314,7 +323,7 @@ export async function updateReport(
   return runSerializable(client, async (tx) => {
     const current = await tx.post.findUnique({
       where: { id: postId },
-      select: { id: true, spaceId: true, authorId: true, isAnonymous: true },
+      select: { id: true, spaceId: true, authorId: true, isAnonymous: true, severity: true, requiresSensitiveReview: true },
     });
     if (!current) throw errors.notFound("Post not found");
 
@@ -324,6 +333,10 @@ export async function updateReport(
     }
     if (input.verificationStatus !== undefined && !canVerify(role)) {
       throw errors.forbidden("Moderator rights are required to change verification status");
+    }
+    if (input.verificationStatus === "verified" &&
+      (current.requiresSensitiveReview || current.severity === "high" || input.severity === "high")) {
+      throw errors.conflict("Sensitive reports require three independent internal reviews");
     }
 
     if (input.spaceId && input.spaceId !== current.spaceId) {

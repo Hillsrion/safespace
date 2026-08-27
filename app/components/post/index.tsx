@@ -36,6 +36,7 @@ export function Post({
   status,
   severity,
   verificationStatus,
+  requiresSensitiveReview,
   reportedEntity,
   space,
   viewerCanDelete = false,
@@ -103,11 +104,11 @@ export function Post({
             </Badge>
           )}
           {verificationStatus && (
-            <Badge className="mr-2" variant="secondary">
+            <Badge className="mr-2" variant="secondary" title="Évaluation interne ; ne constitue pas une vérité judiciaire.">
               {verificationStatus === "verified"
-                ? "Vérifié"
+                ? requiresSensitiveReview ? "Revue interne à trois niveaux terminée" : "Revue interne terminée"
                 : verificationStatus === "pending"
-                  ? "Vérification en cours"
+                  ? "Revue interne en cours"
                   : verificationStatus === "disputed"
                     ? "Contesté"
                     : "Non vérifié"}

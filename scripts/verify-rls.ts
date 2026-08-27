@@ -14,6 +14,7 @@ import { leaveSpace } from "../app/services/member-lifecycle.server";
 import { acceptInvitationForExistingUser, InvalidInviteError } from "../app/services/invite-acceptance.server";
 import { exportAccountData } from "../app/services/account-export.server";
 import type { MediaStorage } from "../app/services/media-storage.server";
+import { verifySensitiveReview } from "./verify-sensitive-review";
 
 type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 type Actor = { id: string; isSuperAdmin?: boolean };
@@ -381,7 +382,6 @@ async function main(): Promise<void> {
         const mutations = [
           (tx: TransactionClient) => insertPost(tx, actor.id),
           (tx: TransactionClient) => tx.$executeRaw`UPDATE "Post" SET description = 'RLS edit' WHERE id = ${scenario.postId}::uuid`,
-          (tx: TransactionClient) => tx.$executeRaw`UPDATE "Post" SET "authorId" = NULL, "isAnonymous" = true, description = 'RLS edit' WHERE id = ${scenario.postId}::uuid`,
           (tx: TransactionClient) => tx.$executeRaw`
             INSERT INTO "Media" (id, "postId", "uploaderId", "storageKey", "fileName", "mimeType", "fileSize")
             VALUES (${randomUUID()}::uuid, ${scenario.postId}::uuid, ${actor.id}::uuid,
@@ -396,6 +396,9 @@ async function main(): Promise<void> {
           if (scenario.canWrite) assert.equal(await rollback(actor, mutate), 1);
           else await denied(actor, mutate);
         }
+        // Author identity cannot be detached/reassigned through generic edits;
+        // self-scoped withdrawal remains available, including under suspension.
+        await denied(actor, (tx) => tx.$executeRaw`UPDATE "Post" SET "authorId" = NULL, "isAnonymous" = true WHERE id = ${scenario.postId}::uuid`);
         assert.equal(await rollback(actor, (tx) => insertPost(tx, actor.id, ids.spaceB, ids.entityB)), 1, "Write access in the unaffected space must remain intact");
       });
       await check(`${scenario.name}: disciplinary and appeal governance`, async () => {
@@ -566,6 +569,7 @@ async function main(): Promise<void> {
         assert.equal(await admin.media.count({ where: { id: ids.publicMedia } }), 1, "Departure must not remove another uploader's media");
       });
     }
+    await verifySensitiveReview({ admin, runtime: direct, scoped, runtimeUrl: parsedUrl.toString(), ids, check });
     await check("pooled connection has no identity after success, rollback and leave", async () => {
       await as({ id: ids.superadmin, isSuperAdmin: true }, () => scoped.post.count());
       const [context] = await direct.$queryRaw<{ user_id: string | null; mode: string; is_superadmin: boolean | null }[]>`

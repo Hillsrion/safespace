@@ -17,6 +17,8 @@ function selectedPost(overrides: Record<string, unknown> = {}) {
     isAdminOnly: false,
     severity: "high",
     verificationStatus: "verified",
+    requiresSensitiveReview: true,
+    contentRevision: 1,
     createdAt: new Date("2026-08-23T10:00:00.000Z"),
     updatedAt: new Date("2026-08-23T10:01:00.000Z"),
     reportedEntity: {
@@ -123,6 +125,8 @@ describe("report write service", () => {
         isAdminOnly: false,
         severity: "high",
         verificationStatus: "verified",
+        requiresSensitiveReview: true,
+        contentRevision: 1,
         createdAt: "2026-08-23T10:00:00.000Z",
         updatedAt: "2026-08-23T10:01:00.000Z",
         reportedEntity: {
@@ -350,7 +354,7 @@ describe("report write service", () => {
     await updateReport(
       POST_ID,
       { id: ACTOR_ID, isSuperAdmin: false },
-      { isAdminOnly: true, severity: "high", verificationStatus: "verified" },
+      { isAdminOnly: true, severity: "high", verificationStatus: "pending" },
       client
     );
 
@@ -358,7 +362,7 @@ describe("report write service", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           severity: "high",
-          verificationStatus: "verified",
+          verificationStatus: "pending",
         }),
       })
     );
@@ -371,6 +375,21 @@ describe("report write service", () => {
         }),
       })
     );
+  });
+
+  it("rejects direct verification of a new high-severity report even for a moderator", async () => {
+    const { tx, client } = createDatabaseMock();
+    tx.userSpaceMembership.findUnique.mockResolvedValue({ role: "MODERATOR" });
+    await expect(createReport({ id: ACTOR_ID, isSuperAdmin: false }, { ...createInput, severity: "high", verificationStatus: "verified" }, client)).rejects.toMatchObject({ status: 409 });
+    expect(tx.post.create).not.toHaveBeenCalled();
+  });
+
+  it.each([{ requiresSensitiveReview: true, severity: "low" }, { requiresSensitiveReview: false, severity: "high" }])("rejects direct verification of a classified report", async (state) => {
+    const { tx, client } = createDatabaseMock();
+    tx.user.findUnique.mockResolvedValue({ isSuperAdmin: true });
+    tx.post.findUnique.mockResolvedValue({ id: POST_ID, spaceId: SPACE_ID, authorId: ACTOR_ID, ...state });
+    await expect(updateReport(POST_ID, { id: ACTOR_ID, isSuperAdmin: true }, { severity: "low", verificationStatus: "verified" }, client)).rejects.toMatchObject({ status: 409 });
+    expect(tx.post.update).not.toHaveBeenCalled();
   });
 
   it("does not attribute an anonymous author's edit in audit logs", async () => {

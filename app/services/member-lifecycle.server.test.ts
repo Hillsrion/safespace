@@ -182,10 +182,8 @@ describe("member lifecycle workflows", () => {
     expect(h.calls.auditCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ action: "account_delete", actorUserId: actorId }),
     });
-    expect(h.calls.auditUpdate).toHaveBeenCalledWith({
-      where: { actorUserId: actorId },
-      data: { actorUserId: null },
-    });
+    expect(h.calls.privacyQuery.mock.calls.some(([sql]) => sql.join("").includes("detach_own_audit_identity"))).toBe(true);
+    expect(h.calls.auditUpdate).not.toHaveBeenCalled();
     expect(h.calls.userDelete).toHaveBeenCalledWith({ where: { id: actorId } });
   });
 
