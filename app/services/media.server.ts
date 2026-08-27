@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { Prisma, type PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
-import { errors } from "~/lib/api/http-error";
+import { errors, HttpError } from "~/lib/api/http-error";
 import {
   createPrivateStorageKey,
   MEDIA_MAX_FILES_PER_POST,
@@ -169,14 +169,17 @@ export async function uploadMedia(
   });
 
   let validated: ReturnType<typeof validateMediaBytes>;
-  let processed: ReturnType<typeof stripMediaMetadata>;
+  let processed: Awaited<ReturnType<typeof stripMediaMetadata>>;
   try {
     validated = validateMediaBytes({ bytes: input.bytes, declaredMimeType: input.declaredMimeType });
-    processed = stripMediaMetadata(input.bytes, validated.mimeType);
+    processed = await stripMediaMetadata(input.bytes, validated.mimeType);
   } catch (error) {
     if (error instanceof MediaValidationError || error instanceof MediaProcessingError) {
+      if (error instanceof MediaProcessingError && error.reason === "processor_unavailable") {
+        throw new HttpError(503, "Media processing is temporarily unavailable", "server_error:api");
+      }
       throw errors.badRequest(error.message, "bad_request:api", {
-        reason: error instanceof MediaValidationError ? error.reason : "malformed_file",
+        reason: error.reason,
       });
     }
     throw error;

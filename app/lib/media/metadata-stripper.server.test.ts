@@ -1,93 +1,309 @@
-import { describe, expect, it } from "vitest";
-import { stripMediaMetadata } from "./metadata-stripper.server";
+import childProcess, { type spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
+import { existsSync, statSync, truncateSync } from "node:fs";
+import { PassThrough } from "node:stream";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { MEDIA_POLICY, sniffMediaMimeType, type SupportedMediaMimeType } from "./media-policy.server";
+import { inspectMediaStructure } from "./media-structure.server";
+import { MediaProcessingError, stripMediaMetadata } from "./metadata-stripper.server";
+import {
+  bytesJoin, mediaWithMetadata, mp4Box, pngChunk, PRIVATE_METADATA_MARKER,
+  riffChunk, riffFile, textBytes, uint32, validMediaFixture, validMediaVariant,
+} from "./fixtures.server.test-support";
 
-function ascii(value: string): Uint8Array {
-  return Uint8Array.from([...value].map((character) => character.charCodeAt(0)));
-}
+const TYPES: SupportedMediaMimeType[] = ["image/jpeg", "image/png", "image/gif", "image/webp", "audio/mpeg", "audio/wav", "video/mp4", "video/quicktime"];
+const actualSpawn = childProcess.spawn;
+const spawnMock = vi.spyOn(childProcess, "spawn");
 
-function join(...parts: Uint8Array[]): Uint8Array {
-  const output = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
-  let offset = 0;
-  for (const part of parts) {
-    output.set(part, offset);
-    offset += part.length;
-  }
-  return output;
-}
+afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
-function riffChunk(type: string, payload: Uint8Array): Uint8Array {
-  const output = new Uint8Array(8 + payload.length + (payload.length % 2));
-  output.set(ascii(type), 0);
-  new DataView(output.buffer).setUint32(4, payload.length, true);
-  output.set(payload, 8);
-  return output;
-}
+describe("real media decoding and privacy reconstruction", () => {
+  it.each(TYPES)("fully decodes and rebuilds a real %s fixture without changing MIME", async (mime) => {
+    const input = validMediaFixture(mime);
+    const result = await stripMediaMetadata(input, mime);
+    expect(result.metadataStripped).toBe(true);
+    expect(result.bytes.length).toBeGreaterThan(20);
+    expect(sniffMediaMimeType(result.bytes)).toBe(mime);
+    const source = inspectMediaStructure(input, mime), output = inspectMediaStructure(result.bytes, mime);
+    expect(output.frames).toBe(source.frames);
+    expect(output.width).toBe(source.width);
+    expect(output.height).toBe(source.height);
+    const calls = spawnMock.mock.calls;
+    expect(calls.some(([, args]) => args?.includes("-count_frames"))).toBe(true);
+    expect(calls.some(([, args]) => args?.includes("-xerror"))).toBe(true);
+  }, 15_000);
 
-function wavWithInfo(): Uint8Array {
-  const chunks = join(
-    riffChunk("fmt ", new Uint8Array(16)),
-    riffChunk("LIST", ascii("INFOauthor")),
-    riffChunk("data", Uint8Array.from([1, 2, 3, 4]))
-  );
-  const output = join(ascii("RIFF"), new Uint8Array(4), ascii("WAVE"), chunks);
-  new DataView(output.buffer).setUint32(4, output.length - 8, true);
-  return output;
-}
+  it.each(TYPES)("physically removes explicit metadata from a valid %s", async (mime) => {
+    const input = mediaWithMetadata(mime);
+    expect(Buffer.from(input).includes(PRIVATE_METADATA_MARKER)).toBe(true);
+    const result = await stripMediaMetadata(input, mime);
+    expect(result.metadataRemoved).toBe(true);
+    expect(result.removedMetadataKinds.length).toBeGreaterThan(0);
+    expect(Buffer.from(result.bytes).includes(PRIVATE_METADATA_MARKER)).toBe(false);
+    expect(sniffMediaMimeType(result.bytes)).toBe(mime);
+    expect(result.removedMetadataKinds.join()).not.toContain(PRIVATE_METADATA_MARKER);
+  }, 15_000);
 
-function mp4Box(type: string, payload: Uint8Array): Uint8Array {
-  const output = new Uint8Array(8 + payload.length);
-  new DataView(output.buffer).setUint32(0, output.length, false);
-  output.set(ascii(type), 4);
-  output.set(payload, 8);
-  return output;
-}
-
-describe("format-aware metadata stripping", () => {
-  it("physically removes JPEG EXIF while keeping the image scan", () => {
-    const jpeg = Uint8Array.from([
-      0xff, 0xd8,
-      0xff, 0xe1, 0x00, 0x08, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00,
-      0xff, 0xda, 0x00, 0x02, 0x11, 0x22, 0xff, 0xd9,
-    ]);
-    const stripped = stripMediaMetadata(jpeg, "image/jpeg");
-
-    expect(stripped.metadataStripped).toBe(true);
-    expect(stripped.metadataRemoved).toBe(true);
-    expect(stripped.removedMetadataKinds).toContain("EXIF/XMP");
-    expect([...stripped.bytes]).toEqual([
-      0xff, 0xd8, 0xff, 0xda, 0x00, 0x02, 0x11, 0x22, 0xff, 0xd9,
-    ]);
+  it("does not claim metadata was observed in a clean WebP", async () => {
+    const result = await stripMediaMetadata(validMediaFixture("image/webp"), "image/webp");
+    expect(result).toMatchObject({ metadataStripped: true, metadataRemoved: false, removedMetadataKinds: [] });
   });
 
-  it("removes ID3v2 bytes and requires a real MP3 frame afterwards", () => {
-    const mp3 = join(
-      Uint8Array.from([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, 4]),
-      ascii("PII!"),
-      Uint8Array.from([0xff, 0xfb, 0x90, 0x64, 1, 2, 3, 4])
-    );
-    const stripped = stripMediaMetadata(mp3, "audio/mpeg");
-    expect(stripped.removedMetadataKinds).toEqual(["ID3v2"]);
-    expect([...stripped.bytes.slice(0, 4)]).toEqual([0xff, 0xfb, 0x90, 0x64]);
+  it("preserves every frame of an animated GIF instead of keeping only its first image", async () => {
+    const result = await stripMediaMetadata(validMediaFixture("image/gif"), "image/gif");
+    expect(inspectMediaStructure(result.bytes, "image/gif")).toMatchObject({ frames: 2, durationSeconds: 0.2 });
   });
 
-  it("rebuilds WAV without INFO metadata and with a valid RIFF length", () => {
-    const stripped = stripMediaMetadata(wavWithInfo(), "audio/wav");
-    expect(stripped.removedMetadataKinds).toContain("WAV INFO metadata");
-    expect(new DataView(stripped.bytes.buffer).getUint32(4, true)).toBe(stripped.bytes.length - 8);
-    expect(new TextDecoder().decode(stripped.bytes)).not.toContain("author");
+  it.each([
+    ["mp4_audio", "video/mp4"], ["mov_audio", "video/quicktime"],
+    ["webp_lossy", "image/webp"], ["gif_lzw", "image/gif"],
+  ] as const)("decodes the real %s codec/container variant", async (variant, mime) => {
+    const input = validMediaVariant(variant);
+    const source = inspectMediaStructure(input, mime);
+    const result = await stripMediaMetadata(input, mime);
+    const output = inspectMediaStructure(result.bytes, mime);
+    expect(output.frames).toBe(source.frames);
+    expect(output.animationLoop).toBe(source.animationLoop);
+    expect(sniffMediaMimeType(result.bytes)).toBe(mime);
   });
 
-  it("zeroes QuickTime/MP4 metadata payloads without shifting media offsets", () => {
-    const metadata = mp4Box("udta", ascii("GPS=48.8566,2.3522"));
-    const input = join(
-      mp4Box("ftyp", ascii("isom0000")),
-      mp4Box("moov", metadata),
-      mp4Box("mdat", Uint8Array.from([1, 2, 3, 4]))
-    );
-    const stripped = stripMediaMetadata(input, "video/mp4");
-    expect(stripped.bytes).toHaveLength(input.length);
-    expect(stripped.removedMetadataKinds).toContain("MP4/QuickTime metadata");
-    expect(new TextDecoder().decode(stripped.bytes)).not.toContain("48.8566");
-    expect(new TextDecoder().decode(stripped.bytes)).toContain("free");
+  it("re-encodes video essence and removes codec SEI instead of stream-copying it", async () => {
+    const input = validMediaFixture("video/mp4");
+    expect(Buffer.from(input).includes("x264")).toBe(true);
+    const result = await stripMediaMetadata(input, "video/mp4");
+    expect(Buffer.from(result.bytes).includes("x264")).toBe(false);
+    const invocation = spawnMock.mock.calls.find(([, args]) => args?.includes("-xerror"))!;
+    expect(invocation[1]).toContain("filter_units=remove_types=6");
+    expect(invocation[1]).not.toContain("copy");
+  });
+});
+
+describe("seven original false-positive regressions", () => {
+  const payload = textBytes("PRIVATE_PAYLOAD");
+  const fakes: Array<[SupportedMediaMimeType, Uint8Array]> = [
+    ["image/jpeg", bytesJoin(Uint8Array.from([255, 216, 255, 218, 0, 2]), payload)],
+    ["image/png", bytesJoin(Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk("IHDR", new Uint8Array(13)), pngChunk("IEND", new Uint8Array()))],
+    ["image/gif", bytesJoin(textBytes("GIF89a"), new Uint8Array(7), Uint8Array.from([0x3b]))],
+    ["image/webp", riffFile("WEBP", riffChunk("ICCP", textBytes("PII!")))],
+    ["audio/mpeg", bytesJoin(Uint8Array.from([255, 251, 144, 100]), payload)],
+    ["audio/wav", riffFile("WAVE", riffChunk("fmt ", new Uint8Array(16)), riffChunk("data", new Uint8Array()))],
+    ["video/mp4", bytesJoin(mp4Box("ftyp", textBytes("isom0000")), mp4Box("mdat", new Uint8Array()))],
+  ];
+  it.each(fakes)("rejects the old %s signature-only payload before starting a decoder", async (mime, input) => {
+    await expect(stripMediaMetadata(input, mime)).rejects.toBeInstanceOf(MediaProcessingError);
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("container bounds, complete pixels and actual compressed essence", () => {
+  it.each(["image/jpeg", "image/png", "image/gif", "image/webp", "audio/mpeg", "audio/wav", "video/mp4", "video/quicktime"] as const)("rejects trailing arbitrary bytes in %s", async (mime) => {
+    await expect(stripMediaMetadata(bytesJoin(validMediaFixture(mime), textBytes("UNFRAMED_PRIVATE_PAYLOAD")), mime)).rejects.toBeInstanceOf(MediaProcessingError);
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects PNG pixels with a valid CRC but missing or invalid compressed scanlines", async () => {
+    const valid = validMediaFixture("image/png");
+    const signatureAndHeader = valid.subarray(0, 33);
+    const noData = bytesJoin(signatureAndHeader, pngChunk("IEND", new Uint8Array()));
+    const garbage = bytesJoin(signatureAndHeader, pngChunk("IDAT", textBytes("PRIVATE_PAYLOAD")), pngChunk("IEND", new Uint8Array()));
+    for (const bytes of [noData, garbage]) await expect(stripMediaMetadata(bytes, "image/png")).rejects.toBeInstanceOf(MediaProcessingError);
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects dimensions bombs before decompression or decoder invocation", async () => {
+    const png = validMediaFixture("image/png"), header = png.slice(16, 29);
+    new DataView(header.buffer).setUint32(0, 100_000);
+    await expect(stripMediaMetadata(bytesJoin(png.subarray(0, 8), pngChunk("IHDR", header), png.subarray(33)), "image/png")).rejects.toMatchObject({ reason: "resource_limit" });
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects unknown critical PNG chunks and CRC corruption", async () => {
+    const input = validMediaFixture("image/png");
+    const unknown = bytesJoin(input.subarray(0, 33), pngChunk("ABCD", new Uint8Array()), input.subarray(33));
+    const corrupted = input.slice(); corrupted[29] ^= 1;
+    for (const bytes of [unknown, corrupted]) await expect(stripMediaMetadata(bytes, "image/png")).rejects.toBeInstanceOf(MediaProcessingError);
+  });
+
+  it("removes unrecognized ancillary metadata rather than relying on a small tag denylist", async () => {
+    const input = validMediaFixture("image/png");
+    const privateChunk = pngChunk("ruSt", textBytes(PRIVATE_METADATA_MARKER));
+    const result = await stripMediaMetadata(bytesJoin(input.subarray(0, -12), privateChunk, input.subarray(-12)), "image/png");
+    expect(result.removedMetadataKinds).toContain("PNG ancillary metadata");
+    expect(Buffer.from(result.bytes).includes(PRIVATE_METADATA_MARKER)).toBe(false);
+  });
+
+  it("rejects unsupported animation and fragmented video instead of flattening them", async () => {
+    const png = validMediaFixture("image/png");
+    const apng = bytesJoin(png.subarray(0, 33), pngChunk("acTL", bytesJoin(uint32(2), uint32(0))), png.subarray(33));
+    const webp = riffFile("WEBP", riffChunk("VP8X", Uint8Array.from([2, 0, 0, 0, 15, 0, 0, 15, 0, 0])), validMediaFixture("image/webp").subarray(12));
+    const fragmented = bytesJoin(validMediaFixture("video/mp4"), mp4Box("moof", new Uint8Array()));
+    for (const [input, mime] of [[apng, "image/png"], [webp, "image/webp"], [fragmented, "video/mp4"]] as const) {
+      await expect(stripMediaMetadata(input, mime)).rejects.toBeInstanceOf(MediaProcessingError);
+    }
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a GIF with invalid LZW codes, even when descriptors and subblocks fit", async () => {
+    const input = validMediaFixture("image/gif");
+    const image = input.indexOf(0x2c, 13 + 768);
+    expect(image).toBeGreaterThan(0);
+    input[image + 12] = 255;
+    await expect(stripMediaMetadata(input, "image/gif")).rejects.toBeInstanceOf(MediaProcessingError);
+  });
+
+  it("rejects a WebP whose valid frame header wraps corrupt encoded pixels", async () => {
+    const input = validMediaFixture("image/webp"); input.fill(255, 25, input.length - 1);
+    // The container still passes. Only the mature codec decoder rejects it.
+    expect(() => inspectMediaStructure(input, "image/webp")).not.toThrow();
+    await expect(stripMediaMetadata(input, "image/webp")).rejects.toBeInstanceOf(MediaProcessingError);
+    expect(spawnMock).toHaveBeenCalled();
+  });
+
+  it("rejects MP3 frames with valid boundaries but corrupt side information", async () => {
+    const input = validMediaFixture("audio/mpeg");
+    // First MPEG-1 Layer III frame's side information, not the four-byte header.
+    input.fill(255, 4, 21);
+    expect(() => inspectMediaStructure(input, "audio/mpeg")).not.toThrow();
+    await expect(stripMediaMetadata(input, "audio/mpeg")).rejects.toBeInstanceOf(MediaProcessingError);
+  });
+
+  it("rejects a WAV whose sample block alignment is inconsistent", async () => {
+    const input = validMediaFixture("audio/wav"), fmt = Buffer.from(input).indexOf("fmt ");
+    new DataView(input.buffer).setUint16(fmt + 20, 3, true);
+    await expect(stripMediaMetadata(input, "audio/wav")).rejects.toBeInstanceOf(MediaProcessingError);
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects MP4 sample offsets outside mdat", async () => {
+    const input = validMediaFixture("video/mp4"), stco = Buffer.from(input).indexOf("stco");
+    expect(stco).toBeGreaterThan(0); input.set(uint32(input.length + 100), stco + 12);
+    await expect(stripMediaMetadata(input, "video/mp4")).rejects.toBeInstanceOf(MediaProcessingError);
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects indexed frame counts above the video cap before processing", async () => {
+    const input = validMediaFixture("video/mp4"), stsz = Buffer.from(input).indexOf("stsz");
+    expect(stsz).toBeGreaterThan(0); input.set(uint32(18_001), stsz + 12);
+    await expect(stripMediaMetadata(input, "video/mp4")).rejects.toBeInstanceOf(MediaProcessingError);
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["video/mp4", "video/quicktime"] as const)("rejects non-self-contained %s references before FFmpeg can read them", async (mime) => {
+    const input = validMediaFixture(mime), url = Buffer.from(input).lastIndexOf("url ");
+    expect(url).toBeGreaterThan(0); input.set(uint32(0), url + 4);
+    await expect(stripMediaMetadata(input, mime)).rejects.toThrow("self-contained");
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects corrupt H.264 samples even with otherwise valid movie and sample tables", async () => {
+    const input = validMediaFixture("video/mp4"), mdat = Buffer.from(input).indexOf("mdat");
+    input.fill(255, mdat + 4);
+    expect(() => inspectMediaStructure(input, "video/mp4")).not.toThrow();
+    await expect(stripMediaMetadata(input, "video/mp4")).rejects.toBeInstanceOf(MediaProcessingError);
+    expect(spawnMock).toHaveBeenCalled();
+  });
+});
+
+describe("bounded, private, fail-closed process boundary", () => {
+  it("uses private temporary files, cleans them, inherits no secrets and disallows external protocols", async () => {
+    vi.stubEnv("MEDIA_TEST_SECRET", PRIVATE_METADATA_MARKER);
+    const modes: number[] = [];
+    spawnMock.mockImplementation((...args: Parameters<typeof spawn>) => {
+      const options = args[2]!;
+      modes.push(statSync(String(options.cwd)).mode & 0o777);
+      if (args[1]?.includes("-i")) modes.push(statSync(String(options.cwd) + "/input.bin").mode & 0o777);
+      return actualSpawn(...args);
+    });
+    try { await stripMediaMetadata(validMediaFixture("video/mp4"), "video/mp4"); }
+    finally { spawnMock.mockImplementation(actualSpawn); }
+    expect(modes).toContain(0o700); expect(modes).toContain(0o600);
+    for (const [, args, options] of spawnMock.mock.calls) {
+      expect(options).toMatchObject({ shell: false, stdio: ["ignore", "pipe", "pipe"] });
+      expect(options?.env).not.toHaveProperty("MEDIA_TEST_SECRET");
+      expect(options?.env).not.toHaveProperty("DATABASE_URL");
+      expect(options?.env).not.toHaveProperty("R2_SECRET_ACCESS_KEY");
+      expect(existsSync(String(options?.cwd))).toBe(false);
+      if (args?.includes("-i")) {
+        expect(args).toEqual(expect.arrayContaining(["-protocol_whitelist", "file,pipe", "-enable_drefs", "0", "-use_absolute_path", "-codec_whitelist", "-format_whitelist", "-max_alloc", "-max_pixels"]));
+      }
+    }
+  });
+
+  it.each(["MEDIA_FFMPEG_PATH", "MEDIA_FFPROBE_PATH"])("fails closed and cleans up when %s is absent", async (variable) => {
+    vi.stubEnv(variable, "/nonexistent/safespace-processor");
+    await expect(stripMediaMetadata(validMediaFixture("image/jpeg"), "image/jpeg")).rejects.toMatchObject({ reason: "processor_unavailable" });
+    for (const [, , options] of spawnMock.mock.calls) expect(existsSync(String(options?.cwd))).toBe(false);
+  });
+
+  it("rejects unsafe binary configuration instead of interpreting shell syntax", async () => {
+    vi.stubEnv("MEDIA_FFMPEG_PATH", "ffmpeg; touch unsafe");
+    await expect(stripMediaMetadata(validMediaFixture("image/jpeg"), "image/jpeg")).rejects.toMatchObject({ reason: "processor_unavailable" });
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the per-process concurrency limit is reached", async () => {
+    vi.stubEnv("MEDIA_PROCESSING_MAX_CONCURRENT", "1");
+    const running = stripMediaMetadata(validMediaFixture("image/jpeg"), "image/jpeg");
+    await expect(stripMediaMetadata(validMediaFixture("image/jpeg"), "image/jpeg")).rejects.toMatchObject({ reason: "resource_limit" });
+    await running;
+  });
+
+  it("kills a stalled decoder at the wall deadline and removes its private directory", async () => {
+    vi.stubEnv("MEDIA_PROCESSING_TIMEOUT_MS", "1000");
+    const stalled = new EventEmitter() as ReturnType<typeof spawn>;
+    Object.assign(stalled, { stdout: new PassThrough(), stderr: new PassThrough(), kill: vi.fn(() => { queueMicrotask(() => stalled.emit("close", null, "SIGKILL")); return true; }) });
+    spawnMock.mockImplementation((...args: Parameters<typeof spawn>) => args[1]?.includes("-show_entries") ? stalled : actualSpawn(...args));
+    try {
+      await expect(stripMediaMetadata(validMediaFixture("image/jpeg"), "image/jpeg")).rejects.toMatchObject({ reason: "resource_limit" });
+      expect(stalled.kill).toHaveBeenCalledWith("SIGKILL");
+      for (const [, , options] of spawnMock.mock.calls) expect(existsSync(String(options?.cwd))).toBe(false);
+    } finally { spawnMock.mockImplementation(actualSpawn); }
+  }, 5000);
+
+  it("kills a decoder that exceeds the diagnostic/output bound, without exposing its text", async () => {
+    const noisy = new EventEmitter() as ReturnType<typeof spawn>;
+    Object.assign(noisy, { stdout: new PassThrough(), stderr: new PassThrough(), kill: vi.fn(() => { queueMicrotask(() => noisy.emit("close", null, "SIGKILL")); return true; }) });
+    spawnMock.mockImplementation((...args: Parameters<typeof spawn>) => {
+      if (!args[1]?.includes("-show_entries")) return actualSpawn(...args);
+      queueMicrotask(() => noisy.stdout!.emit("data", Buffer.alloc(300 * 1024, "PRIVATE_METADATA_927")));
+      return noisy;
+    });
+    try {
+      const error = await stripMediaMetadata(validMediaFixture("image/jpeg"), "image/jpeg").catch((error: unknown) => error);
+      expect(error).toMatchObject({ reason: "resource_limit" });
+      expect(String(error)).not.toContain(PRIVATE_METADATA_MARKER);
+      expect(noisy.kill).toHaveBeenCalledWith("SIGKILL");
+      for (const [, , options] of spawnMock.mock.calls) expect(existsSync(String(options?.cwd))).toBe(false);
+    } finally { spawnMock.mockImplementation(actualSpawn); }
+  });
+
+  it("rejects an oversized rebuilt file even when the encoder reports success", async () => {
+    const oversized = new EventEmitter() as ReturnType<typeof spawn>;
+    Object.assign(oversized, { stdout: new PassThrough(), stderr: new PassThrough(), kill: vi.fn(() => true) });
+    spawnMock.mockImplementation((...args: Parameters<typeof spawn>) => {
+      if (!args[1]?.includes("-xerror")) return actualSpawn(...args);
+      truncateSync(args[1]!.at(-1)!, MEDIA_POLICY["image/jpeg"].maxBytes + 1);
+      queueMicrotask(() => { oversized.stdout!.emit("data", Buffer.from("frame=1\nprogress=end\n")); oversized.emit("close", 0); });
+      return oversized;
+    });
+    try {
+      await expect(stripMediaMetadata(validMediaFixture("image/jpeg"), "image/jpeg")).rejects.toMatchObject({ reason: "resource_limit" });
+      for (const [, , options] of spawnMock.mock.calls) expect(existsSync(String(options?.cwd))).toBe(false);
+    } finally { spawnMock.mockImplementation(actualSpawn); }
+  });
+
+  it("rejects recovered decoder errors even with a zero exit code", async () => {
+    const recovered = new EventEmitter() as ReturnType<typeof spawn>;
+    Object.assign(recovered, { stdout: new PassThrough(), stderr: new PassThrough(), kill: vi.fn(() => true) });
+    spawnMock.mockImplementation((...args: Parameters<typeof spawn>) => {
+      if (!args[1]?.includes("-show_entries")) return actualSpawn(...args);
+      queueMicrotask(() => { recovered.stderr!.emit("data", Buffer.from(PRIVATE_METADATA_MARKER)); recovered.emit("close", 0); });
+      return recovered;
+    });
+    try {
+      const error = await stripMediaMetadata(validMediaFixture("image/jpeg"), "image/jpeg").catch((error: unknown) => error);
+      expect(error).toMatchObject({ reason: "invalid_media" });
+      expect(String(error)).not.toContain(PRIVATE_METADATA_MARKER);
+    } finally { spawnMock.mockImplementation(actualSpawn); }
   });
 });

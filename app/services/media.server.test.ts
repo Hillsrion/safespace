@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "~/generated/prisma";
 import type { MediaStorage } from "./media-storage.server";
+import { jpegWithExif } from "../lib/media/fixtures.server.test-support";
 import {
   deleteMedia,
   getAuthorizedMediaObject,
@@ -14,14 +15,6 @@ const OTHER_SPACE_ID = "44444444-4444-4444-8444-444444444444";
 const POST_ID = "55555555-5555-4555-8555-555555555555";
 const MEDIA_ID = "66666666-6666-4666-8666-666666666666";
 const STORAGE_KEY = `evidence/v1/${"A".repeat(43)}.jpg`;
-
-function jpegWithExif(): Uint8Array {
-  return Uint8Array.from([
-    0xff, 0xd8,
-    0xff, 0xe1, 0x00, 0x08, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00,
-    0xff, 0xda, 0x00, 0x02, 0x11, 0x22, 0xff, 0xd9,
-  ]);
-}
 
 function storageMock() {
   return {
@@ -164,7 +157,7 @@ describe("secure media authorization", () => {
           fileName: "private-person.jpg",
           metadataStripped: true,
           metadataRemoved: true,
-          removedMetadataKinds: ["EXIF/XMP"],
+          removedMetadataKinds: expect.arrayContaining(["EXIF/XMP"]),
           sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
         }),
       })
@@ -173,7 +166,7 @@ describe("secure media authorization", () => {
       mediaId: MEDIA_ID,
       metadataStripped: true,
       metadataRemoved: true,
-      removedMetadataKinds: ["EXIF/XMP"],
+      removedMetadataKinds: expect.arrayContaining(["EXIF/XMP"]),
     });
     expect(db.tx.auditLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -203,6 +196,28 @@ describe("secure media authorization", () => {
       )
     ).rejects.toMatchObject({ status: 403 });
     expect(storage.putObject).not.toHaveBeenCalled();
+  });
+
+  it("never writes storage or a media row for a signature-only fake", async () => {
+    const db = database(), storage = storageMock();
+    await expect(uploadMedia({ id: ACTOR_ID }, {
+      bytes: Uint8Array.from([255, 216, 255, 218, 0, 2, 80, 82, 73, 86, 65, 84, 69]),
+      declaredMimeType: "image/jpeg", fileName: "proof.jpg", postId: POST_ID, spaceId: SPACE_ID,
+    }, { client: db.client, storage })).rejects.toMatchObject({ status: 400 });
+    expect(storage.putObject).not.toHaveBeenCalled();
+    expect(db.tx.media.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 without storing the original when the real decoder is unavailable", async () => {
+    const db = database(), storage = storageMock();
+    vi.stubEnv("MEDIA_FFMPEG_PATH", "/nonexistent/safespace-decoder");
+    try {
+      await expect(uploadMedia({ id: ACTOR_ID }, {
+        bytes: jpegWithExif(), declaredMimeType: "image/jpeg", fileName: "proof.jpg", postId: POST_ID, spaceId: SPACE_ID,
+      }, { client: db.client, storage })).rejects.toMatchObject({ status: 503 });
+      expect(storage.putObject).not.toHaveBeenCalled();
+      expect(db.tx.media.create).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); }
   });
 
   it("checks post capacity before writing an object to storage", async () => {

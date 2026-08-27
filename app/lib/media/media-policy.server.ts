@@ -80,7 +80,7 @@ function looksLikeMp3Frame(bytes: Uint8Array): boolean {
   const layer = (bytes[1] >> 1) & 0x03;
   const bitrate = (bytes[2] >> 4) & 0x0f;
   const sampleRate = (bytes[2] >> 2) & 0x03;
-  return version !== 1 && layer !== 0 && bitrate !== 0 && bitrate !== 15 && sampleRate !== 3;
+  return version !== 1 && layer === 1 && bitrate !== 0 && bitrate !== 15 && sampleRate !== 3;
 }
 
 /** Detects the actual format from the file signature, never from its name. */
@@ -103,7 +103,9 @@ export function sniffMediaMimeType(bytes: Uint8Array): SupportedMediaMimeType | 
     return "audio/mpeg";
   }
   if (ascii(bytes, 4, 8) === "ftyp") {
-    return ascii(bytes, 8, 12) === "qt  " ? "video/quicktime" : "video/mp4";
+    const brand = ascii(bytes, 8, 12);
+    if (brand === "qt  ") return "video/quicktime";
+    return ["isom", "iso2", "iso3", "iso4", "iso5", "iso6", "mp41", "mp42", "avc1", "M4V "].includes(brand) ? "video/mp4" : null;
   }
   return null;
 }
@@ -114,6 +116,7 @@ export function normalizeDeclaredMimeType(value: string): SupportedMediaMimeType
   return MIME_ALIASES[normalized] ?? null;
 }
 
+/** Cheap size/type gate only. Uploads must also await stripMediaMetadata. */
 export function validateMediaBytes(input: {
   bytes: Uint8Array;
   declaredMimeType: string;

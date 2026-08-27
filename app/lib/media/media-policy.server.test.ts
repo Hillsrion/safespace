@@ -6,6 +6,7 @@ import {
   sniffMediaMimeType,
   validateMediaBytes,
 } from "./media-policy.server";
+import { bytesJoin, mp4Box, textBytes } from "./fixtures.server.test-support";
 
 describe("secure media policy", () => {
   it("detects supported formats from magic bytes rather than extensions", () => {
@@ -26,6 +27,18 @@ describe("secure media policy", () => {
         declaredMimeType: "video/mp4",
       })
     ).toThrowError(expect.objectContaining<Partial<MediaValidationError>>({ reason: "mime_mismatch" }));
+  });
+
+  it("does not classify arbitrary ISO-BMFF image brands as MP4 video", () => {
+    for (const brand of ["avif", "heic", "mif1", "xxxx"]) {
+      expect(sniffMediaMimeType(mp4Box("ftyp", bytesJoin(textBytes(brand), new Uint8Array(4))))).toBeNull();
+    }
+  });
+
+  it("does not classify MPEG Layer I or II as MP3", () => {
+    for (const layer of [0xff, 0xfd]) {
+      expect(sniffMediaMimeType(Uint8Array.from([255, layer, 0x90, 0x64, ...new Array(12).fill(0)]))).toBeNull();
+    }
   });
 
   it("canonicalizes display names and removes traversal/control characters", () => {
