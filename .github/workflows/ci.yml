@@ -45,14 +45,27 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Install media processing runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ffmpeg
+
       - name: Generate Prisma client
         run: yarn prisma:generate
 
       - name: Apply migrations to PostgreSQL
         run: yarn prisma:deploy
 
+      - name: Verify PostgreSQL RLS with a non-owner runtime role
+        run: yarn tsx scripts/verify-rls.ts
+        env:
+          # Used only to create fixtures and the constrained temporary LOGIN.
+          # All tested operations connect as that NOBYPASSRLS, non-owner role.
+          RLS_TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/safespace
+          RLS_TEST_ALLOW_SETUP: "1"
+
       - name: Typecheck and test
-        run: yarn check
+        run: yarn run check
 
       - name: Build production bundles
         run: yarn build

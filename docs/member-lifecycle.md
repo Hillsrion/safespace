@@ -21,6 +21,27 @@ des contributions appartenant à d’autres membres.
 Le départ écrit un audit `user_leave`. La suppression écrit `account_delete`, puis
 retire `actorUserId` afin de ne pas conserver l’identité de l’ancien compte.
 
+## Retrait des données malgré une suspension
+
+La fonction PostgreSQL `safespace_private.withdraw_own_contributions` est une
+primitive `SECURITY DEFINER` limitée à l’identité du contexte authentifié. Elle
+ne renvoie aucun contenu et ne peut modifier les contributions d’un tiers.
+Elle retire/anonymise les posts propres, retire les médias envoyés, détache les
+flags résolus et invalide les invitations émises dans la portée demandée. Les
+objets à supprimer sont enregistrés dans l’outbox avant toute suppression SQL.
+
+Les workflows l’appellent dans leur transaction après les contrôles de compte,
+de mot de passe (suppression de compte) et du dernier administrateur. Le retrait
+reste donc possible même si une suspension ou une exclusion empêche de lire les
+posts via les requêtes ordinaires. Les écritures/modérations directes n’ont pas
+ce privilège. Le garde-fou du dernier administrateur consulte également une
+fonction bornée, pour ne pas compter à tort seulement les membres visibles sous
+RLS. Au moins un autre administrateur actif doit subsister.
+
+Les tests d’intégration observent le résultat avec le propriétaire de la base :
+un post seulement caché par RLS ne peut pas être confondu avec un post supprimé
+ou réellement anonymisé.
+
 ## Limites de notification et de session
 
 Le projet ne possède aujourd’hui qu’un service email pour les invitations. Ces

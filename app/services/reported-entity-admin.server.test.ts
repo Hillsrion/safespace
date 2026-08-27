@@ -36,8 +36,11 @@ function entityRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function createHarness(options: { role?: string; isSuperAdmin?: boolean } = {}) {
+function createHarness(options: { role?: string; isSuperAdmin?: boolean; discipline?: "restriction" | "suspension" } = {}) {
   const tx = {
+    disciplinaryAction: {
+      findFirst: vi.fn().mockResolvedValue(options.discipline ? { kind: options.discipline } : null),
+    },
     user: {
       findUnique: vi
         .fn()
@@ -69,6 +72,13 @@ function createHarness(options: { role?: string; isSuperAdmin?: boolean } = {}) 
 }
 
 describe("reported entity admin service", () => {
+  it("does not expose entity administration during an active restriction", async () => {
+    const h = createHarness({ discipline: "restriction" });
+    await expect(listReportedEntitiesForAdmin({ id: ACTOR_ID }, SPACE_ID, { limit: 50 }, h.client))
+      .rejects.toMatchObject({ status: 403 });
+    expect(h.tx.reportedEntity.findMany).not.toHaveBeenCalled();
+  });
+
   it("re-reads authorization and denies non-admin members before entity access", async () => {
     const h = createHarness({ role: "EDITOR" });
 

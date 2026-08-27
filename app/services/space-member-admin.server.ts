@@ -1,6 +1,7 @@
 import type { PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
 import { normalizeSpaceRole, type SpaceRole } from "~/lib/invitations";
+import { getEffectiveSpaceAccess } from "~/services/effective-space-access.server";
 
 type TransactionClient = Parameters<
   Parameters<PrismaClient["$transaction"]>[0]
@@ -37,26 +38,12 @@ async function requireCurrentAdministrator(
   actor: MembershipAdminActor,
   spaceId: string
 ): Promise<{ isSuperAdmin: boolean }> {
-  // Re-read this inside the transaction. The authenticated session is only an
-  // identity claim; space privileges can have changed since it was created.
-  const currentActor = await tx.user.findUnique({
-    where: { id: actor.id },
-    select: { isSuperAdmin: true },
-  });
-
-  if (!currentActor) forbidden("Authentication is no longer valid");
-  if (currentActor.isSuperAdmin) return currentActor;
-
-  const membership = await tx.userSpaceMembership.findUnique({
-    where: { userId_spaceId: { userId: actor.id, spaceId } },
-    select: { role: true },
-  });
-
-  if (normalizeSpaceRole(membership?.role ?? "") !== "ADMIN") {
+  const access = await getEffectiveSpaceAccess(tx, actor.id, spaceId);
+  if (!access.isSuperAdmin && access.role !== "ADMIN") {
     forbidden("Space administrator rights are required");
   }
 
-  return currentActor;
+  return { isSuperAdmin: access.isSuperAdmin };
 }
 
 async function requireSpaceMember(

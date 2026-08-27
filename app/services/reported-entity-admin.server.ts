@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
-import { normalizeSpaceRole } from "~/lib/invitations";
+import { getEffectiveSpaceAccess } from "~/services/effective-space-access.server";
 import type {
   CreateReportedEntityInput,
   ReportedEntityListQuery,
@@ -109,20 +109,8 @@ async function requireCurrentAdministrator(
   actor: ReportedEntityAdminActor,
   spaceId: string
 ): Promise<void> {
-  // The session supplies identity only. Re-read both global and space-scoped
-  // privileges in the transaction that serves or mutates entity data.
-  const currentActor = await tx.user.findUnique({
-    where: { id: actor.id },
-    select: { isSuperAdmin: true },
-  });
-  if (!currentActor) forbidden("Authentication is no longer valid");
-  if (currentActor.isSuperAdmin) return;
-
-  const membership = await tx.userSpaceMembership.findUnique({
-    where: { userId_spaceId: { userId: actor.id, spaceId } },
-    select: { role: true },
-  });
-  if (normalizeSpaceRole(membership?.role ?? "") !== "ADMIN") {
+  const access = await getEffectiveSpaceAccess(tx, actor.id, spaceId);
+  if (!access.isSuperAdmin && access.role !== "ADMIN") {
     forbidden("Space administrator rights are required");
   }
 }

@@ -1,7 +1,8 @@
 import { Prisma, type PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
 import { errors } from "~/lib/api/http-error";
-import { normalizeSpaceRole, type SpaceRole } from "~/lib/invitations";
+import type { SpaceRole } from "~/lib/invitations";
+import { getEffectiveSpaceAccess } from "~/services/effective-space-access.server";
 import type {
   CreatePostFlagInput,
   ModerationDecisionInput,
@@ -17,7 +18,7 @@ type TransactionClient = Parameters<
 >[0];
 type AuthorizationClient = Pick<
   TransactionClient,
-  "user" | "userSpaceMembership"
+  "user" | "userSpaceMembership" | "disciplinaryAction"
 >;
 type CurrentAccess = {
   isSuperAdmin: boolean;
@@ -135,25 +136,8 @@ async function getCurrentAccess(
   actor: Actor,
   spaceId: string
 ): Promise<CurrentAccess> {
-  // The session proves identity only. Global and space-specific privileges are
-  // always re-read from the database at the point of use.
-  const currentActor = await client.user.findUnique({
-    where: { id: actor.id },
-    select: { isSuperAdmin: true },
-  });
-  if (!currentActor) throw errors.unauthorized("Authentication is no longer valid");
-  if (currentActor.isSuperAdmin) {
-    return { isSuperAdmin: true, role: null };
-  }
-
-  const membership = await client.userSpaceMembership.findUnique({
-    where: { userId_spaceId: { userId: actor.id, spaceId } },
-    select: { role: true },
-  });
-  return {
-    isSuperAdmin: false,
-    role: membership ? normalizeSpaceRole(membership.role) : null,
-  };
+  const access = await getEffectiveSpaceAccess(client, actor.id, spaceId);
+  return { isSuperAdmin: access.isSuperAdmin, role: access.role };
 }
 
 function toFlagResponse(flag: SelectedFlag): PostFlagResponse {

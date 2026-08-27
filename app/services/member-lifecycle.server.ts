@@ -2,10 +2,7 @@ import type { PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
 import { normalizeSpaceRole } from "~/lib/invitations";
 import { verifyPassword } from "~/lib/password";
-import {
-  enqueueMediaDeletionForWhere,
-  processMediaDeletionJobs,
-} from "~/services/media-deletion.server";
+import { processMediaDeletionJobs } from "~/services/media-deletion.server";
 import type { MediaStorage } from "~/services/media-storage.server";
 
 type TransactionClient = Parameters<
@@ -36,65 +33,36 @@ function conflict(message: string): never {
 
 async function assertNotLastAdmin(
   tx: TransactionClient,
-  userId: string,
   spaceId: string,
   role: string
 ): Promise<void> {
   if (normalizeSpaceRole(role) !== "ADMIN") return;
 
-  const memberships = await tx.userSpaceMembership.findMany({
-    where: { spaceId },
-    select: { userId: true, role: true },
-  });
-  const adminCount = memberships.filter(
-    (membership) => normalizeSpaceRole(membership.role) === "ADMIN"
-  ).length;
-  if (adminCount <= 1) {
+  const [result] = await tx.$queryRaw<Array<{ allowed: boolean }>>`
+    SELECT safespace_private.own_membership_can_leave(${spaceId}::uuid) AS allowed
+  `;
+  if (!result?.allowed) {
     conflict("A space must retain at least one administrator");
   }
 }
 
 async function handleSpaceContributions(
   tx: TransactionClient,
-  userId: string,
-  spaceId: string,
+  spaceId: string | null,
   policy: ContributionPolicy
 ): Promise<string[]> {
-  const storageKeys = await enqueueMediaDeletionForWhere(
-    tx,
-    policy === "delete"
-      ? {
-          OR: [
-            { post: { authorId: userId, spaceId } },
-            { uploaderId: userId, post: { spaceId } },
-          ],
-        }
-      : { uploaderId: userId, post: { spaceId } },
-    { requestedByUserId: userId }
-  );
-  if (policy === "delete") {
-    await tx.post.deleteMany({ where: { authorId: userId, spaceId } });
-  } else {
-    // Preserving a report must not preserve its author's identity.
-    await tx.post.updateMany({
-      where: { authorId: userId, spaceId },
-      data: { authorId: null, isAnonymous: true },
-    });
+  // PostgreSQL derives the actor from the authenticated transaction context.
+  // This primitive touches only that actor's data, including rows hidden by
+  // suspension or a removed membership, and queues media before any cascade.
+  const [result] = await tx.$queryRaw<Array<{ storageKeys: string[] }>>`
+    SELECT safespace_private.withdraw_own_contributions(
+      ${spaceId}::uuid, ${policy}::text
+    ) AS "storageKeys"
+  `;
+  if (!result || !Array.isArray(result.storageKeys)) {
+    throw new Error("Contribution withdrawal did not return a storage cleanup result");
   }
-
-  // Media.uploaderId is mandatory (ON DELETE RESTRICT). It cannot be safely
-  // detached, so account/space departure removes the actor's uploaded media.
-  await tx.media.deleteMany({
-    where: { uploaderId: userId, post: { spaceId } },
-  });
-  await tx.postFlag.deleteMany({
-    where: { flaggerUserId: userId, post: { spaceId } },
-  });
-  await tx.postFlag.updateMany({
-    where: { resolvedByUserId: userId, post: { spaceId } },
-    data: { resolvedByUserId: null },
-  });
-  return storageKeys;
+  return result.storageKeys;
 }
 
 export async function leaveSpace(
@@ -119,10 +87,9 @@ export async function leaveSpace(
     // Composite-key lookup intentionally never falls back to another space.
     if (!membership) notFound("Membership not found in this space");
 
-    await assertNotLastAdmin(tx, actor.id, input.spaceId, membership.role);
+    await assertNotLastAdmin(tx, input.spaceId, membership.role);
     const storageKeys = await handleSpaceContributions(
       tx,
-      actor.id,
       input.spaceId,
       input.contributionPolicy
     );
@@ -180,7 +147,7 @@ export async function deleteAccount(
       select: { spaceId: true, role: true },
     });
     for (const membership of memberships) {
-      await assertNotLastAdmin(tx, actor.id, membership.spaceId, membership.role);
+      await assertNotLastAdmin(tx, membership.spaceId, membership.role);
     }
 
     // Space ownership remains mandatory. Blocking avoids cascading content
@@ -195,32 +162,7 @@ export async function deleteAccount(
       );
     }
 
-    const storageKeys = await enqueueMediaDeletionForWhere(
-      tx,
-      input.contributionPolicy === "delete"
-        ? { OR: [{ post: { authorId: actor.id } }, { uploaderId: actor.id }] }
-        : { uploaderId: actor.id },
-      { requestedByUserId: actor.id }
-    );
-
-    if (input.contributionPolicy === "delete") {
-      await tx.post.deleteMany({ where: { authorId: actor.id } });
-    } else {
-      await tx.post.updateMany({
-        where: { authorId: actor.id },
-        data: { authorId: null, isAnonymous: true },
-      });
-    }
-
-    await tx.media.deleteMany({ where: { uploaderId: actor.id } });
-    await tx.postFlag.deleteMany({ where: { flaggerUserId: actor.id } });
-    await tx.postFlag.updateMany({
-      where: { resolvedByUserId: actor.id },
-      data: { resolvedByUserId: null },
-    });
-    // Invites reference their sender with ON DELETE RESTRICT, so they must be
-    // invalidated/removed before deleting the user.
-    await tx.invite.deleteMany({ where: { invitedByUserId: actor.id } });
+    const storageKeys = await handleSpaceContributions(tx, null, input.contributionPolicy);
     await tx.userSpaceMembership.deleteMany({ where: { userId: actor.id } });
 
     await tx.auditLog.create({

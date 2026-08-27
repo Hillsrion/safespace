@@ -27,6 +27,7 @@ type HarnessOptions = {
   flagStatus?: "pending_review" | "resolved" | "rejected";
   flagSpaceId?: string;
   auditFailure?: boolean;
+  discipline?: "restriction" | "suspension";
 };
 
 function createHarness(options: HarnessOptions = {}) {
@@ -69,6 +70,9 @@ function createHarness(options: HarnessOptions = {}) {
   };
 
   const tx = {
+    disciplinaryAction: {
+      findFirst: vi.fn().mockResolvedValue(options.discipline ? { kind: options.discipline } : null),
+    },
     user: {
       findUnique: vi.fn(async () =>
         options.actorExists === false
@@ -132,6 +136,14 @@ function createHarness(options: HarnessOptions = {}) {
 }
 
 describe("post flag writes", () => {
+  it("does not let a restricted moderator decide flags", async () => {
+    const h = createHarness({ role: "MODERATOR", discipline: "restriction" });
+    await expect(decideModerationFlag({ id: actorId }, {
+      spaceId, flagId, status: "resolved",
+    }, h.client)).rejects.toMatchObject({ status: 403 });
+    expect(h.postFlagUpdate).not.toHaveBeenCalled();
+  });
+
   it("lets an active read-only member flag a visible post and audits atomically", async () => {
     const h = createHarness({ role: "READ_ONLY" });
 

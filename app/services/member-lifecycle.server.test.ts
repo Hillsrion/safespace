@@ -19,6 +19,7 @@ type HarnessOptions = {
   createdSpace?: boolean;
   isSuperAdmin?: boolean;
   superAdminCount?: number;
+  canLeaveAdmin?: boolean;
 };
 
 async function createHarness(options: HarnessOptions = {}) {
@@ -37,8 +38,14 @@ async function createHarness(options: HarnessOptions = {}) {
     auditUpdate: vi.fn(async () => ({ count: 0 })),
     userDelete: vi.fn(async () => ({})),
     userCount: vi.fn(async () => options.superAdminCount ?? 2),
+    privacyQuery: vi.fn(async (sql: TemplateStringsArray) =>
+      sql.join("").includes("own_membership_can_leave")
+        ? [{ allowed: options.canLeaveAdmin ?? false }]
+        : [{ storageKeys: [] }]
+    ),
   };
   const tx = {
+    $queryRaw: calls.privacyQuery,
     user: {
       findUnique: vi.fn(async ({ where }) =>
         where.id === actorId
@@ -89,13 +96,9 @@ describe("member lifecycle workflows", () => {
       leaveSpace({ id: actorId }, { spaceId, contributionPolicy: "anonymize" }, h.client)
     ).resolves.toEqual({ spaceId, contributionPolicy: "anonymize" });
 
-    expect(h.calls.postUpdate).toHaveBeenCalledWith({
-      where: { authorId: actorId, spaceId },
-      data: { authorId: null, isAnonymous: true },
-    });
-    expect(h.calls.mediaDelete).toHaveBeenCalledWith({
-      where: { uploaderId: actorId, post: { spaceId } },
-    });
+    expect(h.calls.privacyQuery).toHaveBeenCalledWith(
+      expect.any(Array), spaceId, "anonymize"
+    );
     expect(h.calls.membershipDelete).toHaveBeenCalledWith({
       where: { userId_spaceId: { userId: actorId, spaceId } },
     });
@@ -124,6 +127,15 @@ describe("member lifecycle workflows", () => {
       leaveSpace({ id: actorId }, { spaceId, contributionPolicy: "delete" }, h.client)
     ).rejects.toMatchObject<Partial<MemberLifecycleError>>({ status: 404 });
     expect(h.calls.membershipDelete).not.toHaveBeenCalled();
+  });
+
+  it("does not remove membership or audit success if private-data withdrawal fails", async () => {
+    const h = await createHarness();
+    h.calls.privacyQuery.mockRejectedValueOnce(new Error("withdrawal unavailable"));
+    await expect(leaveSpace({ id: actorId }, { spaceId, contributionPolicy: "delete" }, h.client))
+      .rejects.toThrow("withdrawal unavailable");
+    expect(h.calls.membershipDelete).not.toHaveBeenCalled();
+    expect(h.calls.auditCreate).not.toHaveBeenCalled();
   });
 
   it("requires the current password before deleting an account", async () => {
@@ -164,16 +176,9 @@ describe("member lifecycle workflows", () => {
       deleteAccount({ id: actorId }, { password: "Correct-password-1!", contributionPolicy: "anonymize" }, h.client)
     ).resolves.toEqual({ deletedUserId: actorId, contributionPolicy: "anonymize" });
 
-    expect(h.calls.postUpdate).toHaveBeenCalledWith({
-      where: { authorId: actorId },
-      data: { authorId: null, isAnonymous: true },
-    });
-    expect(h.calls.mediaDelete).toHaveBeenCalledWith({ where: { uploaderId: actorId } });
-    expect(h.calls.flagUpdate).toHaveBeenCalledWith({
-      where: { resolvedByUserId: actorId },
-      data: { resolvedByUserId: null },
-    });
-    expect(h.calls.inviteDelete).toHaveBeenCalledWith({ where: { invitedByUserId: actorId } });
+    expect(h.calls.privacyQuery).toHaveBeenCalledWith(
+      expect.any(Array), null, "anonymize"
+    );
     expect(h.calls.auditCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({ action: "account_delete", actorUserId: actorId }),
     });
@@ -182,5 +187,13 @@ describe("member lifecycle workflows", () => {
       data: { actorUserId: null },
     });
     expect(h.calls.userDelete).toHaveBeenCalledWith({ where: { id: actorId } });
+  });
+
+  it("allows an administrator to leave when the database confirms another active admin", async () => {
+    const h = await createHarness({ memberships: [{ spaceId, role: "ADMIN" }], canLeaveAdmin: true });
+    await expect(leaveSpace({ id: actorId }, { spaceId, contributionPolicy: "delete" }, h.client))
+      .resolves.toEqual({ spaceId, contributionPolicy: "delete" });
+    expect(h.calls.privacyQuery).toHaveBeenNthCalledWith(1, expect.any(Array), spaceId);
+    expect(h.calls.privacyQuery).toHaveBeenNthCalledWith(2, expect.any(Array), spaceId, "delete");
   });
 });

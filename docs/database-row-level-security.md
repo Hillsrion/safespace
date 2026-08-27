@@ -82,7 +82,8 @@ FROM pg_class
 WHERE relnamespace = 'public'::regnamespace
   AND relname IN ('User', 'Space', 'UserSpaceMembership', 'Invite',
                   'ReportedEntity', 'ReportedEntityHandle', 'Post', 'Media',
-                  'PostFlag', 'AuditLog', 'SavedSearch', 'MediaDeletionJob')
+                  'PostFlag', 'AuditLog', 'SavedSearch', 'MediaDeletionJob',
+                  'ModerationAppeal', 'DisciplinaryAction')
 ORDER BY relname;
 ```
 
@@ -103,3 +104,52 @@ les retries planifiés et les anciennes lignes sans propriétaire exigent le rô
 privilégié fourni par `SYSTEM_DATABASE_URL`. Un worker construit ce client avec
 `createSystemPrismaClient` depuis `app/db/system-client.server.ts`, puis le passe
 explicitement aux services concernés et le déconnecte à la fin du job.
+
+## Test d'intégration PostgreSQL en CI
+
+La CI déploie **toutes** les migrations sur PostgreSQL 16, puis exécute
+`scripts/verify-rls.ts`. Le script vérifie aussi les checksums enregistrés dans
+`_prisma_migrations` : une base ancienne, y compris sans
+`20260827013000_keep_own_discipline_visible`, ne peut pas produire un faux succès.
+
+Pour le reproduire sur une base **jetable et déjà migrée**, avec les dépendances
+du projet et le client Prisma généré :
+
+```sh
+NODE_ENV=test \
+RLS_TEST_ALLOW_SETUP=1 \
+RLS_TEST_ADMIN_DATABASE_URL='postgresql://postgres:password@127.0.0.1:5432/safespace_test' \
+yarn tsx scripts/verify-rls.ts
+```
+
+Cette URL administrative doit être celle d'un superutilisateur de la base de
+test, jamais celle d'une base de production. Elle sert à préparer les fixtures,
+accorder les privilèges et observer le résultat final. Le script ne retombe pas
+implicitement sur `DATABASE_URL`. Les requêtes testées utilisent une connexion
+distincte avec un rôle `LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT
+NOBYPASSRLS`, non propriétaire de chaque table. Le contexte est installé par le
+véritable client Prisma applicatif ; les refus SQL directs sont aussi vérifiés.
+
+Les assertions couvrent l'absence de contexte, l'isolation entre espaces, les
+posts/médias admin-only ou masqués, les écritures autorisées/interdites, les sanctions
+actives/indéfinies/expirées/révoquées, la gouvernance et la visibilité de sa propre
+sanction pendant une suspension. Le retrait de ses propres contributions reste
+possible sous restriction via le workflow dédié ; les suppressions SQL directes
+et la modération des contributions d'autrui sont refusées. `leaveSpace` est testé
+sous restriction et suspension,
+avec les deux choix suppression/anonymisation et un stockage injecté pour
+vérifier le passage par l'outbox sans appeler R2, y compris pour un administrateur
+suspendu. La primitive de retrait est testée sans identité, avec une identité
+inexistante, une policy invalide et un espace tiers. Le dernier administrateur
+actif ne peut pas partir au profit d'administrateurs suspendus.
+L'observation finale utilise le propriétaire afin de détecter les lignes
+toujours présentes mais cachées par RLS.
+Le test vérifie enfin que le pool Prisma n'a conservé aucune identité.
+
+Les mutations SQL d'autorisation sont annulées individuellement ; les workflows
+de départ sont validés après commit. Les fixtures portent des UUID et préfixes
+uniques ; elles sont supprimées à la fin, comme le rôle
+temporaire et ses droits. Une interruption forcée peut laisser ces éléments dans
+la base jetable : jeter la base est alors préférable à tout nettoyage global.
+Ce test ne remplace ni la vérification des rôles/secrets réellement déployés, ni
+les tests du stockage R2 et du point d'entrée HTTP d'authentification.

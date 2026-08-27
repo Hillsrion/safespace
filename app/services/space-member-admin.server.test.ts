@@ -15,6 +15,7 @@ type HarnessOptions = {
   spaceExists?: boolean;
   memberships?: Record<string, Role>;
   auditFailure?: boolean;
+  discipline?: "restriction" | "suspension";
 };
 
 const spaceId = "00000000-0000-4000-8000-000000000001";
@@ -53,6 +54,9 @@ function createHarness(options: HarnessOptions = {}) {
   });
 
   const tx = {
+    disciplinaryAction: {
+      findFirst: vi.fn().mockResolvedValue(options.discipline ? { kind: options.discipline } : null),
+    },
     space: {
       findUnique: vi.fn(async ({ where }) =>
         options.spaceExists === false || where.id !== spaceId ? null : { id: spaceId }
@@ -95,6 +99,14 @@ function createHarness(options: HarnessOptions = {}) {
 }
 
 describe("space member administration", () => {
+  it("does not let a restricted administrator change membership roles", async () => {
+    const h = createHarness({ discipline: "restriction" });
+    await expect(changeSpaceMemberRole({ id: actorId }, {
+      spaceId, userId: memberId, role: "MODERATOR",
+    }, h.client)).rejects.toMatchObject({ status: 403 });
+    expect(h.update).not.toHaveBeenCalled();
+  });
+
   it("changes an ordinary member role and writes its audit record in a serializable transaction", async () => {
     const h = createHarness();
 
