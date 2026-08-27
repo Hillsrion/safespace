@@ -16,6 +16,7 @@ import { useToastTrigger } from "~/hooks/use-toast-trigger";
 import { commitSession, getSession } from "~/services/session.server";
 import { getCurrentUser } from "~/services/auth.server";
 import { persistLastVisitedSpace } from "~/lib/last-visited-space";
+import { SearchBar } from "~/components/search-bar";
 
 interface RouteMatch {
   pathname: string;
@@ -28,8 +29,8 @@ function LastVisitedSpaceTracker() {
   const location = useLocation();
 
   useEffect(() => {
-    persistLastVisitedSpace(location.pathname);
-  }, [location.pathname]);
+    persistLastVisitedSpace(`${location.pathname}${location.search}`);
+  }, [location.pathname, location.search]);
 
   return null;
 }
@@ -127,6 +128,7 @@ export default function DashboardLayout() {
               </div>
             </div>
           </div>
+          <SearchBar />
           <Outlet />
         </main>
       </div>

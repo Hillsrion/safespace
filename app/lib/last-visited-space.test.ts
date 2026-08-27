@@ -30,7 +30,10 @@ describe("last visited space preference", () => {
     persistLastVisitedSpace(`/dashboard/spaces/${SPACE_A}`);
     expect(getLastVisitedSpaceId(document.cookie)).toBe(SPACE_A);
 
+    persistLastVisitedSpace(`/dashboard?spaceId=${SPACE_B}`);
+    expect(getLastVisitedSpaceId(document.cookie)).toBe(SPACE_B);
+
     persistLastVisitedSpace("/dashboard/spaces/not-a-uuid");
-    expect(getLastVisitedSpaceId(document.cookie)).toBe(SPACE_A);
+    expect(getLastVisitedSpaceId(document.cookie)).toBe(SPACE_B);
   });
 });

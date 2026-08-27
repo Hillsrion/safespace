@@ -7,6 +7,7 @@ import {
   processMediaDeletionJobs,
 } from "~/services/media-deletion.server";
 import type { MediaStorage } from "~/services/media-storage.server";
+import { getEffectiveSpaceAccess } from "~/services/effective-space-access.server";
 
 export { redactAnonymousPost } from "~/lib/post-privacy";
 
@@ -156,13 +157,25 @@ export async function getSpacePosts(
     select: { spaceId: true, role: true },
   });
 
-  const spaceIds = userSpaces.map((membership) => membership.spaceId);
+  const effectiveMemberships = await Promise.all(
+    userSpaces.map(async (membership) => ({
+      spaceId: membership.spaceId,
+      access: await getEffectiveSpaceAccess(client, userId, membership.spaceId),
+    }))
+  );
+  const accessibleMemberships = effectiveMemberships.filter(
+    ({ access }) => access.role !== null
+  );
+  const spaceIds = accessibleMemberships.map(({ spaceId }) => spaceId);
   const rolesBySpace = new Map(
-    userSpaces.map((membership) => [
-      membership.spaceId,
-      normalizeViewerRole(membership.role),
+    accessibleMemberships.map(({ spaceId, access }) => [
+      spaceId,
+      access.role,
     ])
   );
+  const elevatedSpaceIds = accessibleMemberships
+    .filter(({ access }) => access.role === "ADMIN" || access.role === "MODERATOR")
+    .map(({ spaceId }) => spaceId);
 
   if (spaceIds.length === 0 || (spaceId && !spaceIds.includes(spaceId))) {
     return { posts: [], nextCursor: undefined, hasNextPage: false };
@@ -178,23 +191,7 @@ export async function getSpacePosts(
         { isAdminOnly: false }, // Public posts
         {
           isAdminOnly: true,
-          space: {
-            memberships: {
-              some: {
-                userId,
-                role: {
-                  in: [
-                    "ADMIN",
-                    "MODERATOR",
-                    "Admin",
-                    "Moderator",
-                    "admin",
-                    "moderator",
-                  ],
-                },
-              },
-            },
-          },
+          spaceId: { in: elevatedSpaceIds },
         }, // Admin-only posts in spaces where user is admin/moderator
       ],
     },
@@ -246,7 +243,7 @@ export async function getSpacePosts(
 // NOTE: This function is so critical that it should be protected by a super admin check
 export async function getAllPosts(
   userId: string,
-  options: { limit?: number; cursor?: string } = {},
+  options: { limit?: number; cursor?: string; spaceId?: string } = {},
   client: PrismaClient = prisma
 ) {
   const user = await client.user.findUnique({
@@ -258,10 +255,11 @@ export async function getAllPosts(
     return { posts: [], nextCursor: undefined, hasNextPage: false };
   }
 
-  const { limit = 20, cursor } = options;
+  const { limit = 20, cursor, spaceId } = options;
   const actualLimit = limit;
 
   const posts = await client.post.findMany({
+    where: spaceId ? { spaceId } : undefined,
     include: {
       reportedEntity: {
         select: {
@@ -319,22 +317,8 @@ async function getCurrentSpaceAccess(
   actorId: string,
   spaceId: string
 ) {
-  const actor = await tx.user.findUnique({
-    where: { id: actorId },
-    select: {
-      isSuperAdmin: true,
-      memberships: {
-        where: { spaceId },
-        select: { role: true },
-        take: 1,
-      },
-    },
-  });
-
-  return {
-    isSuperAdmin: actor?.isSuperAdmin === true,
-    role: normalizeViewerRole(actor?.memberships[0]?.role),
-  };
+  const access = await getEffectiveSpaceAccess(tx, actorId, spaceId);
+  return { isSuperAdmin: access.isSuperAdmin, role: access.role };
 }
 
 /** Delete and its audit record either both commit or both roll back. */

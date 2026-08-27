@@ -31,11 +31,15 @@ export function selectAccessibleLastVisitedSpace<T extends { id: string }>(
   return spaces.find((space) => space.id === lastVisitedSpaceId) ?? null;
 }
 
-export function persistLastVisitedSpace(pathname: string): void {
+export function persistLastVisitedSpace(pathAndSearch: string): void {
   if (typeof document === "undefined") return;
 
-  const match = pathname.match(/^\/dashboard\/spaces\/([0-9a-f-]+)$/i);
-  const spaceId = match?.[1];
+  const url = new URL(pathAndSearch, window.location.origin);
+  const managementMatch = url.pathname.match(
+    /^\/dashboard\/spaces\/([0-9a-f-]+)$/i
+  );
+  const spaceId = managementMatch?.[1] ??
+    (url.pathname === "/dashboard" ? url.searchParams.get("spaceId") : null);
   if (!spaceId || !isUuid(spaceId)) return;
 
   const secure = window.location.protocol === "https:" ? "; Secure" : "";

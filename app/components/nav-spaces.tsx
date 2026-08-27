@@ -76,7 +76,7 @@ export function NavSpaces({
           align={isMobile ? "end" : "start"}
         >
           {canManageMembers(item.role) && <DropdownMenuItem asChild>
-            <Link to={item.url} className="cursor-pointer">
+            <Link to={`/dashboard/spaces/${encodeURIComponent(item.id)}`} className="cursor-pointer">
               <UsersIcon className="mr-2 h-4 w-4" />
               <span>Gérer les membres</span>
             </Link>

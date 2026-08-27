@@ -10,6 +10,9 @@ import { getCurrentUser } from "~/services/auth.server";
 import { getUserById } from "~/db/repositories/users.server";
 import type { Post } from "~/generated/prisma";
 import { POSTS_PAGE_LIMIT } from "~/lib/constants";
+import { z } from "zod";
+
+const uuidSchema = z.string().uuid();
 
 export type PaginatedPostsResponse = {
   posts: Array<Post & PostViewerPermissions>;
@@ -27,14 +30,21 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const cursor = url.searchParams.get("cursor") || undefined;
   const limitParam = url.searchParams.get("limit");
-  const limit = limitParam ? parseInt(limitParam, 10) : POSTS_PAGE_LIMIT;
+  const limit = limitParam ? Number(limitParam) : POSTS_PAGE_LIMIT;
+  const spaceId = url.searchParams.get("spaceId") || undefined;
 
-  if (isNaN(limit) || limit <= 0 || limit > 100) {
+  if (!Number.isInteger(limit) || limit <= 0 || limit > 100) {
     throw errors.badRequest(
       "Invalid limit parameter. Must be between 1 and 100",
       "bad_request:api",
       { limit: limitParam }
     );
+  }
+  if (spaceId && !uuidSchema.safeParse(spaceId).success) {
+    throw errors.badRequest("Invalid spaceId parameter");
+  }
+  if (cursor && !uuidSchema.safeParse(cursor).success) {
+    throw errors.badRequest("Invalid cursor parameter");
   }
 
   // Check if user is super admin
@@ -42,10 +52,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
   let result;
 
   if (fullUser?.isSuperAdmin) {
-    result = await getAllPosts(user.id, { cursor, limit });
+    result = await getAllPosts(user.id, { cursor, limit, spaceId });
   } else {
     // For regular users, fetch posts from spaces they are part of
-    result = await getSpacePosts(user.id, { cursor, limit });
+    result = await getSpacePosts(user.id, { cursor, limit, spaceId });
   }
 
   return data({

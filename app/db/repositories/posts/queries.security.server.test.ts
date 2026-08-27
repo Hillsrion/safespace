@@ -5,11 +5,14 @@ const mocks = {
   findMemberships: vi.fn(),
   findPosts: vi.fn(),
   findUser: vi.fn(),
+  findMembership: vi.fn(),
+  findDiscipline: vi.fn(),
 };
 
 const client = {
   user: { findUnique: mocks.findUser },
-  userSpaceMembership: { findMany: mocks.findMemberships },
+  userSpaceMembership: { findMany: mocks.findMemberships, findUnique: mocks.findMembership },
+  disciplinaryAction: { findFirst: mocks.findDiscipline },
   post: { findMany: mocks.findPosts },
 } as unknown as PrismaClient;
 
@@ -51,6 +54,9 @@ describe("secured post feed queries", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.findPosts.mockResolvedValue([anonymousPost]);
+    mocks.findUser.mockResolvedValue({ isSuperAdmin: false });
+    mocks.findMembership.mockResolvedValue({ role: "Moderator" });
+    mocks.findDiscipline.mockResolvedValue(null);
   });
 
   it("scopes a member feed and derives per-space viewer permissions", async () => {
@@ -117,5 +123,38 @@ describe("secured post feed queries", () => {
       viewerCanDelete: true,
       viewerCanModerate: true,
     });
+  });
+
+  it("removes suspended spaces from the query before loading content", async () => {
+    mocks.findMemberships.mockResolvedValue([{ spaceId: "space-1", role: "EDITOR" }]);
+    mocks.findDiscipline.mockResolvedValue({ kind: "suspension" });
+
+    await expect(getSpacePosts("editor-1", {}, client)).resolves.toEqual({
+      posts: [],
+      nextCursor: undefined,
+      hasNextPage: false,
+    });
+    expect(mocks.findPosts).not.toHaveBeenCalled();
+  });
+
+  it("does not expose moderation capabilities to a restricted moderator", async () => {
+    mocks.findMemberships.mockResolvedValue([{ spaceId: "space-1", role: "MODERATOR" }]);
+    mocks.findDiscipline.mockResolvedValue({ kind: "restriction" });
+
+    const result = await getSpacePosts("moderator-1", {}, client);
+    expect(result.posts[0]).toMatchObject({
+      viewerRole: "READ_ONLY",
+      viewerCanEdit: false,
+      viewerCanDelete: false,
+      viewerCanModerate: false,
+    });
+  });
+
+  it("keeps a super-admin feed scoped to the selected space", async () => {
+    mocks.findUser.mockResolvedValue({ isSuperAdmin: true });
+    await getAllPosts("root-1", { spaceId: "space-1" }, client);
+    expect(mocks.findPosts).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { spaceId: "space-1" } })
+    );
   });
 });

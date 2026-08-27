@@ -7,6 +7,7 @@ function transactionClient(options?: {
   actor?: { isSuperAdmin: boolean; memberships: Array<{ role: string }> } | null;
   updated?: Record<string, unknown>;
   auditError?: Error;
+  discipline?: "restriction" | "suspension";
 }) {
   const tx = {
     post: {
@@ -33,6 +34,18 @@ function transactionClient(options?: {
         }
       ),
     },
+    userSpaceMembership: {
+      findUnique: vi.fn().mockResolvedValue(
+        options?.actor === undefined
+          ? { role: "MODERATOR" }
+          : options.actor?.memberships[0] ?? null
+      ),
+    },
+    disciplinaryAction: {
+      findFirst: vi.fn().mockResolvedValue(
+        options?.discipline ? { kind: options.discipline } : null
+      ),
+    },
     auditLog: {
       create: options?.auditError
         ? vi.fn().mockRejectedValue(options.auditError)
@@ -48,6 +61,14 @@ function transactionClient(options?: {
 }
 
 describe("post mutation authorization", () => {
+  it("denies moderation and deletion during an active restriction", async () => {
+    const { client, tx } = transactionClient({ discipline: "restriction" });
+    await expect(deletePost("post-1", "moderator-1", client)).rejects.toMatchObject({ status: 403 });
+    await expect(updatePostStatus("post-1", "hidden", "moderator-1", client)).rejects.toMatchObject({ status: 403 });
+    expect(tx.post.delete).not.toHaveBeenCalled();
+    expect(tx.post.update).not.toHaveBeenCalled();
+  });
+
   it("rejects a former author after their space membership is removed", async () => {
     const { client, tx } = transactionClient({
       actor: { isSuperAdmin: false, memberships: [] },

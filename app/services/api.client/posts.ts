@@ -60,7 +60,8 @@ export function usePostFeedApi() {
 
   const getPosts = async (
     cursor: string,
-    limit: number
+    limit: number,
+    spaceId?: string
   ): Promise<{
     data: PaginatedPostsResponse | null;
     error: AppError | null;
@@ -71,6 +72,9 @@ export function usePostFeedApi() {
     }
     if (limit) {
       params.append("limit", String(limit));
+    }
+    if (spaceId) {
+      params.append("spaceId", spaceId);
     }
     const queryString = params.toString();
 

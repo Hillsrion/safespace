@@ -21,7 +21,7 @@ export const useSpaces = () => {
     data?.spaces?.map((space: TSpace) => ({
       id: space.id,
       name: space.name,
-      url: `/dashboard/spaces/${space.id}`,
+      url: `/dashboard?spaceId=${encodeURIComponent(space.id)}`,
       role: space.role,
     })) || [];
 
