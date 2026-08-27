@@ -1,67 +1,93 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import debounce from "lodash-es/debounce";
-import { useSearchApi } from "~/services/api.client/search";
-import type { SearchResults } from "~/services/api.client/search";
-import type { SearchFilters } from "~/services/api.client/search";
 
-// Define types for results based on the API response structure
-// The API returns an array of objects, each with a 'type' and 'data' field.
-// 'data' can be of various shapes (Post, ReportedEntity, etc.)
-interface SearchResultItemData {
-  id: string;
-  // Common fields, specific fields depend on the 'type'
-  description?: string; // For Post
-  name?: string; // For ReportedEntity
-  // Add other potential fields from different data types if known, or keep it general
-  [key: string]: any;
-}
+import {
+  useSearchApi,
+  type SearchFilters,
+  type SearchResults,
+} from "~/services/api.client/search";
 
-interface SearchResultItem {
-  type: string; // e.g., "post", "reportedEntity"
-  data: SearchResultItemData;
-}
-
+/**
+ * Client search state with two privacy and correctness guarantees:
+ * closing clears previous results, and a response is accepted only when it
+ * still belongs to the most recent query/filter snapshot.
+ */
 export function useSearch() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<SearchFilters>({ type: "all" });
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
+  const requestVersion = useRef(0);
   const { search } = useSearchApi();
+  const searchRef = useRef(search);
 
-  const fetchResults = useCallback(async (query: string, nextFilters: SearchFilters) => {
-    if (!query.trim()) {
+  useEffect(() => {
+    searchRef.current = search;
+  }, [search]);
+
+  const fetchResults = useCallback(
+    async (query: string, nextFilters: SearchFilters, version: number) => {
+      if (!query.trim()) {
+        if (version === requestVersion.current) {
+          setResults(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (version === requestVersion.current) setLoading(true);
+      try {
+        const response = await searchRef.current(query, nextFilters);
+        if (version !== requestVersion.current) return;
+        setResults(response.data ?? null);
+      } catch {
+        // API error text may include sensitive request context. The generic API
+        // hook handles the user-facing message; this palette retains no data.
+        if (version === requestVersion.current) setResults(null);
+      } finally {
+        if (version === requestVersion.current) setLoading(false);
+      }
+    },
+    []
+  );
+
+  const debouncedFetchResults = useMemo(
+    () => debounce(fetchResults, 300),
+    [fetchResults]
+  );
+
+  useEffect(() => {
+    const version = ++requestVersion.current;
+    if (!searchTerm.trim()) {
+      debouncedFetchResults.cancel();
       setResults(null);
       setLoading(false);
       return;
     }
+
     setLoading(true);
-    try {
-      const response = await search(query, nextFilters);
-      if (!response.data) {
-        setResults(null);
-        return;
-      }
-      setResults(response.data);
-    } catch (error) {
-      console.error("Failed to fetch search results:", error);
-      setResults(null);
-    } finally {
-      setLoading(false);
-    }
-  // `search` is backed by the generic API hook and is intentionally captured
-  // once; recreating the debounced callback on each loading-state render would
-  // issue duplicate requests.
-  }, []);
-
-  const debouncedFetchResults = useCallback(debounce(fetchResults, 500), [fetchResults]);
-
-  useEffect(() => {
-    debouncedFetchResults(searchTerm, filters);
-
-    return () => {
-      debouncedFetchResults.cancel();
-    };
+    debouncedFetchResults(searchTerm, filters, version);
+    return () => debouncedFetchResults.cancel();
   }, [searchTerm, filters, debouncedFetchResults]);
 
-  return { searchTerm, setSearchTerm, filters, setFilters, results, loading };
+  useEffect(() => () => debouncedFetchResults.cancel(), [debouncedFetchResults]);
+
+  const resetSearch = useCallback(() => {
+    ++requestVersion.current;
+    debouncedFetchResults.cancel();
+    setSearchTerm("");
+    setFilters({ type: "all" });
+    setResults(null);
+    setLoading(false);
+  }, [debouncedFetchResults]);
+
+  return {
+    searchTerm,
+    setSearchTerm,
+    filters,
+    setFilters,
+    results,
+    loading,
+    resetSearch,
+  };
 }
