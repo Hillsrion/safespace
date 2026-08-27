@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   findInvite: vi.fn(), claim: vi.fn(), createUser: vi.fn(), membership: vi.fn(),
   hash: vi.fn(), setSession: vi.fn(), log: vi.fn(),
+  currentUser: vi.fn(), login: vi.fn(), accept: vi.fn(),
 }));
 vi.mock("../../../db/client.server", () => ({ prisma: { $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn({
   invite: { findFirst: mocks.findInvite, updateMany: mocks.claim },
@@ -13,7 +14,10 @@ vi.mock("../../../services/session.server", () => ({
   getSession: async () => ({ set: mocks.setSession }), commitSession: async () => "safe-session",
 }));
 vi.mock("../../../lib/error/server-error.server", () => ({ logServerException: mocks.log }));
+vi.mock("../../../services/auth.server", async () => ({ ...await vi.importActual("../../../services/auth.server"), getCurrentUser: mocks.currentUser, login: mocks.login }));
+vi.mock("../../../services/invite-acceptance.server", async () => ({ ...await vi.importActual("../../../services/invite-acceptance.server"), acceptInvitationForExistingUser: mocks.accept }));
 import { action } from "./action";
+import { InvalidCredentialsError } from "../../../services/auth.server";
 
 const SPACE = "11111111-1111-4111-8111-111111111111";
 function submit(overrides: Record<string, string> = {}) {
@@ -27,6 +31,9 @@ describe("registration acceptance and destination", () => {
     mocks.claim.mockResolvedValue({ count: 1 });
     mocks.hash.mockResolvedValue("hashed");
     mocks.createUser.mockResolvedValue({ id: "new-member" });
+    mocks.currentUser.mockResolvedValue(null);
+    mocks.login.mockResolvedValue({ id: "existing-member", email: "member@example.test" });
+    mocks.accept.mockResolvedValue({ spaceId: SPACE });
   });
   it("requires explicit conduct acceptance before accessing the invitation", async () => {
     const response = await submit({ codeOfConductAccepted: "false" });
@@ -55,5 +62,32 @@ describe("registration acceptance and destination", () => {
     expect(response).toMatchObject({ init: { status: 500 } });
     expect(JSON.stringify(response)).not.toContain("private-email");
     expect(mocks.log).toHaveBeenCalled();
+  });
+  it("authenticates an existing account before accepting and does not create another account", async () => {
+    const response = await submit({ intent: "accept-invite" });
+    expect((response as Response).headers.get("Location")).toBe(`/dashboard/welcome?spaceId=${SPACE}`);
+    expect(mocks.login).toHaveBeenCalledWith("member@example.test", "Strong#Pass2026");
+    expect(mocks.accept).toHaveBeenCalledWith({ id: "existing-member", email: "member@example.test" }, "test-token");
+    expect(mocks.createUser).not.toHaveBeenCalled();
+    expect(mocks.setSession).toHaveBeenCalledWith("userId", "existing-member");
+  });
+  it("uses current session identity instead of submitted identity for signed-in acceptance", async () => {
+    const actor = { id: "signed-in-member", email: "member@example.test" };
+    mocks.currentUser.mockResolvedValue(actor);
+    await submit({ intent: "accept-invite", email: "attacker@example.test", userId: "another-user" });
+    expect(mocks.login).not.toHaveBeenCalled();
+    expect(mocks.accept).toHaveBeenCalledWith(actor, "test-token");
+  });
+  it("requires conduct acceptance before logging in or joining", async () => {
+    expect(await submit({ intent: "accept-invite", codeOfConductAccepted: "false" })).toMatchObject({ init: { status: 400 } });
+    expect(mocks.login).not.toHaveBeenCalled();
+    expect(mocks.accept).not.toHaveBeenCalled();
+  });
+  it("does not consume an invitation or emit telemetry on invalid credentials", async () => {
+    mocks.login.mockRejectedValue(new InvalidCredentialsError());
+    expect(await submit({ intent: "accept-invite" })).toMatchObject({ init: { status: 401 } });
+    expect(mocks.accept).not.toHaveBeenCalled();
+    expect(mocks.log).not.toHaveBeenCalled();
+    expect(mocks.setSession).not.toHaveBeenCalled();
   });
 });

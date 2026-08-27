@@ -8,11 +8,31 @@ import { isInviteEligible, normalizeSpaceRole } from "~/lib/invitations";
 import { getInviteTokenCandidates } from "~/lib/invite-token.server";
 import { runWithDbContext } from "~/db/context.server";
 import { logServerException } from "~/lib/error/server-error.server";
+import { getCurrentUser, InvalidCredentialsError, login } from "~/services/auth.server";
+import { acceptInvitationForExistingUser, InvalidInviteError } from "~/services/invite-acceptance.server";
 
 export async function action({ request }: { request: Request }) {
   requireSameOrigin(request);
+  if (request.method.toUpperCase() !== "POST") {
+    return data({ errors: { fieldErrors: {}, formErrors: ["Method not allowed"] } }, { status: 405, headers: { Allow: "POST" } });
+  }
   try {
     const formData = await request.formData();
+    if (formData.get("intent") === "accept-invite") {
+      const token = String(formData.get("inviteToken") ?? "").trim();
+      const accepted = ["on", "true"].includes(String(formData.get("codeOfConductAccepted")));
+      if (!accepted || !token) {
+        return data({ errors: { fieldErrors: {}, formErrors: ["A valid invitation and Code of Conduct acceptance are required."] } }, { status: 400 });
+      }
+      const currentUser = await getCurrentUser(request);
+      const user = currentUser ?? await login(String(formData.get("email") ?? ""), String(formData.get("password") ?? ""));
+      const { spaceId } = await acceptInvitationForExistingUser(user, token);
+      const session = await getSession(request);
+      session.set("userId", user.id);
+      return redirect(`/dashboard/welcome?${new URLSearchParams({ spaceId })}`, {
+        status: 303, headers: { "Set-Cookie": await commitSession(session) },
+      });
+    }
     const dataObj = {
       ...Object.fromEntries(formData),
       codeOfConductAccepted:
@@ -110,6 +130,9 @@ export async function action({ request }: { request: Request }) {
       },
     });
   } catch (error) {
+    if (error instanceof InvalidCredentialsError) {
+      return data({ errors: { fieldErrors: {}, formErrors: ["Invalid credentials"] } }, { status: 401 });
+    }
     if (error instanceof InvalidInviteError) {
       return data(
         {
@@ -136,5 +159,3 @@ export async function action({ request }: { request: Request }) {
     );
   }
 }
-
-class InvalidInviteError extends Error {}

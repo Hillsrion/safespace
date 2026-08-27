@@ -35,11 +35,11 @@ export async function action({ request }: { request: Request }) {
 
 export async function loader({ request }: { request: Request }) {
   const user = await getCurrentUser(request);
-  if (user) return redirect("/dashboard");
 
   const token = new URL(request.url).searchParams.get("token")?.trim() ?? "";
   if (!token) {
-    return { invite: null, token: "" };
+    if (user) return redirect("/dashboard");
+    return { invite: null, token: "", signedIn: false };
   }
 
   const inviteTokens = getInviteTokenCandidates(token);
@@ -59,7 +59,8 @@ export async function loader({ request }: { request: Request }) {
   );
 
   const isValid = Boolean(
-    invite && !invite.isUsed && invite.expiresAt > new Date()
+    invite && !invite.isUsed && invite.expiresAt > new Date() &&
+      (!user || user.email.toLowerCase() === invite.email.toLowerCase())
   );
 
   return {
@@ -72,11 +73,12 @@ export async function loader({ request }: { request: Request }) {
         }
       : null,
     token: isValid ? token : "",
+    signedIn: Boolean(user),
   };
 }
 
 export default function Register() {
-  const { invite, token } = useLoaderData<typeof loader>();
+  const { invite, token, signedIn } = useLoaderData<typeof loader>();
   const { form, actionData } = useRegister(invite?.email ?? "", token);
 
   return (
@@ -84,8 +86,8 @@ export default function Register() {
       <div className="container mx-auto px-4 py-8">
         <Card className="w-full max-w-md mx-auto">
           <div className="flex flex-col items-center justify-center p-6">
-            <h2 className="text-2xl font-bold tracking-tight">Register</h2>
-            <p className="text-sm text-muted-foreground mt-1">Create your account</p>
+            <h2 className="text-2xl font-bold tracking-tight">{signedIn ? "Join a space" : "Register"}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{signedIn ? "Accept your invitation" : "Create your account or join with an existing one"}</p>
           </div>
           <CardContent>
             {!invite ? (
@@ -112,7 +114,7 @@ export default function Register() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             ))}
-            <Form {...form}>
+            {!signedIn && <Form {...form}>
               <RemixForm method="post" className="space-y-4">
                 <input type="hidden" {...form.register("inviteToken")} />
                 <FormField
@@ -281,7 +283,26 @@ export default function Register() {
                   Register
                 </Button>
               </RemixForm>
-            </Form>
+            </Form>}
+
+            {invite && <section className="mt-6 border-t pt-4 space-y-4" aria-label="Accept with an existing account">
+              <h3 className="font-medium">{signedIn ? "Rejoindre cet espace" : "Vous avez déjà un compte ?"}</h3>
+              <RemixForm method="post" className="space-y-4">
+                <input type="hidden" name="intent" value="accept-invite" />
+                <input type="hidden" name="inviteToken" value={token} />
+                {!signedIn && <>
+                  <label className="block text-sm" htmlFor="existing-email">Email du compte</label>
+                  <Input id="existing-email" name="email" type="email" autoComplete="username" defaultValue={invite.email} required />
+                  <label className="block text-sm" htmlFor="existing-password">Mot de passe du compte</label>
+                  <Input id="existing-password" name="password" type="password" autoComplete="current-password" required />
+                </>}
+                <label className="flex items-start gap-3 text-sm">
+                  <input type="checkbox" name="codeOfConductAccepted" required className="mt-1" />
+                  <span>J’accepte la <Link className="underline" to="/community-policy" target="_blank" rel="noopener noreferrer">charte de conduite et les règles de publication</Link>.</span>
+                </label>
+                <Button type="submit">{signedIn ? "Accepter l’invitation" : "Se connecter et accepter l’invitation"}</Button>
+              </RemixForm>
+            </section>}
 
             <p className="text-center text-sm mt-3">
               Already have an account?{" "}

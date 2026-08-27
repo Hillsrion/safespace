@@ -17,6 +17,12 @@ l’invitation validée. L’accueil relit les accès effectifs (suspension comp
 explique les possibilités du rôle courant et conduit au fil de cet espace.
 Une URL ancienne ou manipulée ne confère aucun accès supplémentaire.
 
+Un compte existant peut aussi accepter depuis ce même lien, soit avec sa session
+ouverte, soit en se connectant dans le formulaire dédié. La transaction relit
+son adresse, la compare à l’invitation, consomme le jeton une seule fois et crée
+l’adhésion au rôle prévu. Aucun compte supplémentaire n’est créé et aucune
+adhésion existante n’est remplacée. Le consentement explicite reste requis.
+
 Ces règles constituent une base de fonctionnement du produit, pas des CGU
 juridiquement validées ni une attestation de conformité RGPD. Avant mise en
 production, l’exploitant doit valider la charte, ses procédures humaines de
