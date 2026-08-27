@@ -42,6 +42,24 @@ Les tests d’intégration observent le résultat avec le propriétaire de la ba
 un post seulement caché par RLS ne peut pas être confondu avec un post supprimé
 ou réellement anonymisé.
 
+## Compte et export après perte d’accès
+
+La page « Mon compte » lit les adhésions propres sans jointure obligatoire vers
+les espaces : un espace masqué par RLS est affiché avec un libellé générique, et
+le bouton de départ reste accessible. Cela ne permet pas de consulter son fil.
+
+L’export JSON v2 appelle `safespace_private.export_own_contributions()`, fonction
+en lecture seule dérivant l’identité du contexte SQL, sans paramètre utilisateur.
+Elle inclut les rapports dont la personne reste l’auteur, les métadonnées de ses
+propres envois et ses flags, même après suspension/exclusion. Les clés de stockage,
+octets des médias, identités des autres membres, destinataires et jetons des
+invitations ne sont pas exportés. Les entités cibles sont référencées par ID :
+l’export ne rouvre pas leurs fiches actuelles. Les noms d’espaces inaccessibles
+restent `null`. Le profil, recherches sauvegardées, appels et sanctions propres
+sont ajoutés avec des sélections explicites sous RLS ; les champs retournés par
+la primitive sont validés strictement avant téléchargement. Les contributions
+déjà anonymisées ne sont plus liées au compte et ne peuvent pas être récupérées.
+
 ## Limites de notification et de session
 
 Le projet ne possède aujourd’hui qu’un service email pour les invitations. Ces

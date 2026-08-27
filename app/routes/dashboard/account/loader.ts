@@ -21,7 +21,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
           orderBy: { joinedAt: "asc" },
           select: {
             role: true,
-            space: { select: { id: true, name: true } },
+            spaceId: true,
           },
         },
       },
@@ -33,5 +33,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw new Response("Utilisateur non trouvé", { status: 404 });
   }
 
-  return data({ ...user, moderationDecisions });
+  // Own memberships remain visible after suspension, but their Space row
+  // does not. A required Prisma relation would throw instead of letting this
+  // member reach their data controls and leave the inaccessible space.
+  const spaces = await prisma.space.findMany({
+    where: { id: { in: user.memberships.map(({ spaceId }) => spaceId) } },
+    select: { id: true, name: true },
+  });
+  const spacesById = new Map(spaces.map((space) => [space.id, space]));
+  return data({
+    ...user,
+    memberships: user.memberships.map(({ spaceId, role }) => ({
+      role,
+      space: spacesById.get(spaceId) ?? { id: spaceId, name: "Espace à accès suspendu" },
+    })),
+    moderationDecisions,
+  });
 }

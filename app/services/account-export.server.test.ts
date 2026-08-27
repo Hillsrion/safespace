@@ -1,70 +1,64 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "~/generated/prisma";
 import { exportAccountData } from "./account-export.server";
 
 const actorId = "00000000-0000-4000-8000-000000000010";
+const date = "2026-01-01T00:00:00.000Z";
+const ownMedia = { id: "media-1", fileName: "proof.jpg", mimeType: "image/jpeg", fileSize: 100, metadataStripped: true, isBlurred: true, createdAt: date };
+const ownData = {
+  contributions: [{
+    id: "own-post", spaceId: "suspended", reportedEntityId: "entity-1", description: "My report",
+    isAnonymous: true, isAdminOnly: false, status: "hidden", severity: null, verificationStatus: null,
+    createdAt: date, updatedAt: date, media: [ownMedia],
+  }],
+  uploadedMedia: [{ ...ownMedia, postId: "own-post" }], moderationFlags: [], sentInviteCount: 1,
+};
 
 describe("account data export", () => {
-  it("exports owned data without credentials, storage keys or third-party PII", async () => {
-    const findUnique = vi.fn().mockResolvedValue({
-      id: actorId,
-      email: "member@example.com",
-      firstName: "Safe",
-      lastName: "Member",
-      instagram: "safe.member",
-      isSuperAdmin: false,
-      codeOfConductAcceptedAt: new Date("2026-01-01T00:00:00.000Z"),
-      createdAt: new Date("2026-01-01T00:00:00.000Z"),
-      updatedAt: new Date("2026-01-02T00:00:00.000Z"),
-      memberships: [],
-      authoredPosts: [
-        {
-          id: "post-1",
-          spaceId: "space-1",
-          description: "My report",
-          isAnonymous: true,
-          isAdminOnly: false,
-          status: "active",
-          severity: null,
-          verificationStatus: null,
-          createdAt: new Date("2026-01-03T00:00:00.000Z"),
-          updatedAt: new Date("2026-01-03T00:00:00.000Z"),
-          reportedEntity: { id: "entity-1", name: "Entity", handles: [] },
-          media: [
-            {
-              id: "media-1",
-              fileName: "proof.jpg",
-              mimeType: "image/jpeg",
-              fileSize: 100,
-              metadataStripped: true,
-              isBlurred: true,
-              createdAt: new Date("2026-01-03T00:00:00.000Z"),
-            },
-          ],
-        },
-      ],
-      postedFlags: [],
-      auditLogs: [],
-      _count: { sentInvites: 1 },
+  const tx = {
+    user: { findUnique: vi.fn() }, $queryRaw: vi.fn(),
+    space: { findMany: vi.fn() }, savedSearch: { findMany: vi.fn() },
+    moderationAppeal: { findMany: vi.fn() }, disciplinaryAction: { findMany: vi.fn() },
+  };
+  const client = { $transaction: vi.fn(async (callback) => callback(tx)) } as unknown as PrismaClient;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    tx.user.findUnique.mockResolvedValue({
+      id: actorId, email: "member@example.com", firstName: "Safe", lastName: "Member", instagram: null,
+      isSuperAdmin: false, codeOfConductAcceptedAt: new Date(date), createdAt: new Date(date), updatedAt: new Date(date),
+      memberships: [{ spaceId: "suspended", role: "EDITOR", joinedAt: new Date(date) }], auditLogs: [],
+      password: "must-not-be-forwarded-even-if-a-query-changes",
     });
-    const tx = { user: { findUnique } };
-    const client = {
-      $transaction: vi.fn(async (callback) => callback(tx)),
-    } as unknown as PrismaClient;
+    tx.$queryRaw.mockResolvedValue([{ userId: actorId, ownData }]);
+    tx.space.findMany.mockResolvedValue([]);
+    tx.savedSearch.findMany.mockResolvedValue([]);
+    tx.moderationAppeal.findMany.mockResolvedValue([]);
+    tx.disciplinaryAction.findMany.mockResolvedValue([]);
+  });
 
+  it("exports owned data after access loss without credentials, storage keys or third-party identity", async () => {
     const result = await exportAccountData({ id: actorId }, client);
     const serialized = JSON.stringify(result);
-
+    expect(result.version).toBe(2);
     expect(result.profile.email).toBe("member@example.com");
-    expect(result.contributions[0].media[0]).toMatchObject({
-      fileName: "proof.jpg",
-      metadataStripped: true,
-    });
+    expect(result.contributions[0].media[0]).toMatchObject({ fileName: "proof.jpg", metadataStripped: true });
+    expect(result.memberships[0]).toMatchObject({ spaceId: "suspended", spaceName: null });
     expect(serialized).not.toContain("password");
     expect(serialized).not.toContain("storageKey");
-    expect(serialized).not.toContain("invited@example.com");
-    expect(client.$transaction).toHaveBeenCalledWith(expect.any(Function), {
-      isolationLevel: "RepeatableRead",
-    });
+    expect(serialized).not.toContain("uploaderId");
+    expect(client.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "RepeatableRead" });
+    expect(tx.user.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({ memberships: { orderBy: { joinedAt: "asc" }, select: { role: true, joinedAt: true, spaceId: true } } }),
+    }));
+  });
+
+  it("rejects a mismatched SQL identity, even if a privileged caller can read that profile", async () => {
+    tx.$queryRaw.mockResolvedValue([{ userId: "someone-else", ownData }]);
+    await expect(exportAccountData({ id: actorId }, client)).rejects.toMatchObject({ status: 401 });
+  });
+
+  it("fails closed if the SQL export grows an unsafe field", async () => {
+    tx.$queryRaw.mockResolvedValue([{ userId: actorId, ownData: { ...ownData, storageKey: "secret" } }]);
+    await expect(exportAccountData({ id: actorId }, client)).rejects.toThrow();
   });
 });

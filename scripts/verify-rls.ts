@@ -11,6 +11,8 @@ import { PrismaClient, Prisma } from "../app/generated/prisma";
 import { MissingDbContextError, runWithDbContext } from "../app/db/context.server";
 import { createContextualPrismaClient } from "../app/db/contextual-client.server";
 import { leaveSpace } from "../app/services/member-lifecycle.server";
+import { acceptInvitationForExistingUser, InvalidInviteError } from "../app/services/invite-acceptance.server";
+import { exportAccountData } from "../app/services/account-export.server";
 import type { MediaStorage } from "../app/services/media-storage.server";
 
 type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
@@ -39,6 +41,8 @@ const ids = {
   publicPost: randomUUID(), privatePost: randomUUID(), foreignPost: randomUUID(), hiddenPost: randomUUID(),
   publicMedia: randomUUID(), privateMedia: randomUUID(), foreignMedia: randomUUID(), hiddenMedia: randomUUID(),
   flag: randomUUID(), appeal: randomUUID(), targetDiscipline: randomUUID(),
+  existingInvite: randomUUID(), wrongEmailInvite: randomUUID(), overwriteInvite: randomUUID(),
+  exportForeignMedia: randomUUID(), exportOwnFlag: randomUUID(),
 };
 const past = new Date(Date.now() - 86_400_000);
 const future = new Date(Date.now() + 86_400_000);
@@ -56,6 +60,7 @@ const scenarios: Scenario[] = scenarioDefinitions.map((scenario) => ({
   ...scenario, id: randomUUID(), actionId: randomUUID(), postId: randomUUID(), mediaId: randomUUID(),
   role: scenario.name.startsWith("indefinite") ? "ADMIN" : "MODERATOR",
 }));
+const exportSubject = scenarios.find(({ name }) => name === "active suspension")!;
 const departures = (["restriction", "suspension"] as const).flatMap((kind) =>
   (["delete", "anonymize"] as const).map((policy) => ({
     kind, policy, id: randomUUID(), postId: randomUUID(), mediaId: randomUUID(),
@@ -212,6 +217,7 @@ async function main(): Promise<void> {
         media(ids.privateMedia, ids.privatePost, ids.admin),
         media(ids.hiddenMedia, ids.hiddenPost, ids.reader),
         media(ids.foreignMedia, ids.foreignPost, ids.outsider),
+        media(ids.exportForeignMedia, exportSubject.postId, ids.editor),
         ...scenarios.map(({ id, postId, mediaId }) => media(mediaId, postId, id)),
         ...departures.map(({ id, postId, mediaId, storageKey }) => media(mediaId, postId, id, storageKey)),
       ] });
@@ -219,7 +225,13 @@ async function main(): Promise<void> {
         email: `invite-${runId}@rls.invalid`, token: runId, spaceId: ids.spaceB,
         invitedByUserId: ids.outsider, roleToAssign: "EDITOR", expiresAt: future,
       } });
+      await tx.invite.createMany({ data: [
+        { id: ids.existingInvite, email: `${runId}-${ids.outsider}@rls.invalid`, token: `accept-${runId}`, roleToAssign: "EDITOR" },
+        { id: ids.wrongEmailInvite, email: `${runId}-${ids.reader}@rls.invalid`, token: `wrong-email-${runId}`, roleToAssign: "EDITOR" },
+        { id: ids.overwriteInvite, email: `${runId}-${ids.editor}@rls.invalid`, token: `overwrite-${runId}`, roleToAssign: "ADMIN" },
+      ].map((invite) => ({ ...invite, spaceId: ids.spaceA, invitedByUserId: ids.admin, expiresAt: future })) });
       await tx.postFlag.create({ data: { id: ids.flag, postId: ids.publicPost, flaggerUserId: ids.reader, reason: "RLS fixture", status: "resolved" } });
+      await tx.postFlag.create({ data: { id: ids.exportOwnFlag, postId: ids.publicPost, flaggerUserId: exportSubject.id, reason: "Own export fixture" } });
       await tx.moderationAppeal.create({ data: { id: ids.appeal, spaceId: ids.spaceA, postFlagId: ids.flag, filedByUserId: ids.reader, reason: "RLS fixture" } });
       await tx.disciplinaryAction.createMany({ data: [
         { id: ids.targetDiscipline, spaceId: ids.spaceA, userId: ids.reader, issuedByUserId: ids.admin, kind: "warning", level: 1, reason: "RLS fixture" },
@@ -413,6 +425,75 @@ async function main(): Promise<void> {
       }
     }
 
+    const verifyOwnExport = async () => {
+      const result = await as({ id: exportSubject.id }, () => exportAccountData({ id: exportSubject.id }, scoped));
+      assert.deepEqual(result.contributions.map(({ id }) => id), [exportSubject.postId]);
+      assert.deepEqual(result.contributions[0].media.map(({ id }) => id), [exportSubject.mediaId], "An author's export must exclude another uploader's media metadata");
+      assert.deepEqual(result.uploadedMedia.map(({ id }) => id), [exportSubject.mediaId]);
+      assert.deepEqual(result.moderationFlags.map(({ id }) => id), [ids.exportOwnFlag]);
+      const serialized = JSON.stringify(result);
+      for (const forbidden of ['"password"', '"storageKey"', '"uploaderId"', ids.foreignPost, ids.exportForeignMedia, ids.outsider, ids.editor]) {
+        assert.ok(!serialized.includes(forbidden), `Self export leaked forbidden field or foreign data: ${forbidden}`);
+      }
+      return result;
+    };
+    await check("suspended account export retains only own contributions without sensitive media fields", async () => {
+      assert.equal(await as({ id: exportSubject.id }, () => scoped.post.count({ where: { id: exportSubject.postId } })), 0);
+      const result = await verifyOwnExport();
+      assert.equal(result.memberships.find(({ spaceId }) => spaceId === ids.spaceA)?.spaceName, null, "Export must not re-expose a suspended space's name");
+    });
+    await check("account export survives membership removal without exposing other contributors", async () => {
+      await admin.userSpaceMembership.delete({ where: { userId_spaceId: { userId: exportSubject.id, spaceId: ids.spaceA } } });
+      try {
+        const result = await verifyOwnExport();
+        assert.ok(result.memberships.every(({ spaceId }) => spaceId !== ids.spaceA));
+      } finally {
+        await admin.userSpaceMembership.create({ data: { userId: exportSubject.id, spaceId: ids.spaceA, role: exportSubject.role } });
+      }
+    });
+    await check("self-export SQL primitive rejects a connection without context", async () => {
+      await assert.rejects(
+        () => rollback(null, (tx) => tx.$queryRaw`SELECT safespace_private.export_own_contributions()`),
+        (error: unknown) => error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2010" && error.meta?.code === "42501"
+      );
+    });
+    await check("existing-account invitation accepts matching email/token without creating an account", async () => {
+      const before = await admin.user.count();
+      try {
+        const result = await acceptInvitationForExistingUser(
+          { id: ids.outsider, email: `${runId}-${ids.outsider}@rls.invalid` }, `accept-${runId}`, scoped
+        );
+        assert.equal(result.spaceId, ids.spaceA);
+        assert.equal(await admin.user.count(), before);
+        assert.equal((await admin.userSpaceMembership.findUnique({ where: { userId_spaceId: { userId: ids.outsider, spaceId: ids.spaceA } } }))?.role, "EDITOR");
+        assert.equal((await admin.invite.findUnique({ where: { id: ids.existingInvite } }))?.isUsed, true);
+        assert.equal(await admin.userSpaceMembership.count({ where: { userId: ids.outsider, spaceId: ids.spaceB } }), 1);
+      } finally {
+        // Restore isolation fixtures while keeping the token consumed, so the
+        // next assertion tests token reuse independently of existing membership.
+        await admin.userSpaceMembership.deleteMany({ where: { userId: ids.outsider, spaceId: ids.spaceA } });
+      }
+    });
+    await check("existing-account invitation rejects a used token without membership writes", async () => {
+      await assert.rejects(() => acceptInvitationForExistingUser(
+        { id: ids.outsider, email: `${runId}-${ids.outsider}@rls.invalid` }, `accept-${runId}`, scoped
+      ), InvalidInviteError);
+      assert.equal(await admin.userSpaceMembership.count({ where: { userId: ids.outsider, spaceId: ids.spaceA } }), 0);
+    });
+    await check("existing-account invitation rejects another email and rolls back its claim", async () => {
+      await assert.rejects(() => acceptInvitationForExistingUser(
+        { id: ids.outsider, email: `${runId}-${ids.outsider}@rls.invalid` }, `wrong-email-${runId}`, scoped
+      ), InvalidInviteError);
+      assert.equal((await admin.invite.findUnique({ where: { id: ids.wrongEmailInvite } }))?.isUsed, false);
+      assert.equal(await admin.userSpaceMembership.count({ where: { userId: ids.outsider, spaceId: ids.spaceA } }), 0);
+    });
+    await check("existing-account invitation cannot overwrite a membership role; claim rolls back", async () => {
+      await assert.rejects(() => acceptInvitationForExistingUser(
+        { id: ids.editor, email: `${runId}-${ids.editor}@rls.invalid` }, `overwrite-${runId}`, scoped
+      ), InvalidInviteError);
+      assert.equal((await admin.userSpaceMembership.findUnique({ where: { userId_spaceId: { userId: ids.editor, spaceId: ids.spaceA } } }))?.role, "EDITOR");
+      assert.equal((await admin.invite.findUnique({ where: { id: ids.overwriteInvite } }))?.isUsed, false);
+    });
     await check("withdrawal primitive denies missing or nonexistent identity", async () => {
       for (const actor of [null, { id: randomUUID() }]) {
         await assert.rejects(
