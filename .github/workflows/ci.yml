@@ -69,3 +69,5 @@ jobs:
 
       - name: Build production bundles
         run: yarn build
+        env:
+          NODE_ENV: production

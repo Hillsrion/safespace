@@ -103,7 +103,7 @@ netlify deploy --prod
 - `yarn dev` - Start development server
 - `yarn build` - Create production build
 - `yarn test` - Run tests
-- `yarn check` - Run type checking and the complete test suite
+- `yarn run check` - Run type checking and the complete test suite (plain `yarn check` invokes Yarn Classic's dependency checker instead)
 - `yarn prisma:generate` - Generate Prisma client
 - `yarn prisma:deploy` - Apply pending migrations in production
 - `yarn db:seed` - Seed the database
