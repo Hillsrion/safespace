@@ -34,6 +34,7 @@ export default [
   index(routePath("home.tsx")),
   route(REGISTER_PATH, routePath("auth/register/index.tsx")),
   route(LOGIN_PATH, routePath("auth/login/index.tsx")),
+  route(":spaceId/login", routePath("space-login.tsx")),
   route("auth/superadmin/login", routePath("auth/superadmin/login.tsx")),
   route("auth/logout", routePath("auth/logout.tsx")),
   route(DASHBOARD_PATH, layoutPath("dashboard.tsx"), [
