@@ -31,7 +31,7 @@ Variables runtime à fournir dans Coolify, pas dans les build arguments :
 | Variable | Valeur / usage |
 | --- | --- |
 | `APP_URL` | Origine HTTPS canonique, par exemple `https://safe.example`, sans chemin ni identifiants. |
-| `DATABASE_URL` | PostgreSQL : rôle applicatif non propriétaire, `NOBYPASSRLS`, avec les grants RLS requis. |
+| `DATABASE_URL` | PostgreSQL, schéma `public` : rôle applicatif non propriétaire, `NOBYPASSRLS`, avec les grants RLS requis. |
 | `SESSION_SECRET` | Secret aléatoire privé d'au moins 24 caractères, identique entre réplicas. |
 | `NODE_ENV` | `production` (déjà défini dans l'image). |
 | `HOST`, `PORT` | `0.0.0.0`, `3000` par défaut ; aligner le port interne du proxy et du healthcheck. |

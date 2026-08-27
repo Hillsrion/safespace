@@ -46,7 +46,9 @@ test("production config requires HTTPS, private session key and no privileged UR
     { NODE_ENV: "test" }, { APP_URL: "http://safe.example" },
     { APP_URL: "https://user:password@safe.example" }, { APP_URL: "https://safe.example/path" },
     { APP_URL: "https://safe.example?query=1" }, { SESSION_SECRET: "short" },
-    { DATABASE_URL: "" }, { SYSTEM_DATABASE_URL: "postgresql://owner@db/safe" },
+    { DATABASE_URL: "" }, { DATABASE_URL: "postgresql://app@db/safe?schema=unprotected" },
+    { DATABASE_URL: "mysql://app@db/safe" }, { SESSION_SECRET: " ".repeat(30) },
+    { SYSTEM_DATABASE_URL: "postgresql://owner@db/safe" },
     { PORT: "0" }, { PORT: "3000invalid" }, { SHUTDOWN_TIMEOUT_MS: "0" },
   ]) assert.throws(() => runtimeConfig({ ...env, ...override }));
 });

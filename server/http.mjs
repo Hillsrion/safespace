@@ -38,8 +38,12 @@ export function runtimeConfig(env = process.env) {
     throw new Error("APP_URL must be a canonical HTTPS origin without credentials, path, query or fragment");
   }
   if (!env.DATABASE_URL) throw new Error("DATABASE_URL is required");
+  const database = new URL(env.DATABASE_URL);
+  if (!["postgres:", "postgresql:"].includes(database.protocol) || (database.searchParams.get("schema") ?? "public") !== "public") {
+    throw new Error("DATABASE_URL must use PostgreSQL and the public schema protected by the migrations");
+  }
   if (env.SYSTEM_DATABASE_URL?.trim()) throw new Error("SYSTEM_DATABASE_URL must not be present in the web runtime");
-  if (!env.SESSION_SECRET || env.SESSION_SECRET.length < 24 || env.SESSION_SECRET === "your_session_secret_here") {
+  if (!env.SESSION_SECRET || env.SESSION_SECRET.trim().length < 24 || env.SESSION_SECRET === "your_session_secret_here") {
     throw new Error("SESSION_SECRET must contain a private value of at least 24 characters");
   }
   const port = Number(env.PORT ?? 3000);

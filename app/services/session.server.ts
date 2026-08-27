@@ -6,7 +6,7 @@ const sessionSecret = process.env.SESSION_SECRET;
 
 if (
   !sessionSecret ||
-  sessionSecret.length < 24 ||
+  sessionSecret.trim().length < 24 ||
   sessionSecret === "your_session_secret_here"
 ) {
   throw new Error(
