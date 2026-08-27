@@ -1,5 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { HttpError, errors } from "~/lib/api/http-error";
+import { logServerException } from "~/lib/error/server-error.server";
+import { publicMessageForStatus } from "~/lib/error/public";
 import { errorResponse } from "~/lib/api/response";
 import {
   adminUserListQuerySchema,
@@ -16,12 +18,16 @@ function boundaryError(error: unknown, message: string): Response {
   if (error instanceof HttpError) return error.toResponse();
   if (error instanceof SuperAdminUserError) {
     return errorResponse(
-      error.message,
+      publicMessageForStatus(error.status),
       error.status === 403 ? "forbidden:auth" : "not_found:api",
       error.status
     );
   }
-  console.error(message, error);
+  logServerException(error, {
+    operation: "space.mutate",
+    errorCode: "server_error:api",
+    httpStatus: 500,
+  });
   return errorResponse(message, "server_error:api", 500);
 }
 

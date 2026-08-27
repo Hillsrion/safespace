@@ -111,7 +111,7 @@ describe("member lifecycle resource actions", () => {
     expect(destroySession).toHaveBeenCalledTimes(2);
   });
 
-  it("returns transactional conflict outcomes without deleting a session", async () => {
+  it("keeps reviewed 409 recovery messages without deleting a session", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(actor as never);
     vi.mocked(leaveSpace).mockRejectedValue(
       new MemberLifecycleError(409, "A space must retain at least one administrator")
@@ -123,6 +123,47 @@ describe("member lifecycle resource actions", () => {
       context: undefined,
     } as never);
     expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "A space must retain at least one administrator",
+    });
     expect(destroySession).not.toHaveBeenCalled();
+
+    vi.mocked(deleteAccount).mockRejectedValue(
+      new MemberLifecycleError(
+        409,
+        "Account owns spaces that must be transferred before deletion"
+      )
+    );
+    const transfer = await deleteAccountAction({
+      request: request("DELETE", {
+        confirmation: "DELETE_ACCOUNT",
+        contributionPolicy: "delete",
+        password: "Correct-password-1!",
+      }),
+      params: {},
+      context: undefined,
+    } as never);
+    expect(transfer.status).toBe(409);
+    await expect(transfer.json()).resolves.toMatchObject({
+      error: "Account owns spaces that must be transferred before deletion",
+    });
+  });
+
+  it("does not reflect an unreviewed domain error message", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(actor as never);
+    vi.mocked(leaveSpace).mockRejectedValue(
+      new MemberLifecycleError(409, "Private space Alice for victim@example.com")
+    );
+
+    const response = await leaveSpaceAction({
+      request: request("POST", { confirmation: "LEAVE_SPACE", contributionPolicy: "delete" }),
+      params: { spaceId },
+      context: undefined,
+    } as never);
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "The request conflicts with the current state. Refresh and try again.",
+    });
   });
 });

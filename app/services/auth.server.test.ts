@@ -9,7 +9,7 @@ vi.mock("bcryptjs", () => ({
 
 import bcrypt from "bcryptjs";
 import { prisma } from "../db/client.server";
-import { login, withoutPassword } from "./auth.server";
+import { InvalidCredentialsError, login, withoutPassword } from "./auth.server";
 
 describe("authenticated user projection", () => {
   it("keeps password hashes out of session-safe user data", () => {
@@ -37,7 +37,7 @@ describe("login timing safety", () => {
 
     await expect(
       login("missing@example.com", "Wrong-password-1!")
-    ).rejects.toThrow("Invalid credentials");
+    ).rejects.toBeInstanceOf(InvalidCredentialsError);
 
     expect(bcrypt.compare).toHaveBeenCalledWith(
       "Wrong-password-1!",

@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 
 import { HttpError, errors } from "~/lib/api/http-error";
+import { logServerException } from "~/lib/error/server-error.server";
 import {
   appealDecisionSchema,
   appealsQuerySchema,
@@ -32,8 +33,10 @@ function methodNotAllowed(allowed: string) {
 
 function failure(error: unknown, message: string): Response {
   if (error instanceof HttpError) return error.toResponse();
-  console.error(message, {
-    errorType: error instanceof Error ? error.name : "UnknownError",
+  logServerException(error, {
+    operation: "moderation.mutate",
+    errorCode: "server_error:api",
+    httpStatus: 500,
   });
   return Response.json(
     { success: false, error: message, code: "server_error:api" },

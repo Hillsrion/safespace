@@ -1,7 +1,12 @@
 import { redirect } from "react-router";
 import { commitSession, getSession } from "~/services/session.server";
-import { login, isAuthenticated } from "~/services/auth.server";
-import { DASHBOARD_PATH, LOGIN_PATH } from "~/routes";
+import {
+  InvalidCredentialsError,
+  login,
+  isAuthenticated,
+} from "~/services/auth.server";
+import { DASHBOARD_PATH, LOGIN_PATH } from "~/lib/route-paths";
+import { logServerException } from "~/lib/error/server-error.server";
 import { requireSameOrigin } from "~/lib/security.server";
 
 async function redirectToLogin(session: any): Promise<Response> {
@@ -37,9 +42,15 @@ export async function action({ request }: { request: Request }) {
       },
     });
   } catch (error) {
-    if (error instanceof Error) {
-      session.flash("error", error.message);
+    if (!(error instanceof InvalidCredentialsError)) {
+      logServerException(error, {
+        operation: "auth.login",
+        errorCode: "server_error:api",
+        httpStatus: 500,
+      });
     }
+    // Keep invalid credentials and technical failures indistinguishable.
+    session.flash("error", "Invalid credentials");
     return redirectToLogin(session);
   }
 }

@@ -1,6 +1,7 @@
 import type { LoaderFunctionArgs } from "react-router";
 
 import { HttpError } from "~/lib/api/http-error";
+import { logServerException } from "~/lib/error/server-error.server";
 import { getCurrentUser } from "~/services/auth.server";
 import { exportAccountData } from "~/services/account-export.server";
 
@@ -31,7 +32,11 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<Response>
     });
   } catch (error) {
     if (error instanceof HttpError) return error.toResponse();
-    console.error("Failed to export account data", error);
+    logServerException(error, {
+      operation: "account.export",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
     return Response.json(
       { success: false, error: "Failed to export account data" },
       { status: 500, headers: { "Cache-Control": "private, no-store" } }

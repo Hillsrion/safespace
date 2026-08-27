@@ -2,6 +2,8 @@ import type { ActionFunctionArgs } from "react-router";
 import { z } from "zod";
 
 import { HttpError, errors } from "~/lib/api/http-error";
+import { logServerException } from "~/lib/error/server-error.server";
+import { publicDomainErrorMessage } from "~/lib/error/public";
 import { requireSameOrigin } from "~/lib/security.server";
 import {
   deleteAccount,
@@ -26,9 +28,19 @@ const deleteAccountSchema = z.object({
 function actionError(error: unknown, message: string): Response {
   if (error instanceof HttpError) return error.toResponse();
   if (error instanceof MemberLifecycleError) {
-    return Response.json({ success: false, error: error.message }, { status: error.status });
+    return Response.json(
+      {
+        success: false,
+        error: publicDomainErrorMessage(error.status, error.message),
+      },
+      { status: error.status }
+    );
   }
-  console.error(message, error);
+  logServerException(error, {
+    operation: "account.delete",
+    errorCode: "server_error:api",
+    httpStatus: 500,
+  });
   return errors.internalServerError(message);
 }
 

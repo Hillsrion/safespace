@@ -1,6 +1,5 @@
 import { toast } from '~/hooks/use-toast';
 import { parseError } from './parse';
-import type { AppError } from './types';
 
 type ErrorHandlerOptions = {
   defaultMessage?: string;
@@ -21,11 +20,6 @@ export function handleError(
       description: message,
       variant: 'destructive',
     });
-  }
-
-  // Log server errors or other important errors
-  if (error && (error as AppError).status && (error as AppError).status >= 500) {
-    console.error('Server Error:', error);
   }
 
   return message;

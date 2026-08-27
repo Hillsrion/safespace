@@ -6,6 +6,8 @@
 
 export const OBSERVABILITY_OPERATIONS = [
   "account.delete",
+  "account.export",
+  "account.update",
   "auth.login",
   "auth.register",
   "database.query",

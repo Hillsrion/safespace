@@ -1,80 +1,41 @@
-/**
- * Simple logger utility that can be extended with more features later
- * Provides consistent logging format and error handling
- */
+import {
+  sanitizeObservabilityContext,
+  type ObservabilityContext,
+} from "~/lib/observability/privacy";
 
 type LogLevel = "debug" | "info" | "warn" | "error";
 
-type LogMeta = Record<string, unknown>;
-
-const formatMessage = (level: LogLevel, message: string, meta?: LogMeta) => {
-  try {
-    return JSON.stringify({
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      ...meta,
-    });
-  } catch (error) {
-    console.error("Failed to format log message:", error);
-    return JSON.stringify({
-      timestamp: new Date().toISOString(),
-      level: "error",
-      message: "Failed to format log message",
-      originalMessage: message,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-};
-
 /**
- * Logger instance with different log levels
+ * This interface deliberately accepts only privacy-allowlisted telemetry.
+ * It cannot serialize an Error, a Request, URLs, user data, or arbitrary
+ * metadata into server logs.
  */
+function formatMessage(
+  level: LogLevel,
+  event: "server_exception" | "operational_event",
+  context: ObservabilityContext
+): string {
+  const safe = sanitizeObservabilityContext(context);
+  return JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level,
+    event,
+    ...safe.tags,
+    ...safe.measurements,
+  });
+}
+
 export const logger = {
-  /**
-   * Log a debug message
-   * @param message The message to log
-   * @param meta Additional metadata to include in the log
-   */
-  debug: (message: string, meta?: LogMeta) => {
-    console.debug(formatMessage("debug", message, meta));
+  debug: (context: ObservabilityContext) => {
+    console.debug(formatMessage("debug", "operational_event", context));
   },
-
-  /**
-   * Log an informational message
-   * @param message The message to log
-   * @param meta Additional metadata to include in the log
-   */
-  info: (message: string, meta?: LogMeta) => {
-    console.info(formatMessage("info", message, meta));
+  info: (context: ObservabilityContext) => {
+    console.info(formatMessage("info", "operational_event", context));
   },
-
-  /**
-   * Log a warning message
-   * @param message The message to log
-   * @param meta Additional metadata to include in the log
-   */
-  warn: (message: string, meta?: LogMeta) => {
-    console.warn(formatMessage("warn", message, meta));
+  warn: (context: ObservabilityContext) => {
+    console.warn(formatMessage("warn", "operational_event", context));
   },
-
-  /**
-   * Log an error message or Error object
-   * @param message The error message or Error object
-   * @param meta Additional metadata to include in the log
-   */
-  error: (message: string | Error, meta?: LogMeta) => {
-    const errorMessage = message instanceof Error ? message.message : message;
-    const errorStack = message instanceof Error ? message.stack : undefined;
-
-    console.error(
-      formatMessage("error", errorMessage, {
-        ...meta,
-        ...(errorStack && { stack: errorStack }),
-        ...(message instanceof Error && {
-          error: { name: message.name, message: message.message },
-        }),
-      })
-    );
+  error: (context: ObservabilityContext) => {
+    console.error(formatMessage("error", "server_exception", context));
   },
 };

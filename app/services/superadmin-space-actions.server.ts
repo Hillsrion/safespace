@@ -1,5 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { HttpError, errors } from "~/lib/api/http-error";
+import { logServerException } from "~/lib/error/server-error.server";
+import { publicMessageForStatus } from "~/lib/error/public";
 import { errorResponse as apiErrorResponse } from "~/lib/api/response";
 import { requireSameOrigin } from "~/lib/security.server";
 import {
@@ -30,9 +32,13 @@ function actionErrorResponse(error: unknown, message: string): Response {
         : error.status === 404
           ? "not_found:api"
           : "bad_request:api";
-    return apiErrorResponse(error.message, code, error.status, error.details);
+    return apiErrorResponse(publicMessageForStatus(error.status), code, error.status);
   }
-  console.error(message, error);
+  logServerException(error, {
+    operation: "space.mutate",
+    errorCode: "server_error:api",
+    httpStatus: 500,
+  });
   return apiErrorResponse(message, "server_error:api", 500);
 }
 

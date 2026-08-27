@@ -25,6 +25,7 @@ import {
   INVITE_TTL_MS,
 } from "~/lib/invite-token.server";
 import { normalizeSpaceRole } from "~/lib/invitations";
+import { logServerException } from "~/lib/error/server-error.server";
 import { requireSameOrigin } from "~/lib/security.server";
 import { getCurrentUser } from "~/services/auth.server";
 import {
@@ -174,7 +175,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
   try {
     origin = appOrigin(request);
   } catch (error) {
-    console.error("Invitation URL configuration error", error);
+    logServerException(error, {
+      operation: "space.mutate",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
     return data<ActionData>(
       { message: "La configuration du lien d’invitation est invalide." },
       { status: 500 }
@@ -299,7 +304,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
     }
     if (error instanceof Response) throw error;
 
-    console.error("Failed to create invitation", error);
+    logServerException(error, {
+      operation: "space.mutate",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
     return data<ActionData>(
       { message: "Impossible de créer l’invitation." },
       { status: 500 }

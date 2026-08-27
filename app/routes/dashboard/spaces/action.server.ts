@@ -7,6 +7,7 @@ import {
   createSpaceWithAdmin,
 } from "~/db/repositories/spaces/queries.server";
 import { requireSameOrigin } from "~/lib/security.server";
+import { logServerException } from "~/lib/error/server-error.server";
 
 export type ActionData = {
   errors?: {
@@ -70,7 +71,11 @@ export async function action({ request }: ActionFunctionArgs) {
       },
     });
   } catch (error) {
-    console.error("Erreur lors de la création de l’espace:", error);
+    logServerException(error, {
+      operation: "space.mutate",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
     return data<ActionData>(
       {
         message: "Erreur lors de la création de l'espace. Veuillez réessayer.",

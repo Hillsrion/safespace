@@ -2,6 +2,7 @@ import { data, type ActionFunctionArgs } from "react-router";
 import { getCurrentUser } from "~/services/auth.server";
 import { accountSchema } from "~/hooks/useAccount";
 import { requireSameOrigin } from "~/lib/security.server";
+import { logServerException } from "~/lib/error/server-error.server";
 import {
   AccountProfileError,
   updateOwnAccount,
@@ -79,7 +80,11 @@ export async function action({ request }: ActionFunctionArgs) {
         { status: error.status }
       );
     }
-    console.error("Error updating account:", error);
+    logServerException(error, {
+      operation: "account.update",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
     return data(
       {
         errors: {

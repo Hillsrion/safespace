@@ -1,11 +1,12 @@
 import { data, type LoaderFunctionArgs } from "react-router";
-import { useLoaderData, useParams, useRouteError, isRouteErrorResponse } from "react-router"; // Added useRouteError, isRouteErrorResponse
+import { useLoaderData, useRouteError, isRouteErrorResponse } from "react-router"; // Added useRouteError, isRouteErrorResponse
 import { reportedEntityRepository } from "~/db/repositories/reportedEntities/index.server";
 import { requireUser } from "~/services/auth.server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 import { Post as PostComponent } from "~/components/post";
 import type { TPost } from "~/lib/types"; // Only TPost is needed from here now
+import { logServerException } from "~/lib/error/server-error.server";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id: entityId } = params;
@@ -29,8 +30,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     return data({ entity, posts });
   } catch (error) {
-    console.error("Error in ReportedEntity loader:", error);
-
     // If requireUserId throws a Response, or we throw one, re-throw it
     if (error instanceof Response) {
       throw error;
@@ -44,6 +43,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
 
     // Generic error for other cases
+    logServerException(error, {
+      operation: "moderation.mutate",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
     throw new Response("Error loading reported entity page.", { status: 500 });
   }
 }
@@ -55,13 +59,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 export default function ReportedEntityPage() {
   const { entity, posts } = useLoaderData<typeof loader>(); // Renamed back to posts
-  const params = useParams();
 
   if (!entity) {
     return (
       <div className="container mx-auto p-4 text-center">
         <h1 className="text-2xl font-bold text-red-600">Reported Entity Not Found</h1>
-        <p className="text-gray-500">No entity found with ID: {params.id}</p>
+        <p className="text-gray-500">Aucune entité accessible n’a été trouvée.</p>
       </div>
     );
   }
@@ -119,8 +122,6 @@ export default function ReportedEntityPage() {
 
 export function ErrorBoundary() {
   const error = useRouteError();
-  const params = useParams();
-
   // Using Tailwind classes for ErrorBoundary styling
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
@@ -131,13 +132,19 @@ export function ErrorBoundary() {
         <CardContent className="text-red-600">
           {isRouteErrorResponse(error) ? (
             <>
-              <p className="font-semibold">Status: {error.status} {error.statusText}</p>
-              <p>Data: {typeof error.data === 'string' ? error.data : error.data?.message || JSON.stringify(error.data)}</p>
+              <p className="font-semibold">Status: {error.status}</p>
+              <p>
+                {error.status === 404
+                  ? "La ressource demandée est introuvable."
+                  : error.status === 403
+                    ? "Vous n’avez pas accès à cette ressource."
+                    : "La requête n’a pas pu aboutir."}
+              </p>
             </>
           ) : (
-            <p>{error instanceof Error ? error.message : "An unknown error occurred."}</p>
+            <p>Une erreur inattendue est survenue.</p>
           )}
-          <p className="mt-2">Failed to load data for entity ID: {params.id}.</p>
+          <p className="mt-2">Impossible de charger les données demandées.</p>
         </CardContent>
       </Card>
     </div>

@@ -7,6 +7,7 @@ import type { ActionResult, PostStatus } from "~/db/repositories/posts/types";
 import { requireSameOrigin } from "~/lib/security.server";
 import { errorResponse } from "~/lib/api/response";
 import { HttpError } from "~/lib/api/http-error";
+import { logServerException } from "~/lib/error/server-error.server";
 
 type StatusAction = "hide" | "unhide";
 
@@ -43,7 +44,11 @@ export async function action({
     return Response.json({ success: true, action } satisfies ActionResult<StatusAction>);
   } catch (error) {
     if (error instanceof HttpError) return error.toResponse();
-    console.error(`Error ${action} post:`, error);
+    logServerException(error, {
+      operation: "post.update",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
     return errorResponse(
       `Failed to ${action} post`,
       "server_error:api",

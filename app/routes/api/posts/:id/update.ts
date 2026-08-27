@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { updateReport } from "~/db/repositories/posts/write.server";
 import { HttpError, errors } from "~/lib/api/http-error";
+import { logServerException } from "~/lib/error/server-error.server";
 import { errorResponse } from "~/lib/api/response";
 import { reportIdSchema, updateReportSchema } from "~/lib/reports";
 import { requireSameOrigin } from "~/lib/security.server";
@@ -44,7 +45,11 @@ export async function action({ request, params }: ActionFunctionArgs) {
     );
   } catch (error) {
     if (error instanceof HttpError) return error.toResponse();
-    console.error("Failed to update report", error);
+    logServerException(error, {
+      operation: "post.update",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
     return errorResponse(
       "Failed to update report",
       "server_error:api",

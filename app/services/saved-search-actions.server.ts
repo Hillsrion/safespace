@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 
 import { HttpError, errors } from "~/lib/api/http-error";
+import { logServerException } from "~/lib/error/server-error.server";
 import {
   savedSearchCreateSchema,
   savedSearchIdParamsSchema,
@@ -25,7 +26,11 @@ function methodNotAllowed(allowed: string): Response {
 
 function errorResponse(error: unknown, message: string): Response {
   if (error instanceof HttpError) return error.toResponse();
-  console.error(message, error);
+  logServerException(error, {
+    operation: "search.execute",
+    errorCode: "server_error:api",
+    httpStatus: 500,
+  });
   return Response.json(
     { success: false, error: message, code: "server_error:api" },
     { status: 500 }

@@ -42,6 +42,14 @@ const errorMessage = "Invalid credentials";
 const INVALID_LOGIN_PASSWORD_HASH =
   "$2b$12$sNfRvwDCcSBHi9fsBUTC9euzo4zPGBupSR.Zli50.dVdczq1FtEbK";
 
+/** Expected authentication rejection: never report it as a server incident. */
+export class InvalidCredentialsError extends Error {
+  constructor() {
+    super(errorMessage);
+    this.name = "InvalidCredentialsError";
+  }
+}
+
 export async function login(
   email: string,
   password: string
@@ -63,7 +71,7 @@ export async function login(
     user?.password ?? INVALID_LOGIN_PASSWORD_HASH
   );
   if (!user || !isValidPassword) {
-    throw new Error(errorMessage);
+    throw new InvalidCredentialsError();
   }
 
   return withoutPassword(user);
@@ -117,7 +125,7 @@ authenticator.use(
     const password = form.get("password") as string;
 
     if (!email || !password) {
-      throw new Error(errorMessage);
+      throw new InvalidCredentialsError();
     }
 
     // Authenticate user

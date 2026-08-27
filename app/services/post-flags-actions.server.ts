@@ -6,6 +6,7 @@ import {
   listModerationFlags,
 } from "~/db/repositories/posts/flags.server";
 import { HttpError, errors } from "~/lib/api/http-error";
+import { logServerException } from "~/lib/error/server-error.server";
 import {
   moderationDecisionSchema,
   moderationFlagPathSchema,
@@ -30,7 +31,11 @@ function methodNotAllowed(allowed: string): Response {
 
 function unexpectedError(error: unknown, message: string): Response {
   if (error instanceof HttpError) return error.toResponse();
-  console.error(message, error);
+  logServerException(error, {
+    operation: "moderation.mutate",
+    errorCode: "server_error:api",
+    httpStatus: 500,
+  });
   return Response.json(
     { success: false, error: message, code: "server_error:api" },
     { status: 500 }

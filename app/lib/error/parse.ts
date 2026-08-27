@@ -1,22 +1,10 @@
 import type { AppError } from './types';
 
 export function parseError(error: unknown): string {
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  if (error instanceof Error) {
+  if (isAppError(error) && error.status >= 400 && error.status < 500) {
     return error.message;
   }
-
-  if (typeof error === 'object' && error !== null) {
-    const appError = error as Partial<AppError>;
-    if (appError.message) {
-      return appError.message;
-    }
-  }
-
-  return 'An error occurred';
+  return "An error occurred";
 }
 
 export function isAppError(error: unknown): error is AppError {

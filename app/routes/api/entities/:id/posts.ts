@@ -3,6 +3,7 @@ import { reportedEntityRepository } from "~/db/repositories/reportedEntities/ind
 import { requireUserId } from "~/services/auth.server";
 import { errors } from "~/lib/api/http-error"; // Import custom errors utility
 import { HttpError } from "~/lib/api/http-error"; // Import HttpError for instanceof check
+import { logServerException } from "~/lib/error/server-error.server";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   try {
@@ -34,7 +35,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
     return data(posts);
   } catch (error) {
-    console.error("Error in API /api/entities/:id/posts :", error);
     if (error instanceof HttpError) {
       // If it's already an HttpError from our utility (or requireUserId), re-throw it
       throw error;
@@ -44,6 +44,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       throw errors.notFound("User not found for posts query", "not_found:users");
     }
     // For any other unexpected errors
+    logServerException(error, {
+      operation: "moderation.mutate",
+      errorCode: "server_error:api",
+      httpStatus: 500,
+    });
     throw errors.internalServerError("An unexpected error occurred while fetching posts for the reported entity.");
   }
 }
