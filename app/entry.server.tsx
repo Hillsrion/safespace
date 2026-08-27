@@ -6,6 +6,7 @@ import type { HandleDocumentRequestFunction, HandleErrorFunction, HandleDataRequ
 import { ServerRouter } from "react-router";
 import { SECURITY_HEADERS } from "./lib/security.server";
 import { createPrivacySafeError } from "./lib/observability/privacy";
+import { captureServerException, getObservability } from "./services/observability.server";
 
 export const streamTimeout = 5000;
 
@@ -16,7 +17,10 @@ function reportFailure(error: unknown, request: Request): void {
   console.error(JSON.stringify({
     level: "error", event: "server_render_failure", errorType: createPrivacySafeError(error).name,
   }));
+  void captureServerException(error, { operation: "system.render", outcome: "failure", httpStatus: 500 });
 }
+
+export const flushTelemetry = () => getObservability().flush(2_000);
 
 export const handleError: HandleErrorFunction = (error, { request }) => reportFailure(error, request);
 

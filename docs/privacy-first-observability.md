@@ -1,8 +1,9 @@
 # Privacy-first observability
 
 SafeSpace's technical telemetry is opt-in and disabled by default. The server
-continues normally when no provider is configured, when the optional adapter is
-not installed, or when capture fails. Audit logs remain the source of truth for
+continues normally when no provider is configured or when capture fails.
+The official `@sentry/node` SDK is now included in the production dependencies.
+Audit logs remain the source of truth for
 security-sensitive business actions; telemetry is only for aggregate technical
 health and failures.
 
@@ -26,23 +27,38 @@ names and line/column numbers; workstation and user directory paths are removed.
 A strict `beforeSend` allowlist reconstructs every event as a second boundary,
 even if a future SDK integration enriches the event.
 
-## Optional Sentry adapter
+## Opt-in Sentry adapter
 
-No Sentry or network dependency is added by this implementation. Without
-`SENTRY_DSN`, the adapter loader is never called and capture is a zero-network
-no-op. To enable Sentry in a deployment, approve and install a compatible
-`@sentry/node` package, then configure:
+Without `SENTRY_DSN`, the adapter loader is never called and capture is a
+zero-network no-op. To enable the bundled SDK, configure the deployment:
 
 ```dotenv
-SENTRY_DSN=https://public-key@organization.ingest.sentry.io/456
+SENTRY_DSN=https://publickey@organization.ingest.sentry.io/456
 OBSERVABILITY_ENVIRONMENT=production
 APP_RELEASE=safespace@release-id
 ```
 
-Only HTTPS DSNs with a numeric project ID are accepted. Initialization enforces
+Only HTTPS DSNs with an alphanumeric/underscore public key and numeric project
+ID are accepted; passwords, query strings, fragments and trailing paths are
+rejected before the SDK can print an invalid DSN. Initialization enforces
 `sendDefaultPii: false`, disables all default integrations and breadcrumbs, and
 sets tracing to zero. Do not add Sentry request, user, browser replay, tracing or
 profiling integrations without a new privacy review.
+
+The adapter constructs a private `NodeClient`, without global `Sentry.init` or
+OpenTelemetry setup. It disables server names, session/client reports, automatic
+logs and metrics. A second allowlist at the **transport** boundary reconstructs
+the final envelope and drops attachments and dynamic sampling/trace headers,
+including data introduced by a global SDK scope. Only explicit technical events
+are sent. A real SDK test inspects the serialized envelope with a local injected
+transport; no test sends production data to Sentry.
+
+Network requests have a two-second abort deadline, no cookies, no redirects,
+no referrer and a 20-event buffer. The Node runtime flushes for at most two
+seconds during graceful shutdown. Delivery is best effort, not an audit trail:
+abrupt process termination or serverless freezing can still discard telemetry.
+Provider-side ingestion/retention must be verified with an approved test event
+after configuring a real deployment; local tests do not prove that setup.
 
 ## Usage
 

@@ -22,6 +22,7 @@ export const OBSERVABILITY_OPERATIONS = [
   "search.execute",
   "space.mutate",
   "system.startup",
+  "system.render",
 ] as const;
 
 export type ObservabilityOperation = (typeof OBSERVABILITY_OPERATIONS)[number];
@@ -235,6 +236,7 @@ export function sanitizeSentryEvent(event: SentryEventLike): SentryEventLike {
     };
   });
   if (values && values.length > 0) output.exception = { values };
+  else output.message = `SafeSpace operation: ${operation}`;
   output.fingerprint = [operation, values?.at(-1)?.type ?? "Error"];
   return output;
 }

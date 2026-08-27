@@ -14,6 +14,13 @@ function adapter() {
 }
 
 describe("optional Sentry observability adapter", () => {
+  it("rejects malformed or credential-bearing DSNs before the SDK can log them", async () => {
+    const load = vi.fn(async () => adapter());
+    for (const dsn of ["https://public-key@o1.ingest.sentry.io/1", "https://key:secret@o1.ingest.sentry.io/1", "https://key@o1.ingest.sentry.io/1?token=secret", "https://key@o1.ingest.sentry.io/1/", "http://key@o1.ingest.sentry.io/1"]) {
+      expect(await createObservability({ dsn }, load).captureException(new Error("secret"), { operation: "system.startup" })).toBeNull();
+    }
+    expect(load).not.toHaveBeenCalled();
+  });
   it("is a zero-network no-op when no DSN is configured", async () => {
     const load = vi.fn(async () => adapter());
     const observability = createObservability({}, load);
@@ -30,7 +37,7 @@ describe("optional Sentry observability adapter", () => {
     const sentry = adapter();
     const observability = createObservability(
       {
-        dsn: "https://public-key@o123.ingest.sentry.io/456",
+        dsn: "https://publickey@o123.ingest.sentry.io/456",
         environment: "production",
         release: "safespace@1.2.3",
       },
@@ -59,7 +66,7 @@ describe("optional Sentry observability adapter", () => {
   it("captures only a sanitized error and allowlisted context", async () => {
     const sentry = adapter();
     const observability = createObservability(
-      { dsn: "https://public-key@o123.ingest.sentry.io/456" },
+      { dsn: "https://publickey@o123.ingest.sentry.io/456" },
       async () => sentry
     );
     const source = new Error("Bearer secret for victim@example.com");
@@ -95,7 +102,7 @@ describe("optional Sentry observability adapter", () => {
   it("never lets adapter failures alter the application error path", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const observability = createObservability(
-      { dsn: "https://public-key@o123.ingest.sentry.io/456" },
+      { dsn: "https://publickey@o123.ingest.sentry.io/456" },
       async () => {
         throw new Error("module path with private data");
       }
@@ -111,4 +118,3 @@ describe("optional Sentry observability adapter", () => {
     warn.mockRestore();
   });
 });
-

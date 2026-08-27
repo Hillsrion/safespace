@@ -18,6 +18,7 @@ async function start() {
     stopping = true;
     try {
       const { forced } = await shutdown(config.shutdownTimeoutMs);
+      await build.entry.module.flushTelemetry?.();
       if (forced) console.error("Production shutdown deadline exceeded");
       process.exit(forced ? 1 : 0);
     } catch {

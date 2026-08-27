@@ -48,7 +48,9 @@ function validatedDsn(value: string | undefined): string | undefined {
   if (!value) return undefined;
   try {
     const dsn = new URL(value);
-    if (dsn.protocol !== "https:" || !dsn.username || !/^\/\d+\/?$/.test(dsn.pathname)) {
+    if (dsn.protocol !== "https:" || !/^[A-Za-z0-9_]{1,128}$/.test(dsn.username) ||
+      dsn.password || dsn.search || dsn.hash || !/^[A-Za-z0-9.-]+$/.test(dsn.hostname) ||
+      !/^\/\d+$/.test(dsn.pathname)) {
       return undefined;
     }
     return dsn.toString();
@@ -71,10 +73,9 @@ function safeRelease(value: string | undefined): string | undefined {
 
 async function loadOptionalSentryAdapter(): Promise<SentryAdapter | null> {
   try {
-    // Avoid a static dependency: deployments that opt into Sentry may install
-    // `@sentry/node`; all other deployments stay a zero-network no-op.
-    const packageName = "@sentry/node";
-    return (await import(/* @vite-ignore */ packageName)) as SentryAdapter;
+    // Bundled server-only adapter, loaded only after an opt-in DSN is validated.
+    const { createSentryAdapter } = await import("./sentry-adapter.server");
+    return createSentryAdapter();
   } catch {
     console.warn(
       JSON.stringify({
@@ -155,7 +156,7 @@ export function createObservability(
       try {
         const loaded = await adapter();
         if (!loaded?.flush) return true;
-        const boundedTimeout = Math.max(1, Math.min(5_000, Math.floor(timeoutMs)));
+        const boundedTimeout = Number.isFinite(timeoutMs) ? Math.max(1, Math.min(5_000, Math.floor(timeoutMs))) : 2_000;
         return loaded.flush(boundedTimeout);
       } catch {
         return false;

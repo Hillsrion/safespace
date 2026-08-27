@@ -11,7 +11,7 @@ process.env.DATABASE_URL ??= "postgresql://test:test@localhost:5432/safespace_te
 // afterAll(() => server.close());
 
 // Example: Mocking matchMedia for components that might use it (e.g. for responsive design)
-Object.defineProperty(window, "matchMedia", {
+if (typeof window !== "undefined") Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: vi.fn().mockImplementation((query) => ({
     matches: false,
