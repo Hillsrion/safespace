@@ -6,16 +6,18 @@
     "node": ">=22.22.0"
   },
   "scripts": {
-    "build": "react-router build",
+    "build": "react-router build && node server/build-runtime.mjs",
+    "build:netlify": "DEPLOY_TARGET=netlify react-router build",
     "dev": "react-router dev",
-    "start": "npm run dev",
+    "start": "NODE_ENV=production node server/index.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "typecheck": "react-router typegen && tsc",
-    "check": "npm run typecheck && vitest --run",
+    "check": "npm run typecheck && vitest --run && npm run test:server",
+    "test:server": "node --test server/*.test.mjs",
     "test": "vitest",
     "test:ui": "vitest --ui"
   },

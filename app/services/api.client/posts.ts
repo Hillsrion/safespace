@@ -1,6 +1,6 @@
 import { useApi } from "~/hooks/use-api";
 import { AppError } from "~/lib/error";
-import { RESOURCES_API_PREFIX } from "~/routes";
+import { RESOURCES_API_PREFIX } from "~/lib/route-paths";
 import { PaginatedPostsResponse } from "~/routes/api/posts/feed";
 
 export type PostAction = "delete" | "hide" | "unhide";

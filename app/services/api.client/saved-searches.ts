@@ -1,4 +1,4 @@
-import { RESOURCES_API_PREFIX } from "~/routes";
+import { RESOURCES_API_PREFIX } from "~/lib/route-paths";
 import type { SearchFilters } from "~/services/api.client/search";
 
 export type SavedSearch = Omit<SearchFilters, "verification" | "spaceId" | "severity"> & {

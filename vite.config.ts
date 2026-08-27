@@ -21,6 +21,7 @@ interface VitestUserConfig extends UserConfig {
 
 export default defineConfig(({ command, mode }) => {
   const isTest = mode === 'test' || process.env.NODE_ENV === 'test';
+  const isNetlify = (process.env.DEPLOY_TARGET ?? (process.env.NETLIFY === "true" ? "netlify" : "node")) === "netlify";
   
   return {
     css: {
@@ -30,7 +31,7 @@ export default defineConfig(({ command, mode }) => {
     },
     plugins: isTest 
       ? [tsconfigPaths()] 
-      : [reactRouter(), tsconfigPaths(), netlifyPlugin(), devtoolsJson()],
+      : [reactRouter(), tsconfigPaths(), ...(isNetlify ? [netlifyPlugin()] : []), devtoolsJson()],
   test: {
     globals: true,
     environment: "jsdom",

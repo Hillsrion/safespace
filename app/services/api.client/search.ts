@@ -1,5 +1,5 @@
 import { useApi } from "~/hooks/use-api";
-import { RESOURCES_API_PREFIX } from "~/routes";
+import { RESOURCES_API_PREFIX } from "~/lib/route-paths";
 
 export interface SearchResultItemData {
   id: string;

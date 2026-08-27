@@ -13,15 +13,17 @@ declare global {
 }
 
 if (process.env.NODE_ENV === "production") {
-  basePrisma = new PrismaClient();
+  basePrisma = new PrismaClient({ log: [] });
   // It's good practice to connect explicitly in production as well,
   // or ensure your first query does this.
   // prisma.$connect(); // Optional: connect on initialization
 } else {
   if (!globalThis.__basePrisma) {
     globalThis.__basePrisma = new PrismaClient({
-      // Optional: Log SQL queries in development for debugging
-      log: ["query", "info", "warn", "error"],
+      // Prisma's raw diagnostics can include invocation data or connection
+      // details. Keep the same privacy boundary in development and production;
+      // action/SSR boundaries report only sanitized technical telemetry.
+      log: [],
     });
   }
   basePrisma = globalThis.__basePrisma;

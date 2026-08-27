@@ -11,9 +11,11 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # Same distribution/FFmpeg major as the production media processor.
+    container: node:22.22.3-trixie
     timeout-minutes: 20
     env:
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/safespace
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/safespace
       SESSION_SECRET: ci-only-session-secret-with-at-least-32-characters
       APP_URL: http://127.0.0.1:5173
       NODE_ENV: test
@@ -39,7 +41,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.22.0
+          node-version: 22.22.3
           cache: yarn
 
       - name: Install dependencies
@@ -47,8 +49,8 @@ jobs:
 
       - name: Install media processing runtime
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends ffmpeg
+          apt-get update
+          apt-get install --yes --no-install-recommends ffmpeg
 
       - name: Generate Prisma client
         run: yarn prisma:generate
@@ -61,7 +63,7 @@ jobs:
         env:
           # Used only to create fixtures and the constrained temporary LOGIN.
           # All tested operations connect as that NOBYPASSRLS, non-owner role.
-          RLS_TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/safespace
+          RLS_TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/safespace
           RLS_TEST_ALLOW_SETUP: "1"
 
       - name: Typecheck and test
@@ -71,3 +73,65 @@ jobs:
         run: yarn build
         env:
           NODE_ENV: production
+
+  production-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: safespace
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d safespace"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build isolated migration and non-root web images
+        run: |
+          docker build --target migrations --tag safespace-migrations:ci .
+          docker build --target runtime --tag safespace-web:ci .
+      - name: Apply migrations with the separate owner job
+        run: docker run --rm --network host -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/safespace safespace-migrations:ci
+      - name: Provision a restricted CI runtime role
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d safespace -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE safespace_web LOGIN PASSWORD 'ci-runtime-password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+          GRANT CONNECT ON DATABASE safespace TO safespace_web;
+          GRANT USAGE ON SCHEMA public, safespace_private TO safespace_web;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO safespace_web;
+          REVOKE ALL ON TABLE public._prisma_migrations FROM safespace_web;
+          GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA safespace_private TO safespace_web;
+          SQL
+      - name: Start the built web image without owner credentials
+        run: |
+          docker run --detach --name safespace-web --network host \
+            -e DATABASE_URL=postgresql://safespace_web:ci-runtime-password@127.0.0.1:5432/safespace \
+            -e SESSION_SECRET=ci-only-session-secret-with-at-least-32-characters \
+            -e APP_URL=https://safe.example \
+            safespace-web:ci
+      - name: Verify production startup, public content and private redirects
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:3000/_health; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3000/_health
+          curl --fail --silent http://127.0.0.1:3000/community-policy | grep -q 'Charte de conduite'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/dashboard)" = 302
+          docker exec safespace-web node server/healthcheck.mjs
+          test "$(docker exec safespace-web id -u)" != 0
+      - name: Show safe startup diagnostics on failure
+        if: failure()
+        run: docker logs safespace-web
+      - name: Stop CI web container
+        if: always()
+        run: docker rm --force safespace-web || true
