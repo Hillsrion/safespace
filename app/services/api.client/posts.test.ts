@@ -1,0 +1,43 @@
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { usePostActionsApi, usePostFeedApi } from "./posts";
+
+describe("post action client contract", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("sends authenticated DELETE to the strict post deletion endpoint", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, action: "deleted" })));
+    const { result } = renderHook(() => usePostActionsApi());
+    const postId = "11111111-1111-4111-8111-111111111111";
+    await act(async () => {
+      expect((await result.current.deletePost(postId)).data?.success).toBe(true);
+    });
+    expect(fetch).toHaveBeenCalledExactlyOnceWith(`/resources/api/posts/${postId}/delete`, expect.objectContaining({ method: "DELETE", credentials: "include", body: undefined }));
+  });
+
+  it("keeps moderation and flag URLs rooted when called from a nested entity page", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => Response.json({ success: true })));
+    const { result } = renderHook(() => usePostActionsApi());
+    await act(async () => {
+      await result.current.updatePostStatus("post-id", "hide");
+      await result.current.flagPost("post-id", "space-id", "Reason");
+    });
+    const calls = vi.mocked(fetch).mock.calls;
+    expect(calls[0][0]).toBe("/resources/api/posts/post-id/edit");
+    expect((calls[0][1]?.body as FormData).get("_action")).toBe("hide");
+    expect(calls[1][0]).toBe("/resources/api/spaces/space-id/posts/post-id/flag");
+    for (const [url, options] of calls) {
+      expect(new URL(String(url), "https://safe.test/dashboard/entities/entity-id").pathname).toBe(url);
+      expect(options).toMatchObject({ method: "POST", credentials: "include" });
+    }
+  });
+
+  it("uses an absolute scoped pagination URL even when the dashboard has a trailing slash", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ posts: [], hasNextPage: false })));
+    const { result } = renderHook(() => usePostFeedApi());
+    await act(async () => { await result.current.getPosts("cursor", 10, "space-id"); });
+    const [url, options] = vi.mocked(fetch).mock.calls[0];
+    expect(new URL(String(url), "https://safe.test/dashboard/").pathname).toBe("/resources/api/posts/feed");
+    expect(new URL(String(url), "https://safe.test").searchParams.get("spaceId")).toBe("space-id");
+    expect(options).toMatchObject({ method: "GET", credentials: "include" });
+  });
+});

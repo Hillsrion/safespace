@@ -16,19 +16,19 @@ export function usePostActionsApi() {
   const { callApi, ...rest } = useApi<PostActionResponse>();
 
   const deletePost = async (postId: string) => {
-    return callApi(`${RESOURCES_API_PREFIX}/posts/${postId}/delete`, {
-      method: "POST",
+    return callApi(`/${RESOURCES_API_PREFIX}/posts/${encodeURIComponent(postId)}/delete`, {
+      method: "DELETE",
     });
   };
 
   const updatePostStatus = async (
     postId: string,
-    action: Omit<PostAction, "delete">
+    action: Exclude<PostAction, "delete">
   ) => {
     const formData = new FormData();
     formData.append("_action", action as string);
 
-    return callApi(`${RESOURCES_API_PREFIX}/posts/${postId}/edit`, {
+    return callApi(`/${RESOURCES_API_PREFIX}/posts/${encodeURIComponent(postId)}/edit`, {
       method: "POST",
       headers: {
         // Let the browser set the content-type with boundary for FormData
@@ -39,7 +39,7 @@ export function usePostActionsApi() {
 
   const flagPost = async (postId: string, spaceId: string, reason?: string) => {
     return callApi(
-      `${RESOURCES_API_PREFIX}/spaces/${spaceId}/posts/${postId}/flag`,
+      `/${RESOURCES_API_PREFIX}/spaces/${encodeURIComponent(spaceId)}/posts/${encodeURIComponent(postId)}/flag`,
       {
         method: "POST",
         body: reason?.trim() ? { reason: reason.trim() } : {},
@@ -78,7 +78,7 @@ export function usePostFeedApi() {
     }
     const queryString = params.toString();
 
-    let url = `${RESOURCES_API_PREFIX}/posts/feed`;
+    let url = `/${RESOURCES_API_PREFIX}/posts/feed`;
     if (queryString) {
       url += `?${queryString}`;
     }
