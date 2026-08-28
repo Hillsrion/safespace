@@ -156,7 +156,7 @@ export default function ModerationPage() {
       <Card>
         <CardHeader><CardTitle>Discipline progressive et historique</CardTitle></CardHeader>
         <CardContent>
-          <MemberGovernancePanel members={members} spaceId={selectedSpaceId} />
+          <MemberGovernancePanel key={selectedSpaceId} members={members} spaceId={selectedSpaceId} />
         </CardContent>
       </Card>
     </div>

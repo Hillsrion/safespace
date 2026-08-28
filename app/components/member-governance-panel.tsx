@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
+import { ModerationTemplatePicker } from "~/components/moderation-template-picker";
+import { hasUnfilledModerationTemplate } from "~/lib/moderation-templates";
 
 type Member = {
   role: string;
@@ -41,8 +43,11 @@ export function MemberGovernancePanel({
   const [revokePendingId, setRevokePendingId] = useState<string | null>(null);
   const [revocationReasons, setRevocationReasons] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const historyGeneration = useRef(0);
 
   const loadHistory = async (selectedUserId: string, signal?: AbortSignal) => {
+    const generation = ++historyGeneration.current;
+    setHistory(null);
     if (!selectedUserId) {
       setHistory(null);
       return;
@@ -53,6 +58,7 @@ export function MemberGovernancePanel({
         { credentials: "include", signal }
       );
       const payload = await response.json().catch(() => ({}));
+      if (signal?.aborted || generation !== historyGeneration.current) return;
       if (!response.ok) {
         throw new Error(
           typeof payload.error === "string" ? payload.error : "Historique indisponible."
@@ -61,6 +67,7 @@ export function MemberGovernancePanel({
       setHistory(payload as History);
       setError(null);
     } catch (caught) {
+      if (signal?.aborted || generation !== historyGeneration.current) return;
       if (caught instanceof DOMException && caught.name === "AbortError") return;
       setHistory(null);
       setError(caught instanceof Error ? caught.message : "Historique indisponible.");
@@ -70,12 +77,12 @@ export function MemberGovernancePanel({
   useEffect(() => {
     const controller = new AbortController();
     void loadHistory(userId, controller.signal);
-    return () => controller.abort();
+    return () => { historyGeneration.current += 1; controller.abort(); };
   }, [spaceId, userId]);
 
   const issue = async () => {
-    if (!userId || !reason.trim()) {
-      setError("Sélectionnez un membre et indiquez un motif.");
+    if (!userId || !reason.trim() || hasUnfilledModerationTemplate(reason)) {
+      setError("Sélectionnez un membre et indiquez un motif complet, sans champ de modèle restant.");
       return;
     }
     setPending(true);
@@ -153,9 +160,14 @@ export function MemberGovernancePanel({
         <div className="space-y-2">
           <Label htmlFor="governance-member">Membre</Label>
           <select
+            disabled={pending || revokePendingId !== null}
             className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
             id="governance-member"
-            onChange={(event) => setUserId(event.target.value)}
+            onChange={(event) => {
+              historyGeneration.current += 1;
+              setHistory(null); setError(null); setReason(""); setExpiresAt(""); setRevocationReasons({});
+              setUserId(event.target.value);
+            }}
             value={userId}
           >
             {members.map((membership) => (
@@ -178,6 +190,7 @@ export function MemberGovernancePanel({
       </div>
       <div className="space-y-2">
         <Label htmlFor="discipline-reason">Motif de la mesure</Label>
+        <ModerationTemplatePicker category="discipline" value={reason} onChange={setReason} disabled={pending} />
         <Textarea
           id="discipline-reason"
           maxLength={2_000}
@@ -185,7 +198,7 @@ export function MemberGovernancePanel({
           value={reason}
         />
       </div>
-      <Button disabled={pending} onClick={issue} size="sm">
+      <Button disabled={pending || revokePendingId !== null} onClick={issue} size="sm">
         {pending ? "Enregistrement…" : "Appliquer la prochaine mesure progressive"}
       </Button>
       {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
@@ -215,7 +228,7 @@ export function MemberGovernancePanel({
                   value={revocationReasons[item.id] ?? ""}
                 />
                 <Button
-                  disabled={revokePendingId !== null}
+                  disabled={pending || revokePendingId !== null}
                   onClick={() => revoke(item.id)}
                   size="sm"
                   variant="outline"

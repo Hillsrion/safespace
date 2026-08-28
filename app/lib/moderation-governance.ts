@@ -1,11 +1,13 @@
 import { z } from "zod";
+import { hasUnfilledModerationTemplate } from "./moderation-templates";
 
 export const GOVERNANCE_REASON_MAX_LENGTH = 2_000;
 export const GOVERNANCE_PAGE_LIMIT = 25;
 export const GOVERNANCE_MAX_PAGE_LIMIT = 100;
 
 const uuid = z.string().uuid();
-const reason = z.string().trim().min(1).max(GOVERNANCE_REASON_MAX_LENGTH);
+const reason = z.string().trim().min(1).max(GOVERNANCE_REASON_MAX_LENGTH)
+  .refine((value) => !hasUnfilledModerationTemplate(value), "Complete the moderation template before submitting");
 
 export const moderationSpacePathSchema = z.object({ spaceId: uuid }).strict();
 export const moderationAppealPathSchema = z
@@ -25,7 +27,7 @@ export const createAppealSchema = z
 export const appealDecisionSchema = z
   .object({
     status: z.enum(["upheld", "overturned"]),
-    decisionNote: z.string().trim().min(1).max(GOVERNANCE_REASON_MAX_LENGTH),
+    decisionNote: reason,
   })
   .strict();
 

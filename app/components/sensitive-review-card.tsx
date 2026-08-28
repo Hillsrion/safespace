@@ -5,6 +5,8 @@ import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
+import { ModerationTemplatePicker } from "~/components/moderation-template-picker";
+import { hasUnfilledModerationTemplate } from "~/lib/moderation-templates";
 import { MediaCarousel } from "~/components/media-carousel";
 import { MediaDialog } from "~/components/media-dialog";
 import { SENSITIVE_REVIEW_STAGES, SENSITIVE_REVIEW_STATUSES } from "~/lib/sensitive-review";
@@ -25,6 +27,7 @@ export function SensitiveReviewCard({ item }: { item: ReviewItem }) {
     altText: `Preuve ${index + 1}`,
   }));
   const mutate = async (outcome?: "approve" | "request_changes") => {
+    if (hasUnfilledModerationTemplate(note)) { setError("Complétez les champs du modèle avant de décider."); return; }
     setPending(true); setError(null);
     try {
       const response = await fetch(`/resources/api/spaces/${item.spaceId}/sensitive-reviews/${item.id}`, {
@@ -76,6 +79,7 @@ export function SensitiveReviewCard({ item }: { item: ReviewItem }) {
       {(!item.requiresSensitiveReview || item.canDecide) && <div className="space-y-3 rounded-md border p-4">
         <Label htmlFor={`review-note-${item.id}`}>{item.requiresSensitiveReview ? "Justification de votre décision" : "Motif du classement sensible"}</Label>
         <p className="text-xs text-muted-foreground">10 à 2 000 caractères. Ne recopiez pas d’identité, de coordonnées ni le contenu des preuves.</p>
+        <ModerationTemplatePicker category="review" value={note} onChange={setNote} disabled={pending} />
         <Textarea id={`review-note-${item.id}`} value={note} onChange={(event) => setNote(event.target.value)} minLength={10} maxLength={2000} disabled={pending} />
         <div className="flex flex-wrap gap-2">
           {item.requiresSensitiveReview ? <>

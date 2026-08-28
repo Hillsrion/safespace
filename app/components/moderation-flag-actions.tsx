@@ -17,7 +17,8 @@ export function ModerationFlagActions({
   const decide = async (status: "resolved" | "rejected") => {
     setPending(status);
     setError(null);
-    const response = await fetch(
+    try {
+      const response = await fetch(
       `/resources/api/spaces/${spaceId}/moderation/flags/${flagId}`,
       {
         method: "PATCH",
@@ -26,13 +27,17 @@ export function ModerationFlagActions({
         body: JSON.stringify({ status }),
       }
     );
-    const payload = await response.json().catch(() => ({}));
-    setPending(null);
-    if (!response.ok) {
-      setError(typeof payload.error === "string" ? payload.error : "Décision impossible.");
-      return;
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(typeof payload.error === "string" ? payload.error : "Décision impossible.");
+        return;
+      }
+      await revalidator.revalidate();
+    } catch {
+      setError("Décision non confirmée. Vérifiez votre connexion, puis réessayez.");
+    } finally {
+      setPending(null);
     }
-    revalidator.revalidate();
   };
 
   return (
@@ -41,7 +46,7 @@ export function ModerationFlagActions({
         <Button size="sm" disabled={pending !== null} onClick={() => decide("resolved")}>Résoudre</Button>
         <Button size="sm" variant="outline" disabled={pending !== null} onClick={() => decide("rejected")}>Rejeter</Button>
       </div>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { z } from "zod";
+import { hasUnfilledModerationTemplate } from "./moderation-templates";
 
-const note = z.string().trim().min(10).max(2000);
+const note = z.string().trim().min(10).max(2000)
+  .refine((value) => !hasUnfilledModerationTemplate(value), "Complete the review template before submitting");
 const revision = z.number().int().positive();
 export const sensitiveReviewDecisionSchema = z.object({
   revision,

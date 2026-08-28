@@ -3,6 +3,8 @@ import { useRevalidator } from "react-router";
 
 import { Button } from "~/components/ui/button";
 import { Textarea } from "~/components/ui/textarea";
+import { ModerationTemplatePicker } from "~/components/moderation-template-picker";
+import { hasUnfilledModerationTemplate } from "~/lib/moderation-templates";
 
 export function ModerationAppealActions({
   appealId,
@@ -17,8 +19,8 @@ export function ModerationAppealActions({
   const [error, setError] = useState<string | null>(null);
 
   const decide = async (status: "upheld" | "overturned") => {
-    if (!decisionNote.trim()) {
-      setError("Une justification est requise.");
+    if (!decisionNote.trim() || hasUnfilledModerationTemplate(decisionNote)) {
+      setError("Une justification complète est requise. Remplacez les champs du modèle.");
       return;
     }
     setPending(status);
@@ -52,6 +54,7 @@ export function ModerationAppealActions({
 
   return (
     <div className="space-y-2">
+      <ModerationTemplatePicker category="appeal" value={decisionNote} onChange={setDecisionNote} disabled={pending !== null} />
       <Textarea
         aria-label="Justification de la décision"
         maxLength={2_000}
