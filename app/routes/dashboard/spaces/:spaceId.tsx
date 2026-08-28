@@ -29,6 +29,8 @@ import { normalizeSpaceRole } from "~/lib/invitations";
 import { logServerException } from "~/lib/error/server-error.server";
 import { requireSameOrigin } from "~/lib/security.server";
 import { getCurrentUser } from "~/services/auth.server";
+import { trackVisitedSpace } from "~/services/space-activity-tracking.server";
+import { activityDayLabel, activityWindow } from "~/lib/member-activity";
 import {
   sendInviteEmail,
   type InviteDelivery,
@@ -110,6 +112,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   });
 
   if (!space) throw new Response("Espace introuvable", { status: 404 });
+  await trackVisitedSpace(user.id, spaceId);
 
   const memberWhere = {
     spaceId,
@@ -136,6 +139,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           select: {
             role: true,
             joinedAt: true,
+            activity: { select: { lastActiveDay: true } },
             user: {
               select: {
                 id: true,
@@ -163,6 +167,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       ])
     : [[], 0, []];
 
+  const window = activityWindow();
+  const activeMembersSevenDays = isAdmin ? await prisma.memberSpaceActivity.count({
+    where: { spaceId, lastActiveDay: { gte: window.since, lte: window.through } },
+  }) : null;
   return data({
     space,
     role,
@@ -173,6 +181,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     memberQuery,
     memberRole: memberRole ?? "",
     memberTotal,
+    activeMembersSevenDays,
     memberTotalPages: Math.max(1, Math.ceil(memberTotal / MEMBER_PAGE_SIZE)),
     invites,
   });
@@ -373,6 +382,7 @@ export default function SpaceManagementPage() {
     memberRole,
     memberTotal,
     memberTotalPages,
+    activeMembersSevenDays,
     invites,
   } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
@@ -456,7 +466,11 @@ export default function SpaceManagementPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Membres ({memberTotal})</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Membres ({memberTotal})</CardTitle>
+              <p className="text-sm text-muted-foreground">{activeMembersSevenDays} membre(s) actif(s) ces 7 derniers jours dans cet espace.</p>
+              <p className="text-xs text-muted-foreground">Dernière consultation enregistrée au jour UTC, sans heure ni historique de navigation. Le compteur est indépendant des filtres du tableau.</p>
+            </CardHeader>
             <CardContent className="overflow-x-auto">
               <RouterForm className="mb-4 grid gap-2 md:grid-cols-[1fr_180px_auto]" method="get">
                 <Input aria-label="Rechercher un membre" defaultValue={memberQuery} maxLength={100} name="memberQ" placeholder="Nom ou email" />
@@ -470,7 +484,7 @@ export default function SpaceManagementPage() {
                 <Button type="submit" variant="outline">Filtrer</Button>
               </RouterForm>
               <table className="w-full text-sm">
-                <thead><tr className="border-b text-left"><th className="py-2">Nom</th><th>Email</th><th>Rôle</th><th>Inscription</th><th>Actions</th></tr></thead>
+                <thead><tr className="border-b text-left"><th className="py-2">Nom</th><th>Email</th><th>Rôle</th><th>Inscription</th><th>Dernière activité (UTC)</th><th>Actions</th></tr></thead>
                 <tbody>
                   {members.map((membership) => (
                     <tr className="border-b" key={membership.user.id}>
@@ -478,6 +492,7 @@ export default function SpaceManagementPage() {
                       <td>{membership.user.email}</td>
                       <td>{membership.role}</td>
                       <td>{new Date(membership.joinedAt).toLocaleDateString("fr-FR")}</td>
+                      <td>{activityDayLabel(membership.activity?.lastActiveDay)}</td>
                       <td className="py-2">
                         <MemberAdminActions
                           currentRole={membership.role}
@@ -489,7 +504,7 @@ export default function SpaceManagementPage() {
                       </td>
                     </tr>
                   ))}
-                  {members.length === 0 && <tr><td className="py-8 text-center text-muted-foreground" colSpan={5}>Aucun membre trouvé.</td></tr>}
+                  {members.length === 0 && <tr><td className="py-8 text-center text-muted-foreground" colSpan={6}>Aucun membre trouvé.</td></tr>}
                 </tbody>
               </table>
               <div className="mt-4 flex items-center justify-between">

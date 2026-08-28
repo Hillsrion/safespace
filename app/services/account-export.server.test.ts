@@ -19,6 +19,7 @@ describe("account data export", () => {
     user: { findUnique: vi.fn() }, $queryRaw: vi.fn(),
     space: { findMany: vi.fn() }, savedSearch: { findMany: vi.fn() },
     moderationAppeal: { findMany: vi.fn() }, disciplinaryAction: { findMany: vi.fn() },
+    memberSpaceActivity: { findMany: vi.fn() },
   };
   const client = { $transaction: vi.fn(async (callback) => callback(tx)) } as unknown as PrismaClient;
   beforeEach(() => {
@@ -34,12 +35,14 @@ describe("account data export", () => {
     tx.savedSearch.findMany.mockResolvedValue([]);
     tx.moderationAppeal.findMany.mockResolvedValue([]);
     tx.disciplinaryAction.findMany.mockResolvedValue([]);
+    tx.memberSpaceActivity.findMany.mockResolvedValue([{ spaceId: "suspended", lastActiveDay: new Date(date) }]);
   });
 
   it("exports owned data after access loss without credentials, storage keys or third-party identity", async () => {
     const result = await exportAccountData({ id: actorId }, client);
     const serialized = JSON.stringify(result);
-    expect(result.version).toBe(4);
+    expect(result.version).toBe(5);
+    expect(result.spaceActivity).toEqual([{ spaceId: "suspended", lastActiveDay: "2026-01-01" }]);
     expect(result.profile.email).toBe("member@example.com");
     expect(result.contributions[0].media[0]).toMatchObject({ fileName: "proof.jpg", metadataStripped: true });
     expect(result.contributions[0].media[0]).toEqual(ownMedia);

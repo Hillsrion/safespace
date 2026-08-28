@@ -16,6 +16,7 @@ import { exportAccountData } from "../app/services/account-export.server";
 import type { MediaStorage } from "../app/services/media-storage.server";
 import { verifySensitiveReview } from "./verify-sensitive-review";
 import { verifyEvidenceOrganization } from "./verify-evidence-organization";
+import { verifyMemberSpaceActivity } from "./verify-member-space-activity";
 
 type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 type Actor = { id: string; isSuperAdmin?: boolean };
@@ -438,13 +439,14 @@ async function main(): Promise<void> {
       }
     }
 
+    await verifyMemberSpaceActivity({ admin, scoped, ids, check, suspendedId: exportSubject.id, restrictedId: scenarios.find(({ name }) => name === "active restriction")!.id });
     await admin.media.update({ where: { id: exportSubject.mediaId }, data: { evidenceCategory: "document", caption: "Own private evidence caption", sortOrder: 2 } });
     const verifyOwnExport = async () => {
       const result = await as({ id: exportSubject.id }, () => exportAccountData({ id: exportSubject.id }, scoped));
       assert.deepEqual(result.contributions.map(({ id }) => id), [exportSubject.postId]);
       assert.deepEqual(result.contributions[0].media.map(({ id }) => id), [exportSubject.mediaId], "An author's export must exclude another uploader's media metadata");
       assert.deepEqual(result.uploadedMedia.map(({ id }) => id), [exportSubject.mediaId]);
-      assert.equal(result.version, 4);
+      assert.equal(result.version, 5);
       for (const media of [result.uploadedMedia[0], result.contributions[0].media[0]]) {
         assert.equal(media.evidenceCategory, "document");
         assert.equal(media.caption, "Own private evidence caption");

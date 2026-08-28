@@ -15,6 +15,7 @@ import { usePostFeedApi } from '~/services/api.client/posts';
 import { Post } from "~/components/post";
 import { type AuthorProfile, type SpaceInfo, type TPost, TPostCurrentUser } from "~/lib/types";
 import { toEvidenceMedia } from "~/lib/evidence";
+import { trackVisitedSpace } from "~/services/space-activity-tracking.server";
 import { useUser } from "~/hooks/useUser";
 import { getUserIdentity } from "~/lib/utils";
 import { handleError } from "~/lib/error";
@@ -76,6 +77,7 @@ export async function loader({ request }: { request: Request }) {
     });
   }
 
+  await trackVisitedSpace(user.id, selectedSpaceId);
   const headers = new Headers();
   if (lastVisitedSpaceId && !lastVisitedSpace) {
     // The space was removed or access was revoked; stop retrying that stale preference.

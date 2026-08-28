@@ -16,6 +16,7 @@ export const OBSERVABILITY_OPERATIONS = [
   "media.download",
   "media.upload",
   "media.update",
+  "activity.record",
   "moderation.mutate",
   "post.create",
   "post.delete",

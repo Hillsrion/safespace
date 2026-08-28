@@ -11,6 +11,7 @@ import { getUserById } from "~/db/repositories/users.server";
 import type { Post } from "~/generated/prisma";
 import { POSTS_PAGE_LIMIT } from "~/lib/constants";
 import { z } from "zod";
+import { trackVisitedSpace } from "~/services/space-activity-tracking.server";
 
 const uuidSchema = z.string().uuid();
 
@@ -58,6 +59,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     result = await getSpacePosts(user.id, { cursor, limit, spaceId });
   }
 
+  await trackVisitedSpace(user.id, spaceId);
   return data({
     posts: result.posts,
     nextCursor: result.nextCursor,

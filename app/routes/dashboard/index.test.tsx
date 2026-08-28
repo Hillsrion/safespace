@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   allPosts: vi.fn(),
   loaderData: vi.fn(),
   paginate: vi.fn(),
+  track: vi.fn(),
   inView: false,
 }));
 vi.mock("react-router", async () => ({
@@ -17,6 +18,7 @@ vi.mock("react-router", async () => ({
   useLoaderData: mocks.loaderData,
 }));
 vi.mock("../../services/auth.server", () => ({ getCurrentUser: mocks.currentUser }));
+vi.mock("../../services/space-activity-tracking.server", () => ({ trackVisitedSpace: mocks.track }));
 vi.mock("../../services/session.server", () => ({ getSession: async () => ({ get: () => null }) }));
 vi.mock("../../db/repositories/users.server", () => ({ getUserById: mocks.fullUser }));
 vi.mock("../../db/repositories/spaces/queries.server", () => ({ getUserSpaces: mocks.spaces }));
@@ -70,11 +72,13 @@ describe("dashboard space entry and transitions", () => {
     const result = await load();
     expect(result.data.selectedSpaceId).toBe(SPACE_A);
     expect(mocks.spacePosts).toHaveBeenCalledWith("actor", expect.objectContaining({ spaceId: SPACE_A }));
+    expect(mocks.track).toHaveBeenCalledWith("actor", SPACE_A);
   });
 
   it("lets explicit selection override the previous space and lets users view all spaces", async () => {
     expect((await load(`?spaceId=${SPACE_B}`)).data.selectedSpaceId).toBe(SPACE_B);
     expect((await load("?spaceId=all")).data.selectedSpaceId).toBeUndefined();
+    expect(mocks.track.mock.calls).toEqual([["actor", SPACE_B], ["actor", undefined]]);
   });
 
   it("clears inaccessible preferences and refuses explicit inaccessible spaces", async () => {
@@ -83,6 +87,7 @@ describe("dashboard space entry and transitions", () => {
     expect(result.data.selectedSpaceId).toBeUndefined();
     expect(new Headers(result.init?.headers).get("Set-Cookie")).toContain("Max-Age=0");
     await expect(load(`?spaceId=${SPACE_A}`)).rejects.toMatchObject({ status: 404 });
+    expect(mocks.track).not.toHaveBeenCalledWith("actor", SPACE_A);
   });
 
   it("clears old posts when navigating into an empty space", async () => {

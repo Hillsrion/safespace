@@ -1,4 +1,4 @@
-export const COMMUNITY_POLICY_VERSION = "2026-08-27";
+export const COMMUNITY_POLICY_VERSION = "2026-08-28";
 
 /** Public product rules: deliberately contains no community or member data. */
 export function CommunityPolicy() {
@@ -32,6 +32,7 @@ export function CommunityPolicy() {
       </section>
       <section className="space-y-2">
         <h2 className="text-lg font-medium">Garder le contrôle de ses données</h2>
+        <p>La dernière journée de consultation authentifiée d’un espace est conservée pour ses administrateurs, au jour UTC uniquement : aucune heure, adresse IP ou liste de pages n’est enregistrée dans cet indicateur. Il est propre à chaque espace, inclus dans votre export et supprimé quand votre adhésion à cet espace prend fin.</p>
         <p>Dans « Mon compte », vous pouvez exporter vos données, quitter un espace ou demander la suppression de votre compte. Les options de suppression ou d’anonymisation des contributions sont présentées avant confirmation. L’anonymisation du lien d’auteur ne retire pas les identifiants que vous auriez écrits dans le texte : vérifiez vos publications avant de choisir de les conserver.</p>
         <p>SafeSpace n’est pas un service d’urgence et les signalements ne sont pas surveillés en permanence. En cas de danger immédiat, utilisez les services d’urgence ou une personne de confiance adaptés à votre situation.</p>
       </section>

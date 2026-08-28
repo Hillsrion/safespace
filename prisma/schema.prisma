@@ -177,9 +177,23 @@ model UserSpaceMembership {
   // Relations
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   space     Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  activity  MemberSpaceActivity?
 
   @@id([userId, spaceId])
 
+}
+
+// One coarse UTC activity day per active membership. This intentionally does
+// not retain visit times, network data, routes, or a historical event stream.
+model MemberSpaceActivity {
+  userId        String   @db.Uuid
+  spaceId       String   @db.Uuid
+  lastActiveDay DateTime @db.Date
+
+  membership UserSpaceMembership @relation(fields: [userId, spaceId], references: [userId, spaceId], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([userId, spaceId])
+  @@index([spaceId, lastActiveDay])
 }
 
 model Invite {

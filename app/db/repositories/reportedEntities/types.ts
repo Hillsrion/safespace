@@ -19,7 +19,7 @@ type PostReportedEntity = Pick<PrismaReportedEntity, "id" | "name" | "createdAt"
 
 export type ReportedEntityWithHandles = Pick<
   PrismaReportedEntity,
-  "id" | "name" | "createdAt" | "updatedAt"
+  "id" | "spaceId" | "name" | "createdAt" | "updatedAt"
 > & {
   handles: Array<{ id: string; handle: string; platform?: string }>; // Added platform to handle
 };

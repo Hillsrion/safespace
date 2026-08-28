@@ -10,6 +10,7 @@ const MODEL_DELEGATES = new Set([
   "user",
   "space",
   "userSpaceMembership",
+  "memberSpaceActivity",
   "invite",
   "reportedEntity",
   "reportedEntityHandle",

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ user: vi.fn(), post: vi.fn(), role: vi.fn(), feedback: vi.fn() }));
+const mocks = vi.hoisted(() => ({ user: vi.fn(), post: vi.fn(), role: vi.fn(), feedback: vi.fn(), track: vi.fn() }));
 vi.mock("./auth.server", () => ({ getCurrentUser: mocks.user }));
 vi.mock("../db/client.server", () => ({ prisma: { post: { findFirst: mocks.post } } }));
 vi.mock("../db/repositories/spaces/queries.server", () => ({ getUserSpaceRole: mocks.role }));
 vi.mock("./sensitive-review-feedback.server", () => ({ getOwnSensitiveReviewFeedback: mocks.feedback }));
+vi.mock("./space-activity-tracking.server", () => ({ trackVisitedSpace: mocks.track }));
 import { loadReportForEditing as loader } from "./report-edit-loader.server";
 
 const args = { request: new Request("https://safe.test/dashboard/posts/post/edit"), params: { id: "post" }, context: {} };
@@ -23,11 +24,13 @@ describe("edit loader evidence privacy", () => {
     expect(JSON.stringify(result)).not.toMatch(/authorId|uploaderId|other-uploader-private-id/);
     expect(mocks.feedback).toHaveBeenCalledWith("post");
     expect(result.post.requiresSensitiveReview).toBe(true);
+    expect(mocks.track).toHaveBeenCalledWith("author", "space");
   });
   it("does not return evidence when discipline has removed write rights", async () => {
     mocks.role.mockResolvedValue("READ_ONLY");
     await expect(loader(args)).rejects.toMatchObject({ status: 404 });
     expect(mocks.feedback).not.toHaveBeenCalled();
+    expect(mocks.track).not.toHaveBeenCalled();
   });
   it("allows moderation to delete evidence without loading another author's private feedback", async () => {
     mocks.user.mockResolvedValue({ id: "moderator", isSuperAdmin: false }); mocks.role.mockResolvedValue("MODERATOR");

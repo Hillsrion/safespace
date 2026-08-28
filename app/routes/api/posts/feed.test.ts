@@ -6,8 +6,10 @@ const mocks = vi.hoisted(() => ({
   fullUser: vi.fn(),
   spacePosts: vi.fn(),
   allPosts: vi.fn(),
+  track: vi.fn(),
 }));
 vi.mock("../../../services/auth.server", () => ({ getCurrentUser: mocks.currentUser }));
+vi.mock("../../../services/space-activity-tracking.server", () => ({ trackVisitedSpace: mocks.track }));
 vi.mock("../../../db/repositories/users.server", () => ({ getUserById: mocks.fullUser }));
 vi.mock("../../../db/repositories/posts/queries.server", () => ({
   getSpacePosts: mocks.spacePosts,
@@ -37,6 +39,7 @@ describe("space-scoped feed pagination", () => {
       spaceId: SPACE_ID, cursor: CURSOR, limit: 10,
     });
     expect(mocks.allPosts).not.toHaveBeenCalled();
+    expect(mocks.track).toHaveBeenCalledWith("actor", SPACE_ID);
   });
 
   it("preserves the selected space for super-admin pagination", async () => {
@@ -52,6 +55,7 @@ describe("space-scoped feed pagination", () => {
       await expect(call(query)).rejects.toMatchObject({ status: 400 });
       expect(mocks.spacePosts).not.toHaveBeenCalled();
       expect(mocks.allPosts).not.toHaveBeenCalled();
+      expect(mocks.track).not.toHaveBeenCalled();
     }
   );
 });

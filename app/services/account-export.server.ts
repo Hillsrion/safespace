@@ -59,16 +59,17 @@ export async function exportAccountData(actor: AccountExportActor, client: Prism
     if (self?.userId !== actor.id) throw errors.unauthorized("Authentication is no longer valid");
     const ownData = ownDataSchema.parse(self.ownData);
     const sensitiveReviewDecisions = ownReviewsSchema.parse(self.ownReviews);
-    const [spaces, savedSearches, appeals, disciplinaryActions] = await Promise.all([
+    const [spaces, savedSearches, appeals, disciplinaryActions, spaceActivity] = await Promise.all([
       tx.space.findMany({ where: { id: { in: user.memberships.map(({ spaceId }) => spaceId) } }, select: { id: true, name: true } }),
       tx.savedSearch.findMany({ where: { userId: actor.id }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, query: true, spaceId: true, severity: true, verificationStatus: true, alertEnabled: true, alertHandle: true, type: true, createdAt: true, updatedAt: true } }),
       tx.moderationAppeal.findMany({ where: { filedByUserId: actor.id }, orderBy: { createdAt: "asc" }, select: { id: true, spaceId: true, postFlagId: true, reason: true, status: true, decisionNote: true, decidedAt: true, createdAt: true } }),
       tx.disciplinaryAction.findMany({ where: { userId: actor.id }, orderBy: { createdAt: "asc" }, select: { id: true, spaceId: true, kind: true, level: true, reason: true, status: true, expiresAt: true, revokedAt: true, revocationReason: true, createdAt: true } }),
+      tx.memberSpaceActivity.findMany({ where: { userId: actor.id }, orderBy: { spaceId: "asc" }, select: { spaceId: true, lastActiveDay: true } }),
     ]);
     const names = new Map(spaces.map((space) => [space.id, space.name]));
     const { memberships, auditLogs } = user;
     return {
-      format: "safespace-account-export", version: 4, generatedAt: new Date().toISOString(),
+      format: "safespace-account-export", version: 5, generatedAt: new Date().toISOString(),
       profile: {
         id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName,
         instagram: user.instagram, isSuperAdmin: user.isSuperAdmin,
@@ -79,6 +80,7 @@ export async function exportAccountData(actor: AccountExportActor, client: Prism
       contributions: ownData.contributions, uploadedMedia: ownData.uploadedMedia,
       moderationFlags: ownData.moderationFlags, auditHistory: auditLogs,
       savedSearches, appeals, disciplinaryActions, sensitiveReviewDecisions,
+      spaceActivity: spaceActivity.map(({ spaceId, lastActiveDay }) => ({ spaceId, lastActiveDay: lastActiveDay.toISOString().slice(0, 10) })),
       activitySummary: { sentInviteCount: ownData.sentInviteCount },
       scope: "Own contributions and media metadata, including inaccessible spaces. No media bytes, storage keys, invitation recipients, or other members' identities.",
     };

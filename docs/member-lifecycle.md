@@ -48,7 +48,7 @@ La page « Mon compte » lit les adhésions propres sans jointure obligatoire ve
 les espaces : un espace masqué par RLS est affiché avec un libellé générique, et
 le bouton de départ reste accessible. Cela ne permet pas de consulter son fil.
 
-L’export JSON v4 (avec catégorie, légende et ordre des preuves) appelle `safespace_private.export_own_contributions()`, fonction
+L’export JSON v5 (avec catégorie, légende, ordre des preuves et dernière journée d’activité par espace) appelle `safespace_private.export_own_contributions()`, fonction
 en lecture seule dérivant l’identité du contexte SQL, sans paramètre utilisateur.
 Elle inclut les rapports dont la personne reste l’auteur, les métadonnées de ses
 propres envois et ses flags, même après suspension/exclusion. Les clés de stockage,

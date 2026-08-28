@@ -3,6 +3,7 @@ import { prisma } from "~/db/client.server";
 import { getUserSpaceRole } from "~/db/repositories/spaces/queries.server";
 import { getCurrentUser } from "~/services/auth.server";
 import { getOwnSensitiveReviewFeedback } from "~/services/sensitive-review-feedback.server";
+import { trackVisitedSpace } from "~/services/space-activity-tracking.server";
 
 export async function loadReportForEditing({ request, params }: LoaderFunctionArgs) {
   const user = await getCurrentUser(request);
@@ -93,6 +94,7 @@ export async function loadReportForEditing({ request, params }: LoaderFunctionAr
     throw new Response("Signalement introuvable", { status: 404 });
   }
 
+  await trackVisitedSpace(user.id, post.spaceId);
   return {
     reviewFeedback: post.authorId === user.id && post.requiresSensitiveReview
       ? await getOwnSensitiveReviewFeedback(post.id) : null,

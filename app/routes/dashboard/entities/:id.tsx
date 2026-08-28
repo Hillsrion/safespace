@@ -7,6 +7,7 @@ import { Badge } from "~/components/ui/badge";
 import { Post as PostComponent } from "~/components/post";
 import type { TPost } from "~/lib/types"; // Only TPost is needed from here now
 import { logServerException } from "~/lib/error/server-error.server";
+import { trackVisitedSpace } from "~/services/space-activity-tracking.server";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { id: entityId } = params;
@@ -27,6 +28,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
 
     const posts = await reportedEntityRepository.getPosts(entityId, user.id);
+    await trackVisitedSpace(user.id, entity.spaceId);
 
     return data({ entity, posts });
   } catch (error) {

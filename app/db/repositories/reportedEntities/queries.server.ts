@@ -59,6 +59,7 @@ export async function getReportedEntityById(
     where: { id: reportedEntityId },
     select: {
       id: true,
+      spaceId: true,
       name: true,
       createdAt: true,
       updatedAt: true,
@@ -89,6 +90,7 @@ export async function getAccessibleReportedEntityById(
     },
     select: {
       id: true,
+      spaceId: true,
       name: true,
       createdAt: true,
       updatedAt: true,
