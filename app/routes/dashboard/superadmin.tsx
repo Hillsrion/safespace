@@ -61,6 +61,7 @@ export default function SuperAdminDashboard() {
           <p className="text-sm text-muted-foreground">Espaces, activité et contrôles système.</p>
         </div>
         <Button asChild><Link to="/dashboard/spaces/new">Créer un espace</Link></Button>
+        <Button asChild variant="outline"><Link to="/dashboard/superadmin/announcements">Annonces système</Link></Button>
       </div>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
       <Card>

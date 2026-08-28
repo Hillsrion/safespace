@@ -44,6 +44,7 @@ const ids = {
   flag: randomUUID(), appeal: randomUUID(), targetDiscipline: randomUUID(),
   existingInvite: randomUUID(), wrongEmailInvite: randomUUID(), overwriteInvite: randomUUID(),
   exportForeignMedia: randomUUID(), exportOwnFlag: randomUUID(),
+  activeAnnouncement: randomUUID(), expiredAnnouncement: randomUUID(), futureAnnouncement: randomUUID(), nonUtcAnnouncement: randomUUID(),
 };
 const past = new Date(Date.now() - 86_400_000);
 const future = new Date(Date.now() + 86_400_000);
@@ -248,6 +249,14 @@ async function main(): Promise<void> {
       await tx.mediaDeletionJob.createMany({ data: [
         { storageKey: `rls-test/${runId}/owned-job`, requestedByUserId: ids.outsider, spaceId: ids.spaceB },
         { storageKey: `rls-test/${runId}/system-job` },
+      ] });
+      await tx.systemAnnouncement.createMany({ data: [
+        { id: ids.activeAnnouncement, content: "Active system notice", publishedAt: past, createdByUserId: ids.superadmin },
+        { id: ids.expiredAnnouncement, content: "Expired system notice", publishedAt: past, expiresAt: new Date(Date.now() - 3_600_000), createdByUserId: ids.superadmin },
+        { id: ids.futureAnnouncement, content: "Future system notice", publishedAt: future, createdByUserId: ids.superadmin },
+        // The offset is normalized by Prisma into UTC; it must remain active
+        // regardless of the PostgreSQL session TimeZone.
+        { id: ids.nonUtcAnnouncement, content: "Offset system notice", publishedAt: new Date("2020-01-01T12:00:00+02:00"), createdByUserId: ids.superadmin },
       ] });
     }, { timeout: 30_000 });
 
@@ -569,6 +578,31 @@ async function main(): Promise<void> {
         assert.equal(await admin.media.count({ where: { id: ids.publicMedia } }), 1, "Departure must not remove another uploader's media");
       });
     }
+    await check("system announcements: authenticated users see active notices only", async () => {
+      for (const actor of [{ id: ids.editor }, { id: ids.admin }]) {
+        const notices = await as(actor, () => scoped.systemAnnouncement.findMany({ select: { id: true } }));
+        assert.ok(notices.some(({ id }) => id === ids.activeAnnouncement), `${actor.id}: active notice absent`);
+        assert.ok(notices.some(({ id }) => id === ids.nonUtcAnnouncement), `${actor.id}: offset notice absent`);
+        assert.ok(!notices.some(({ id }) => id === ids.expiredAnnouncement || id === ids.futureAnnouncement), `${actor.id}: inactive notice exposed`);
+      }
+      const superadminNotices = await as({ id: ids.superadmin, isSuperAdmin: true }, () => scoped.systemAnnouncement.findMany({ select: { id: true } }));
+      assert.ok(superadminNotices.some(({ id }) => id === ids.futureAnnouncement), "Superadmin management view must include scheduled notices");
+      assert.equal(await direct.systemAnnouncement.count(), 0, "No DB context cannot read announcements");
+      assert.equal(await as({ id: randomUUID() }, () => scoped.systemAnnouncement.count()), 0, "A forged context without an account cannot read announcements");
+    });
+    await check("system announcements: RLS fixes the creator and only allows superadmin mutations", async () => {
+      await assert.rejects(() => as({ id: ids.editor }, () => scoped.systemAnnouncement.create({ data: { content: "forbidden", publishedAt: new Date(), createdByUserId: ids.editor } })));
+      await assert.rejects(() => as({ id: ids.superadmin, isSuperAdmin: true }, () => scoped.systemAnnouncement.create({ data: { content: "forged creator", publishedAt: new Date(), createdByUserId: ids.editor } })));
+      await assert.rejects(() => as({ id: ids.superadmin, isSuperAdmin: true }, () => scoped.systemAnnouncement.update({ where: { id: ids.activeAnnouncement }, data: { createdByUserId: ids.editor } })));
+      const rollbackCreator = randomUUID();
+      await admin.$transaction(async (tx) => {
+        await tx.user.create({ data: { id: rollbackCreator, email: `${runId}-${rollbackCreator}@rls.invalid`, password: "unused", firstName: "RLS", lastName: "Creator" } });
+        const announcement = await tx.systemAnnouncement.create({ data: { content: "FK set null", publishedAt: past, createdByUserId: rollbackCreator } });
+        await tx.user.delete({ where: { id: rollbackCreator } });
+        assert.equal((await tx.systemAnnouncement.findUnique({ where: { id: announcement.id } }))?.createdByUserId, null);
+        throw new Error("intentional integration rollback");
+      }).catch((error) => { if (!(error instanceof Error) || error.message !== "intentional integration rollback") throw error; });
+    });
     await verifySensitiveReview({ admin, runtime: direct, scoped, runtimeUrl: parsedUrl.toString(), ids, check });
     await check("pooled connection has no identity after success, rollback and leave", async () => {
       await as({ id: ids.superadmin, isSuperAdmin: true }, () => scoped.post.count());
@@ -588,6 +622,7 @@ async function main(): Promise<void> {
         await admin.$transaction(async (tx) => {
           await tx.auditLog.deleteMany({ where: { spaceId: { in: spaceIds } } });
           await tx.mediaDeletionJob.deleteMany({ where: { storageKey: { startsWith: `rls-test/${runId}/` } } });
+          await tx.systemAnnouncement.deleteMany({ where: { id: { in: [ids.activeAnnouncement, ids.expiredAnnouncement, ids.futureAnnouncement, ids.nonUtcAnnouncement] } } });
           // Space cascades remove posts, media, governance, invites and entities.
           await tx.space.deleteMany({ where: { id: { in: spaceIds } } });
           await tx.user.deleteMany({ where: { id: { in: userIds } } });

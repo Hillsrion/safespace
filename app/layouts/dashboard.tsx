@@ -17,6 +17,8 @@ import { commitSession, getSession } from "~/services/session.server";
 import { getCurrentUser } from "~/services/auth.server";
 import { persistLastVisitedSpace } from "~/lib/last-visited-space";
 import { SearchBar } from "~/components/search-bar";
+import { SystemAnnouncementBanner } from "~/components/system-announcement-banner";
+import { listActiveSystemAnnouncements } from "~/services/system-announcements.server";
 
 interface RouteMatch {
   pathname: string;
@@ -49,8 +51,9 @@ export async function loader({ request }: { request: Request }) {
     session.unset("toast");
   }
 
+  const announcements = await listActiveSystemAnnouncements({ id: user.id });
   return data(
-    { toast: toastData || null, user },
+    { toast: toastData || null, user, announcements },
     { headers: {
       "Set-Cookie": await commitSession(session),
     } }
@@ -59,7 +62,7 @@ export async function loader({ request }: { request: Request }) {
 
 export default function DashboardLayout() {
   const matches = useMatches() as unknown as RouteMatch[];
-  const { toast: toastData } = useLoaderData<typeof loader>();
+  const { announcements, toast: toastData } = useLoaderData<typeof loader>();
   const isDashboardRoute = matches.some(match => match.pathname.startsWith('/dashboard'));
   
   if (!isDashboardRoute) { 
@@ -129,6 +132,7 @@ export default function DashboardLayout() {
             </div>
           </div>
           <SearchBar />
+          <SystemAnnouncementBanner announcements={announcements} />
           <Outlet />
         </main>
       </div>

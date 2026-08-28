@@ -41,6 +41,16 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO safespace_app;
 ```
 
+Après la migration des annonces système, si les privilèges par défaut n'étaient
+pas déjà configurés, le DBA exécute aussi :
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public."SystemAnnouncement"
+  TO safespace_app;
+GRANT EXECUTE ON FUNCTION safespace_private.current_account_exists()
+  TO safespace_app;
+```
+
 ## Contexte applicatif
 
 `app/db/contextual-client.server.ts` encapsule toutes les opérations du client

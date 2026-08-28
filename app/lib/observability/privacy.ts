@@ -23,6 +23,7 @@ export const OBSERVABILITY_OPERATIONS = [
   "space.mutate",
   "system.startup",
   "system.render",
+  "system_announcement.mutate",
 ] as const;
 
 export type ObservabilityOperation = (typeof OBSERVABILITY_OPERATIONS)[number];

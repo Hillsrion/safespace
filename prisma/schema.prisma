@@ -98,6 +98,9 @@ enum AuditAction {
   space_create    // Space created
   space_update    // Space updated
   space_delete    // Space deleted
+  system_announcement_create
+  system_announcement_update
+  system_announcement_delete
 }
 
 // User model represents platform users with different roles
@@ -136,6 +139,7 @@ model User {
   issuedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineIssuers")
   revokedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineRevokers")
   sensitiveReviewDecisions SensitiveReviewDecision[]
+  createdSystemAnnouncements SystemAnnouncement[] @relation("SystemAnnouncementCreators")
 }
 
 // Space model represents a community/organization within the platform
@@ -455,4 +459,20 @@ model SavedSearch {
 
   @@index([userId, updatedAt])
   @@index([spaceId])
+}
+
+// Global, plaintext notices. Publication and expiry are UTC DateTime values;
+// active visibility is enforced again by PostgreSQL RLS.
+model SystemAnnouncement {
+  id              String   @id @default(uuid()) @db.Uuid
+  content         String   @db.Text
+  publishedAt     DateTime
+  expiresAt       DateTime?
+  createdByUserId String?  @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  creator User? @relation("SystemAnnouncementCreators", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([publishedAt, expiresAt])
 }

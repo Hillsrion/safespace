@@ -23,6 +23,7 @@ const MODEL_DELEGATES = new Set([
   "sensitiveReviewDecision",
   "auditLog",
   "savedSearch",
+  "systemAnnouncement",
 ]);
 const RAW_OPERATIONS = new Set([
   "$executeRaw",
