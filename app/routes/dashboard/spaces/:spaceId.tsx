@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import {
   Form as RouterForm,
+  Link,
   data,
   redirect,
   useActionData,
@@ -39,6 +40,19 @@ const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   role: z.enum(["READ_ONLY", "EDITOR", "MODERATOR", "ADMIN"]),
 });
+
+const MEMBER_PAGE_SIZE = 25;
+const MEMBER_ROLES = ["READ_ONLY", "EDITOR", "MODERATOR", "ADMIN"] as const;
+
+function memberRoleValues(role: (typeof MEMBER_ROLES)[number]) {
+  const displayRole = role
+    .toLowerCase()
+    .replace("_", "-")
+    .replace(/(^|-)([a-z])/g, (_, separator: string, character: string) =>
+      `${separator}${character.toUpperCase()}`
+    );
+  return [role, role.toLowerCase(), displayRole];
+}
 
 type ActionData = {
   success?: boolean;
@@ -78,6 +92,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   if (!role) throw new Response("Accès refusé", { status: 403 });
 
   const isAdmin = user.isSuperAdmin || role === "ADMIN";
+  const url = new URL(request.url);
+  const memberQuery = url.searchParams.get("memberQ")?.trim().slice(0, 100) ?? "";
+  const requestedMemberRole = url.searchParams.get("memberRole");
+  const memberRole = MEMBER_ROLES.find((candidate) => candidate === requestedMemberRole);
+  const requestedMemberPage = Number.parseInt(url.searchParams.get("memberPage") ?? "1", 10);
+  const memberPage = Number.isFinite(requestedMemberPage)
+    ? Math.min(Math.max(requestedMemberPage, 1), 100)
+    : 1;
   const space = await prisma.space.findUnique({
     where: { id: spaceId },
     select: {
@@ -89,11 +111,28 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   if (!space) throw new Response("Espace introuvable", { status: 404 });
 
-  const [members, invites] = isAdmin
+  const memberWhere = {
+    spaceId,
+    ...(memberRole ? { role: { in: memberRoleValues(memberRole) } } : {}),
+    ...(memberQuery
+      ? {
+          user: {
+            OR: [
+              { email: { contains: memberQuery, mode: "insensitive" as const } },
+              { firstName: { contains: memberQuery, mode: "insensitive" as const } },
+              { lastName: { contains: memberQuery, mode: "insensitive" as const } },
+            ],
+          },
+        }
+      : {}),
+  };
+  const [members, memberTotal, invites] = isAdmin
     ? await Promise.all([
         prisma.userSpaceMembership.findMany({
-          where: { spaceId },
-          orderBy: { joinedAt: "asc" },
+          where: memberWhere,
+          orderBy: [{ joinedAt: "asc" }, { userId: "asc" }],
+          skip: (memberPage - 1) * MEMBER_PAGE_SIZE,
+          take: MEMBER_PAGE_SIZE,
           select: {
             role: true,
             joinedAt: true,
@@ -107,6 +146,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
             },
           },
         }),
+        prisma.userSpaceMembership.count({ where: memberWhere }),
         prisma.invite.findMany({
           where: { spaceId },
           orderBy: { createdAt: "desc" },
@@ -121,7 +161,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           },
         }),
       ])
-    : [[], []];
+    : [[], 0, []];
 
   return data({
     space,
@@ -129,6 +169,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     isAdmin,
     isSuperAdmin: user.isSuperAdmin,
     members,
+    memberPage,
+    memberQuery,
+    memberRole: memberRole ?? "",
+    memberTotal,
+    memberTotalPages: Math.max(1, Math.ceil(memberTotal / MEMBER_PAGE_SIZE)),
     invites,
   });
 }
@@ -317,13 +362,32 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function SpaceManagementPage() {
-  const { space, role, isAdmin, isSuperAdmin, members, invites } = useLoaderData<typeof loader>();
+  const {
+    space,
+    role,
+    isAdmin,
+    isSuperAdmin,
+    members,
+    memberPage,
+    memberQuery,
+    memberRole,
+    memberTotal,
+    memberTotalPages,
+    invites,
+  } = useLoaderData<typeof loader>();
   const actionData = useActionData<ActionData>();
   const navigation = useNavigation();
   const form = useForm<z.infer<typeof inviteSchema>>({
     resolver: zodResolver(inviteSchema),
     defaultValues: { email: "", role: "EDITOR" },
   });
+  const memberPageUrl = (targetPage: number) => {
+    const params = new URLSearchParams();
+    if (memberQuery) params.set("memberQ", memberQuery);
+    if (memberRole) params.set("memberRole", memberRole);
+    params.set("memberPage", String(targetPage));
+    return `?${params.toString()}`;
+  };
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -392,16 +456,28 @@ export default function SpaceManagementPage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>Membres ({members.length})</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Membres ({memberTotal})</CardTitle></CardHeader>
             <CardContent className="overflow-x-auto">
+              <RouterForm className="mb-4 grid gap-2 md:grid-cols-[1fr_180px_auto]" method="get">
+                <Input aria-label="Rechercher un membre" defaultValue={memberQuery} maxLength={100} name="memberQ" placeholder="Nom ou email" />
+                <select aria-label="Rôle du membre" className="h-9 rounded-md border border-input bg-transparent px-3 text-sm" defaultValue={memberRole} name="memberRole">
+                  <option value="">Tous les rôles</option>
+                  <option value="READ_ONLY">Lecture seule</option>
+                  <option value="EDITOR">Éditeur</option>
+                  <option value="MODERATOR">Modérateur</option>
+                  <option value="ADMIN">Administrateur</option>
+                </select>
+                <Button type="submit" variant="outline">Filtrer</Button>
+              </RouterForm>
               <table className="w-full text-sm">
-                <thead><tr className="border-b text-left"><th className="py-2">Nom</th><th>Email</th><th>Rôle</th><th>Actions</th></tr></thead>
+                <thead><tr className="border-b text-left"><th className="py-2">Nom</th><th>Email</th><th>Rôle</th><th>Inscription</th><th>Actions</th></tr></thead>
                 <tbody>
                   {members.map((membership) => (
                     <tr className="border-b" key={membership.user.id}>
                       <td className="py-2">{membership.user.firstName} {membership.user.lastName}</td>
                       <td>{membership.user.email}</td>
                       <td>{membership.role}</td>
+                      <td>{new Date(membership.joinedAt).toLocaleDateString("fr-FR")}</td>
                       <td className="py-2">
                         <MemberAdminActions
                           currentRole={membership.role}
@@ -413,8 +489,14 @@ export default function SpaceManagementPage() {
                       </td>
                     </tr>
                   ))}
+                  {members.length === 0 && <tr><td className="py-8 text-center text-muted-foreground" colSpan={5}>Aucun membre trouvé.</td></tr>}
                 </tbody>
               </table>
+              <div className="mt-4 flex items-center justify-between">
+                <Button asChild disabled={memberPage <= 1} size="sm" variant="outline"><Link aria-disabled={memberPage <= 1} to={memberPageUrl(Math.max(1, memberPage - 1))}>Précédent</Link></Button>
+                <span className="text-sm text-muted-foreground">Page {memberPage} sur {memberTotalPages}</span>
+                <Button asChild disabled={memberPage >= memberTotalPages} size="sm" variant="outline"><Link aria-disabled={memberPage >= memberTotalPages} to={memberPageUrl(Math.min(memberTotalPages, memberPage + 1))}>Suivant</Link></Button>
+              </div>
             </CardContent>
           </Card>
 
