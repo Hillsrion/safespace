@@ -19,6 +19,17 @@ function storage(fetchImplementation: typeof fetch) {
 }
 
 describe("Cloudflare R2 private storage", () => {
+  it.each([200, 404, 503])("forwards deletion cancellation and closes unused bodies for status %s", async (status) => {
+    const cancel = vi.fn();
+    const body = new ReadableStream({ cancel });
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(body, { status }));
+    const controller = new AbortController();
+    const deletion = storage(fetchMock).deleteObject(key, { signal: controller.signal });
+    if (status === 503) await expect(deletion).rejects.toThrow("Private media deletion failed");
+    else await expect(deletion).resolves.toBeUndefined();
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(URL), expect.objectContaining({ method: "DELETE", signal: controller.signal }));
+  });
   it("uploads with AWS SigV4 authorization and no public URL", async () => {
     const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
     const r2 = storage(fetchMock as unknown as typeof fetch);

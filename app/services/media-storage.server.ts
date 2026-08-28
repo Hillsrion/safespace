@@ -18,7 +18,7 @@ export interface MediaStorage {
     key: string;
   }): Promise<void>;
   getObject(key: string, options?: { range?: string }): Promise<StoredMediaObject>;
-  deleteObject(key: string): Promise<void>;
+  deleteObject(key: string, options?: { signal?: AbortSignal }): Promise<void>;
   createSignedDownloadUrl(input: {
     contentDisposition: string;
     contentType: string;
@@ -193,6 +193,7 @@ export class R2MediaStorage implements MediaStorage {
     key: string;
     method: "DELETE" | "GET" | "PUT";
     range?: string;
+    signal?: AbortSignal;
   }): Promise<Response> {
     const url = this.objectUrl(input.key);
     const bodyHash = sha256(input.body ?? new Uint8Array());
@@ -215,6 +216,7 @@ export class R2MediaStorage implements MediaStorage {
       headers,
       body: input.body ? new Blob([input.body]) : undefined,
       redirect: "error",
+      signal: input.signal,
     });
   }
 
@@ -251,11 +253,17 @@ export class R2MediaStorage implements MediaStorage {
     };
   }
 
-  async deleteObject(key: string): Promise<void> {
-    const response = await this.signedRequest({ key, method: "DELETE" });
-    // S3 DELETE is normally idempotent; tolerate a provider/gateway 404 too.
-    if (response.status === 404) return;
-    await this.assertSuccess(response, "Private media deletion");
+  async deleteObject(key: string, options: { signal?: AbortSignal } = {}): Promise<void> {
+    const response = await this.signedRequest({ key, method: "DELETE", signal: options.signal });
+    try {
+      // S3 DELETE is normally idempotent; tolerate a provider/gateway 404 too.
+      if (response.status === 404) return;
+      await this.assertSuccess(response, "Private media deletion");
+    } finally {
+      // DELETE never consumes a provider body. Release it even for 404/error
+      // gateways so a retry loop cannot exhaust the HTTP connection pool.
+      await response.body?.cancel().catch(() => undefined);
+    }
   }
 
   async createSignedDownloadUrl(input: {

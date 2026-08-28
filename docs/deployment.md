@@ -76,11 +76,13 @@ définis **pour le rôle qui applique les migrations**, comme décrit dans
 migrations avant le déploiement. Le rôle propriétaire est volontairement réservé
 aux migrations/restaurations ; l'image web ne doit jamais l'utiliser.
 
-Les retries de l'outbox média et les autres jobs administratifs s'exécutent dans
-un processus séparé utilisant explicitement `SYSTEM_DATABASE_URL`, jamais dans
-le serveur HTTP. Il faut provisionner/planifier ce worker séparément : le
-conteneur web ne constitue pas un ordonnanceur. Ne pas partager son secret avec
-les réplicas web. Voir `secure-media-pipeline.md` pour le traitement de l'outbox.
+Les retries de l'outbox média s'exécutent dans la cible Docker séparée
+`media-deletion-worker`, avec `MEDIA_DELETION_WORKER_DATABASE_URL` et un rôle
+ne disposant d'aucun accès aux tables applicatives. Cette cible refuse les secrets
+web, de session et `SYSTEM_DATABASE_URL`. Provisionner ce service indépendamment
+du web ; voir `media-deletion-worker.md` pour les grants, modes et délais d'arrêt.
+Le conteneur web ne constitue pas un ordonnanceur. Les éventuels autres jobs
+administratifs privilégiés doivent eux aussi rester séparés des réplicas web.
 
 ## Disques, limites et réplication
 

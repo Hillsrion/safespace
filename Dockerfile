@@ -29,6 +29,20 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile --non-interactive --production=true \
     && yarn cache clean
 
+# Independent job: no HTTP server, client assets, web credentials or healthcheck.
+# Keep the web runtime last so the default Docker target remains the website.
+FROM base AS media-deletion-worker
+ENV NODE_ENV=production
+COPY --from=production-dependencies /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/build/runtime ./build/runtime
+COPY --from=build /app/app/generated/prisma ./app/generated/prisma
+USER node
+HEALTHCHECK NONE
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["node", "build/runtime/media-deletion-worker.js", "--loop"]
+
 FROM base AS runtime
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
 COPY --from=production-dependencies /app/node_modules ./node_modules

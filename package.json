@@ -10,6 +10,8 @@
     "build:netlify": "DEPLOY_TARGET=netlify react-router build",
     "dev": "react-router dev",
     "start": "NODE_ENV=production node server/index.mjs",
+    "worker:media-deletion": "NODE_ENV=production node build/runtime/media-deletion-worker.js --loop",
+    "worker:media-deletion:once": "NODE_ENV=production node build/runtime/media-deletion-worker.js --once",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",

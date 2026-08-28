@@ -69,10 +69,22 @@ jobs:
       - name: Typecheck and test
         run: yarn run check
 
+      - name: Verify the isolated media deletion worker database boundary
+        run: yarn tsx scripts/verify-media-deletion-worker.ts
+        env:
+          RLS_TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/safespace
+          RLS_TEST_ALLOW_SETUP: "1"
+
       - name: Build production bundles
         run: yarn build
         env:
           NODE_ENV: production
+
+      - name: Verify independent production entrypoints
+        run: |
+          test -f build/runtime/database.js
+          test -f build/runtime/media-deletion-worker.js
+          env -u DATABASE_URL -u SESSION_SECRET NODE_ENV=production node build/runtime/media-deletion-worker.js --help
 
   production-image:
     runs-on: ubuntu-latest
@@ -93,10 +105,11 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
-      - name: Build isolated migration and non-root web images
+      - name: Build isolated migration, worker and non-root web images
         run: |
           docker build --target migrations --tag safespace-migrations:ci .
           docker build --target runtime --tag safespace-web:ci .
+          docker build --target media-deletion-worker --tag safespace-worker:ci .
       - name: Apply migrations with the separate owner job
         run: docker run --rm --network host -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/safespace safespace-migrations:ci
       - name: Provision a restricted CI runtime role
@@ -110,7 +123,19 @@ jobs:
           GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO safespace_web;
           REVOKE ALL ON TABLE public._prisma_migrations FROM safespace_web;
           GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA safespace_private TO safespace_web;
+          CREATE ROLE safespace_media_deletion_worker LOGIN PASSWORD 'ci-worker-password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+          GRANT CONNECT ON DATABASE safespace TO safespace_media_deletion_worker;
+          GRANT USAGE ON SCHEMA safespace_worker TO safespace_media_deletion_worker;
+          GRANT EXECUTE ON FUNCTION safespace_worker.claim_media_deletion_jobs(integer), safespace_worker.complete_media_deletion_job(uuid, uuid), safespace_worker.fail_media_deletion_job(uuid, uuid, text) TO safespace_media_deletion_worker;
           SQL
+      - name: Run the built worker with its dedicated restricted role
+        run: |
+          docker run --rm safespace-worker:ci node build/runtime/media-deletion-worker.js --help
+          docker run --rm --network host \
+            -e MEDIA_DELETION_WORKER_DATABASE_URL=postgresql://safespace_media_deletion_worker:ci-worker-password@127.0.0.1:5432/safespace \
+            safespace-worker:ci node build/runtime/media-deletion-worker.js --once
+          test "$(docker run --rm safespace-worker:ci id -u)" != 0
+          test "$(docker image inspect safespace-worker:ci --format '{{join .Config.Healthcheck.Test " "}}')" = NONE
       - name: Start the built web image without owner credentials
         run: |
           docker run --detach --name safespace-web --network host \

@@ -322,12 +322,16 @@ model MediaDeletionJob {
   attempts      Int       @default(0)
   lastError     String?
   lastAttemptAt DateTime?
+  leaseToken    String?   @db.Uuid
+  leaseExpiresAt DateTime?
+  nextAttemptAt DateTime  @default(dbgenerated("(clock_timestamp() AT TIME ZONE 'UTC')"))
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
 
   @@index([createdAt])
   @@index([requestedByUserId])
   @@index([spaceId])
+  @@index([nextAttemptAt, leaseExpiresAt, attempts, createdAt], map: "MediaDeletionJob_pending_lease_idx")
 }
 
 // PostFlag model represents user reports about posts

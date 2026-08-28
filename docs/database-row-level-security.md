@@ -96,15 +96,17 @@ Une connexion propriétaire n'est pas un test valide de RLS.
 Tout nouveau chemin serveur qui interroge Prisma doit soit appeler
 `getCurrentUser`/`requireUser` avant l'accès, soit utiliser explicitement
 `runWithDbContext` pour un flux public borné. Les jobs système ne doivent pas
-inventer un utilisateur : ils emploient `SYSTEM_DATABASE_URL` et leur accès
-doit rester hors du processus web.
+inventer un utilisateur. Les opérations de maintenance privilégiées emploient
+`SYSTEM_DATABASE_URL` hors du processus web ; le worker de suppression utilise
+une interface SQL distincte et un rôle sans droits sur les tables.
 
 `MediaDeletionJob` est une outbox durable sans clés étrangères. Les opérations
 immédiates du serveur web sont bornées par `requestedByUserId` et `spaceId` ;
-les retries planifiés et les anciennes lignes sans propriétaire exigent le rôle
-privilégié fourni par `SYSTEM_DATABASE_URL`. Un worker construit ce client avec
-`createSystemPrismaClient` depuis `app/db/system-client.server.ts`, puis le passe
-explicitement aux services concernés et le déconnecte à la fin du job.
+les retries planifiés et les anciennes lignes sans propriétaire passent par
+`safespace_worker` avec `MEDIA_DELETION_WORKER_DATABASE_URL`. Le worker ne reçoit
+ni `SYSTEM_DATABASE_URL`, ni les secrets du web. Voir `media-deletion-worker.md`
+pour le rôle exact, les trois fonctions autorisées et les leases. Aucun contexte
+utilisateur forgé à partir de l’outbox n’est utilisé.
 
 ## Test d'intégration PostgreSQL en CI
 

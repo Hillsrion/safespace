@@ -1,6 +1,11 @@
 import type { Prisma, PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
-import { getMediaStorage, type MediaStorage } from "~/services/media-storage.server";
+import {
+  getMediaStorage,
+  type MediaStorage,
+} from "~/services/media-storage.server";
+import { deleteMediaObjectWithTimeout, mediaDeletionErrorCode } from "~/services/media-deletion-utils.server";
+export { MediaDeletionTimeoutError, deleteMediaObjectWithTimeout, mediaDeletionErrorCode } from "~/services/media-deletion-utils.server";
 
 type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
@@ -18,9 +23,14 @@ function uniqueStorageKeys(keys: readonly string[]): string[] {
   return [...new Set(keys.filter((key) => key.length > 0))];
 }
 
-function safeErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : "Unknown object storage error";
-  return message.replace(/[\r\n\t]/g, " ").slice(0, 500);
+const DEFAULT_STORAGE_DELETE_TIMEOUT_MS = 30_000;
+
+function validatedStorageTimeoutMs(value: number | undefined): number {
+  const timeoutMs = value ?? DEFAULT_STORAGE_DELETE_TIMEOUT_MS;
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 120_000) {
+    throw new RangeError("Media deletion storage timeout must be between 1000 and 120000 milliseconds");
+  }
+  return timeoutMs;
 }
 
 /** Must be called before the SQL rows owning these keys are deleted. */
@@ -65,11 +75,12 @@ export async function enqueueMediaDeletionForWhere(
  */
 export async function processMediaDeletionJobs(
   storageKeys: readonly string[],
-  options: { client?: PrismaClient; storage?: MediaStorage } = {}
+  options: { client?: PrismaClient; storage?: MediaStorage; storageTimeoutMs?: number } = {}
 ): Promise<MediaDeletionResult> {
   const keys = uniqueStorageKeys(storageKeys);
   if (keys.length === 0) return { deleted: 0, failed: 0 };
   const client = options.client ?? prisma;
+  const storageTimeoutMs = validatedStorageTimeoutMs(options.storageTimeoutMs);
   const jobs = await client.mediaDeletionJob.findMany({
     where: { storageKey: { in: keys } },
     select: { id: true, storageKey: true },
@@ -80,7 +91,7 @@ export async function processMediaDeletionJobs(
   try {
     storage = options.storage ?? getMediaStorage();
   } catch (error) {
-    const lastError = safeErrorMessage(error);
+    const lastError = mediaDeletionErrorCode(error);
     await client.mediaDeletionJob.updateMany({
       where: { id: { in: jobs.map(({ id }) => id) } },
       data: {
@@ -96,7 +107,7 @@ export async function processMediaDeletionJobs(
   let failed = 0;
   for (const job of jobs) {
     try {
-      await storage.deleteObject(job.storageKey);
+      await deleteMediaObjectWithTimeout(storage, job.storageKey, storageTimeoutMs);
       await client.mediaDeletionJob.deleteMany({ where: { id: job.id } });
       deleted += 1;
     } catch (error) {
@@ -106,7 +117,7 @@ export async function processMediaDeletionJobs(
         data: {
           attempts: { increment: 1 },
           lastAttemptAt: new Date(),
-          lastError: safeErrorMessage(error),
+          lastError: mediaDeletionErrorCode(error),
         },
       });
     }
@@ -116,7 +127,7 @@ export async function processMediaDeletionJobs(
 
 /** Entry point suitable for a scheduled retry worker. */
 export async function processPendingMediaDeletionJobs(
-  options: { client?: PrismaClient; limit?: number; storage?: MediaStorage } = {}
+  options: { client?: PrismaClient; limit?: number; storage?: MediaStorage; storageTimeoutMs?: number } = {}
 ): Promise<MediaDeletionResult> {
   const client = options.client ?? prisma;
   const limit = options.limit ?? 25;
@@ -130,6 +141,6 @@ export async function processPendingMediaDeletionJobs(
   });
   return processMediaDeletionJobs(
     jobs.map(({ storageKey }) => storageKey),
-    { client, storage: options.storage }
+    { client, storage: options.storage, storageTimeoutMs: options.storageTimeoutMs }
   );
 }

@@ -243,15 +243,16 @@ The R2 bucket must remain private; no public/custom-domain binding is required.
 SQL deletion first records each storage key in `MediaDeletionJob` in the same
 transaction. R2 deletion is attempted immediately after commit. A provider
 failure leaves the private object unreachable through the application and keeps
-the durable job for retry. A scheduled worker may call:
+the durable job for retry. Run the built, separate deletion worker:
 
-```ts
-const systemClient = createSystemPrismaClient();
-await processPendingMediaDeletionJobs({ client: systemClient, limit: 25 });
-await systemClient.$disconnect();
+```sh
+node build/runtime/media-deletion-worker.js --once
+# Or supervise a persistent worker:
+node build/runtime/media-deletion-worker.js --loop
 ```
 
-from a dedicated maintenance process using
-`app/db/system-client.server.ts` and `app/services/media-deletion.server.ts`.
-The privileged URL must never be available to the web process. Object deletion
-is idempotent.
+It requires `MEDIA_DELETION_WORKER_DATABASE_URL`, with no application-table
+access, and refuses web/session/owner secrets. It leases jobs through three
+bounded SQL functions, aborts timed-out storage requests and records only fixed
+failure codes. Object deletion is idempotent. See `media-deletion-worker.md` for
+provisioning and the dedicated Docker target; the web does not schedule retries.
