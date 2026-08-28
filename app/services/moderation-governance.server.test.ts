@@ -82,6 +82,28 @@ function harness(options: { actorRole?: string; targetRole?: string; superAdmin?
 }
 
 describe("moderation governance authorization", () => {
+  it("adds decision context only to the elevated queue and strips identities from nested rows", async () => {
+    const h = harness();
+    h.tx.moderationAppeal.findMany.mockResolvedValue([appealRow({
+      filedByUserId: "private-filer",
+      postFlag: {
+        reason: "Original flag rationale", status: "rejected", resolvedAt: new Date("2026-08-26T09:00:00Z"),
+        flaggerUserId: "private-flagger", resolvedByUserId: "private-reviewer",
+        post: { id: "post", description: "Report to examine", status: "hidden", isAdminOnly: true,
+          authorId: "private-author", reportedEntity: { name: "Reported entity", addedByUserId: "private-adder" },
+          media: [{ storageKey: "private-object" }],
+        },
+      },
+    })] as never);
+    const result = await listModerationAppeals({ id: ACTOR_ID }, SPACE_ID, { status: "pending", limit: 25 }, h.client);
+    expect(result.appeals[0]).toMatchObject({
+      originalDecision: { reason: "Original flag rationale", status: "rejected", resolvedAt: "2026-08-26T09:00:00.000Z" },
+      post: { id: "post", entityName: "Reported entity", status: "hidden", isAdminOnly: true },
+    });
+    expect(JSON.stringify(result)).not.toContain("private-");
+    const selection = h.tx.moderationAppeal.findMany.mock.calls[0] as unknown as [{ select: object }];
+    expect(JSON.stringify(selection[0].select)).not.toMatch(/authorId|filedByUserId|flaggerUserId|resolvedByUserId|storageKey/);
+  });
   it("does not expose the moderator appeal queue to ordinary members", async () => {
     const h = harness({ actorRole: "EDITOR" });
 

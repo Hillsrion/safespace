@@ -20,3 +20,16 @@ pas de confirmation de réussite.
 
 Tests : `member-governance-panel.test.tsx`, `moderation-flag-actions.test.tsx`,
 `moderation-template-picker.test.tsx`, et tests des actions serveur existants.
+
+## Appels et pagination des files
+
+La file d’appels inclut le motif et la date de la décision contestée, le texte
+du rapport et un lien vers ses preuves. Cette sélection est réservée aux
+modérateurs/administrateurs encore autorisés et ne contient ni auteur,
+signalant, reviewer ni clé de stockage. Les réponses personnelles de création
+d’appel gardent leur contrat réduit.
+
+Les signalements et appels ont des curseurs indépendants, des liens vers la
+page suivante et un retour au début. Les curseurs sont validés puis vérifiés
+dans l’espace courant ; les filtres réinitialisent la pagination. Les 50
+éléments par requête ne limitent donc plus l’accès aux autres éléments en file.

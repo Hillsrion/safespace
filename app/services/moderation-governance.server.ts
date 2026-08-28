@@ -287,7 +287,18 @@ export async function listModerationAppeals(
     }
     const rows = await tx.moderationAppeal.findMany({
       where: { spaceId, status: query.status },
-      select: APPEAL_SELECT,
+      select: {
+        ...APPEAL_SELECT,
+        // This context belongs only to the elevated queue. Own-appeal creation
+        // and decision responses retain the smaller APPEAL_SELECT contract.
+        postFlag: { select: {
+          reason: true, status: true, resolvedAt: true,
+          post: { select: {
+            id: true, description: true, status: true, isAdminOnly: true,
+            reportedEntity: { select: { name: true } },
+          } },
+        } },
+      },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: query.limit + 1,
       skip: query.cursor ? 1 : 0,
@@ -296,7 +307,21 @@ export async function listModerationAppeals(
     const hasMore = rows.length > query.limit;
     const page = hasMore ? rows.slice(0, query.limit) : rows;
     return {
-      appeals: page.map(toAppeal),
+      appeals: page.map((row) => ({
+        ...toAppeal(row),
+        originalDecision: {
+          reason: row.postFlag.reason,
+          status: row.postFlag.status,
+          resolvedAt: row.postFlag.resolvedAt?.toISOString() ?? null,
+        },
+        post: {
+          id: row.postFlag.post.id,
+          description: row.postFlag.post.description,
+          status: row.postFlag.post.status,
+          isAdminOnly: row.postFlag.post.isAdminOnly,
+          entityName: row.postFlag.post.reportedEntity.name,
+        },
+      })),
       nextCursor: hasMore ? page.at(-1)?.id ?? null : null,
       hasMore,
     };

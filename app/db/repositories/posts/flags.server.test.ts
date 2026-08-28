@@ -136,6 +136,11 @@ function createHarness(options: HarnessOptions = {}) {
 }
 
 describe("post flag writes", () => {
+  it("rejects a cursor belonging to another space before querying its queue", async () => {
+    const h = createHarness({ role: "MODERATOR", flagSpaceId: otherSpaceId });
+    await expect(listModerationFlags({ id: actorId }, { spaceId, cursor: flagId, status: "pending_review", limit: 20 }, h.client)).rejects.toMatchObject({ status: 404 });
+    expect(h.tx.postFlag.findMany).not.toHaveBeenCalled();
+  });
   it("does not let a restricted moderator decide flags", async () => {
     const h = createHarness({ role: "MODERATOR", discipline: "restriction" });
     await expect(decideModerationFlag({ id: actorId }, {

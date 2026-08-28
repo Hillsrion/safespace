@@ -18,6 +18,8 @@ import { listModerationFlags } from "~/db/repositories/posts/flags.server";
 import { prisma } from "~/db/client.server";
 import { getCurrentUser } from "~/services/auth.server";
 import { listModerationAppeals } from "~/services/moderation-governance.server";
+import { moderationFlagsQuerySchema } from "~/lib/post-flags";
+import { appealsQuerySchema } from "~/lib/moderation-governance";
 
 export const handle = { crumb: "File de modération" };
 
@@ -38,17 +40,16 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const spaces = (await getUserSpaces(user.id)).filter(({ role }) => isElevated(role));
   const requestedSpaceId = url.searchParams.get("spaceId");
   const selectedSpace = spaces.find(({ id }) => id === requestedSpaceId) ?? spaces[0];
+  const flagsQuery = moderationFlagsQuerySchema.safeParse({ status, limit: 50, cursor: url.searchParams.get("flagCursor") ?? undefined });
+  const appealsQuery = appealsQuerySchema.safeParse({ status: "pending", limit: 50, cursor: url.searchParams.get("appealCursor") ?? undefined });
+  if (!flagsQuery.success || !appealsQuery.success) throw new Response("Paramètres de pagination invalides", { status: 400 });
   const [queue, appeals, members] = selectedSpace
     ? await Promise.all([
         listModerationFlags(user, {
           spaceId: selectedSpace.id,
-          status,
-          limit: 50,
+          ...flagsQuery.data,
         }),
-        listModerationAppeals(user, selectedSpace.id, {
-          status: "pending",
-          limit: 50,
-        }),
+        listModerationAppeals(user, selectedSpace.id, appealsQuery.data),
         prisma.userSpaceMembership.findMany({
           where: { spaceId: selectedSpace.id },
           orderBy: [{ role: "asc" }, { joinedAt: "asc" }],
@@ -59,16 +60,23 @@ export async function loader({ request }: LoaderFunctionArgs) {
         }),
       ])
     : [
-        { flags: [], hasNextPage: false },
+        { flags: [], hasNextPage: false, nextCursor: undefined },
         { appeals: [], nextCursor: null, hasMore: false },
         [],
       ];
 
-  return { appeals, members, queue, selectedSpaceId: selectedSpace?.id ?? "", spaces, status };
+  return { appeals, members, queue, selectedSpaceId: selectedSpace?.id ?? "", spaces, status, flagCursor: flagsQuery.data.cursor, appealCursor: appealsQuery.data.cursor };
 }
 
 export default function ModerationPage() {
-  const { appeals, members, queue, selectedSpaceId, spaces, status } = useLoaderData<typeof loader>();
+  const { appeals, members, queue, selectedSpaceId, spaces, status, flagCursor, appealCursor } = useLoaderData<typeof loader>();
+  const pageUrl = (kind: "flagCursor" | "appealCursor", cursor?: string | null) => {
+    const params = new URLSearchParams({ spaceId: selectedSpaceId, status });
+    if (flagCursor) params.set("flagCursor", flagCursor);
+    if (appealCursor) params.set("appealCursor", appealCursor);
+    if (cursor) params.set(kind, cursor); else params.delete(kind);
+    return `?${params}`;
+  };
 
   if (spaces.length === 0) {
     return (
@@ -90,10 +98,10 @@ export default function ModerationPage() {
       <Card>
         <CardContent className="pt-6">
           <Form method="get" className="grid gap-3 md:grid-cols-[1fr_240px_auto]">
-            <select name="spaceId" defaultValue={selectedSpaceId} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+            <select aria-label="Espace à modérer" name="spaceId" defaultValue={selectedSpaceId} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
               {spaces.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
             </select>
-            <select name="status" defaultValue={status} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
+            <select aria-label="Statut des signalements" name="status" defaultValue={status} className="h-9 rounded-md border border-input bg-transparent px-3 text-sm">
               <option value="pending_review">En attente</option>
               <option value="resolved">Résolus</option>
               <option value="rejected">Rejetés</option>
@@ -130,6 +138,10 @@ export default function ModerationPage() {
         {queue.flags.length === 0 && (
           <Card><CardContent className="py-10 text-center text-muted-foreground">Aucun signalement dans cette file.</CardContent></Card>
         )}
+        <div className="flex gap-3">
+          {flagCursor && <Button asChild variant="outline"><Link to={pageUrl("flagCursor")}>Premiers signalements</Link></Button>}
+          {queue.nextCursor && <Button asChild variant="outline"><Link to={pageUrl("flagCursor", queue.nextCursor)}>Signalements suivants</Link></Button>}
+        </div>
       </div>
 
       <Card>
@@ -143,6 +155,14 @@ export default function ModerationPage() {
                   {new Date(appeal.createdAt).toLocaleString("fr-FR")}
                 </span>
               </div>
+              <div className="space-y-2 rounded-md bg-muted p-3 text-sm">
+                <strong>{appeal.post.entityName}</strong>
+                <p className="whitespace-pre-wrap">{appeal.post.description}</p>
+                <p>Motif du signalement initial : {appeal.originalDecision.reason || "Aucun motif fourni"}</p>
+                <p>Décision contestée : {appeal.originalDecision.status}{appeal.originalDecision.resolvedAt ? ` · ${new Date(appeal.originalDecision.resolvedAt).toLocaleString("fr-FR")}` : ""}</p>
+                <Link className="underline" to={`/dashboard/posts/${appeal.post.id}/edit`}>Examiner le rapport et ses preuves</Link>
+              </div>
+              <h3 className="text-sm font-medium">Motif de l’appel</h3>
               <p className="whitespace-pre-wrap text-sm">{appeal.reason}</p>
               <ModerationAppealActions appealId={appeal.id} spaceId={selectedSpaceId} />
             </div>
@@ -150,6 +170,10 @@ export default function ModerationPage() {
           {appeals.appeals.length === 0 && (
             <p className="text-sm text-muted-foreground">Aucun appel en attente.</p>
           )}
+          <div className="flex gap-3">
+            {appealCursor && <Button asChild variant="outline"><Link to={pageUrl("appealCursor")}>Premiers appels</Link></Button>}
+            {appeals.nextCursor && <Button asChild variant="outline"><Link to={pageUrl("appealCursor", appeals.nextCursor)}>Appels suivants</Link></Button>}
+          </div>
         </CardContent>
       </Card>
 

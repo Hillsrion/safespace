@@ -241,6 +241,14 @@ export async function listModerationFlags(
       throw errors.forbidden("Moderator rights are required");
     }
 
+    if (input.cursor) {
+      const cursor = await tx.postFlag.findFirst({
+        where: { id: input.cursor, post: { spaceId: input.spaceId } },
+        select: { id: true },
+      });
+      if (!cursor) throw errors.notFound("Moderation cursor not found");
+    }
+
     const flags = await tx.postFlag.findMany({
       where: {
         status: input.status,
