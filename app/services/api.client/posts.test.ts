@@ -1,8 +1,11 @@
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+const handleError = vi.hoisted(() => vi.fn());
+vi.mock("../../lib/error/handle", () => ({ handleError }));
 import { usePostActionsApi, usePostFeedApi } from "./posts";
 
 describe("post action client contract", () => {
+  beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.unstubAllGlobals());
   it("sends authenticated DELETE to the strict post deletion endpoint", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, action: "deleted" })));
@@ -39,5 +42,16 @@ describe("post action client contract", () => {
     expect(new URL(String(url), "https://safe.test/dashboard/").pathname).toBe("/resources/api/posts/feed");
     expect(new URL(String(url), "https://safe.test").searchParams.get("spaceId")).toBe("space-id");
     expect(options).toMatchObject({ method: "GET", credentials: "include" });
+  });
+
+  it("lets the action UI own error messages instead of emitting duplicate server-message toasts", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => Response.json({ error: "Server diagnostic", code: "forbidden:api" }, { status: 403 })));
+    const { result } = renderHook(() => usePostActionsApi());
+    await act(async () => {
+      await result.current.deletePost("post-id");
+      await result.current.updatePostStatus("post-id", "hide");
+      await result.current.flagPost("post-id", "space-id");
+    });
+    expect(handleError).not.toHaveBeenCalled();
   });
 });

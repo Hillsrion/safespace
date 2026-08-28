@@ -18,6 +18,7 @@ export function usePostActionsApi() {
   const deletePost = async (postId: string) => {
     return callApi(`/${RESOURCES_API_PREFIX}/posts/${encodeURIComponent(postId)}/delete`, {
       method: "DELETE",
+      showErrorToast: false,
     });
   };
 
@@ -30,6 +31,7 @@ export function usePostActionsApi() {
 
     return callApi(`/${RESOURCES_API_PREFIX}/posts/${encodeURIComponent(postId)}/edit`, {
       method: "POST",
+      showErrorToast: false,
       headers: {
         // Let the browser set the content-type with boundary for FormData
       },
@@ -42,6 +44,7 @@ export function usePostActionsApi() {
       `/${RESOURCES_API_PREFIX}/spaces/${encodeURIComponent(spaceId)}/posts/${encodeURIComponent(postId)}/flag`,
       {
         method: "POST",
+        showErrorToast: false,
         body: reason?.trim() ? { reason: reason.trim() } : {},
       }
     );
