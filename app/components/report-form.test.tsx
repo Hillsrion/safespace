@@ -108,4 +108,32 @@ describe("report persistence and evidence recovery", () => {
     expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).not.toHaveProperty("contentRevision");
     await waitFor(() => expect(navigate).toHaveBeenCalled());
   });
+
+  it("does not silently discard unsaved evidence captions when the report is submitted", async () => {
+    const first = "11111111-1111-4111-8111-111111111111";
+    const second = "22222222-2222-4222-8222-222222222222";
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json({ media: { id: first, caption: "Première légende", evidenceCategory: "unclassified", sortOrder: 0 }, contentRevision: 2, orderedMediaIds: [first, second] }))
+      .mockResolvedValueOnce(Response.json({ media: { id: second, caption: "Seconde légende", evidenceCategory: "unclassified", sortOrder: 1 }, contentRevision: 3, orderedMediaIds: [first, second] }))
+      .mockResolvedValueOnce(Response.json(report));
+    render(<ReportForm initialValues={{ spaceId, entity: { name: "Entity", handles: ["handle"] }, description: "Rapport existant", isAnonymous: true, isAdminOnly: false, contentRevision: 1 }}
+      existingEvidence={[first, second].map((id, sortOrder) => ({ id, sortOrder, mimeType: "image/jpeg", fileSize: 100, isBlurred: true, viewerCanDelete: true }))}
+      method="PATCH" spaces={[{ id: spaceId, name: "Espace privé", role: "EDITOR" }]} submitLabel="Enregistrer" submitUrl={`/resources/api/posts/${postId}/update`} title="Rapport" />);
+    fireEvent.change(screen.getAllByLabelText("Légende")[0], { target: { value: "Première légende" } });
+    fireEvent.change(screen.getAllByLabelText("Légende")[1], { target: { value: "Seconde légende" } });
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Aperçu" })).toBeDisabled();
+    await act(async () => { fireEvent.submit(screen.getByRole("button", { name: "Enregistrer" }).closest("form")!); });
+    expect(fetch).not.toHaveBeenCalled(); expect(navigate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByRole("button", { name: "Enregistrer la classification" })[0]);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Enregistrer la classification" })[1]).toBeEnabled());
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toBeDisabled();
+    expect(screen.getAllByLabelText("Légende")[1]).toHaveValue("Seconde légende");
+    fireEvent.click(screen.getAllByRole("button", { name: "Enregistrer la classification" })[1]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Enregistrer" })).toBeEnabled());
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1][1]?.body)).expectedRevision).toBe(2);
+    submit();
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
 });

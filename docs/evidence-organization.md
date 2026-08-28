@@ -39,6 +39,9 @@ anonyme. Leurs insertions n’exigent pas de relire une ligne d’audit inaccess
 Le formulaire conserve le brouillon sur erreur et ignore les réponses tardives
 après rechargement. Les modifications de preuves se valident explicitement,
 séparément du texte du rapport ; il faut enregistrer le texte avant de quitter.
+Le bouton d’enregistrement du rapport et son aperçu restent indisponibles tant
+qu’une classification ou légende modifiée n’est pas enregistrée : la validation
+du rapport ne peut pas jeter silencieusement ces brouillons.
 
 ## Migration et vérification
 

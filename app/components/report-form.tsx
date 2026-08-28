@@ -60,6 +60,7 @@ export function ReportForm({
   } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isEditingEvidence, setIsEditingEvidence] = useState(false);
+  const [hasEvidenceDrafts, setHasEvidenceDrafts] = useState(false);
   const evidenceSequenceRef = useRef(0);
   const uploadGenerationRef = useRef(0);
   const mountedRef = useRef(true);
@@ -183,7 +184,7 @@ export function ReportForm({
   };
 
   const submit = form.handleSubmit(async (values) => {
-    if (saveBusyRef.current || uploadBusyRef.current || isEditingEvidence) return;
+    if (saveBusyRef.current || uploadBusyRef.current || isEditingEvidence || hasEvidenceDrafts) return;
     saveBusyRef.current = true;
     setServerError(null);
     try {
@@ -397,12 +398,15 @@ export function ReportForm({
             onRevisionChange={setEvidenceRevision}
             onEvidenceChanged={setSavedEvidence}
             onBusyChange={setIsEditingEvidence}
+            onDraftsChange={setHasEvidenceDrafts}
           />
+
+          {hasEvidenceDrafts && <p role="status" className="text-sm text-muted-foreground">Enregistrez la classification de chaque preuve modifiée avant d’enregistrer le rapport ou d’ouvrir son aperçu. Vos brouillons sont conservés ici.</p>}
 
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>Annuler</Button>
-            <Button type="button" variant="outline" onClick={async () => { if (await form.trigger()) setPreviewOpen(true); }}>Aperçu</Button>
-            <Button type="submit" disabled={form.formState.isSubmitting || isUploading || spaces.length === 0}>
+            <Button type="button" variant="outline" disabled={hasEvidenceDrafts} onClick={async () => { if (await form.trigger()) setPreviewOpen(true); }}>Aperçu</Button>
+            <Button type="submit" disabled={form.formState.isSubmitting || isUploading || hasEvidenceDrafts || spaces.length === 0}>
               {isUploading
                 ? "Sécurisation des preuves…"
                 : form.formState.isSubmitting

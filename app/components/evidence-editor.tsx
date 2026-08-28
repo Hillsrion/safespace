@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, FileLock2, Image, Music2, Trash2, Video } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
@@ -38,6 +38,7 @@ type Props = {
   onRevisionChange?: (revision: number) => void;
   onEvidenceChanged?: (evidence: ExistingEvidence[]) => void;
   onBusyChange?: (busy: boolean) => void;
+  onDraftsChange?: (hasDrafts: boolean) => void;
 };
 
 const EMPTY_EVIDENCE: ExistingEvidence[] = [];
@@ -76,6 +77,7 @@ export function EvidenceEditor({
   onRevisionChange,
   onEvidenceChanged,
   onBusyChange,
+  onDraftsChange,
 }: Props) {
   const [evidence, setEvidence] = useState(existingEvidence);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -84,6 +86,16 @@ export function EvidenceEditor({
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [metadataError, setMetadataError] = useState<string | null>(null);
+  const [dirtyEvidence, setDirtyEvidence] = useState<Set<string>>(() => new Set());
+  const markDraft = useCallback((id: string, dirty: boolean) => {
+    setDirtyEvidence((current) => {
+      if (current.has(id) === dirty) return current;
+      const next = new Set(current);
+      if (dirty) next.add(id); else next.delete(id);
+      return next;
+    });
+  }, []);
+  useEffect(() => { onDraftsChange?.(dirtyEvidence.size > 0); }, [dirtyEvidence, onDraftsChange]);
   const mountedRef = useRef(true);
   const requestVersionRef = useRef(0);
 
@@ -216,7 +228,7 @@ export function EvidenceEditor({
                 <p className="text-xs text-muted-foreground">Catégorie : {evidenceCategoryLabel(item.evidenceCategory)}</p>
                 {item.caption ? <p className="text-sm">{item.caption}</p> : null}
                 {expectedRevision !== undefined && item.viewerCanDelete ? <>
-                  <EvidenceMetadataControls id={item.id} category={item.evidenceCategory} caption={item.caption} disabled={disabled || editingId !== null || deletingId !== null} onSave={(patch) => void patchEvidence(item.id, patch)} />
+                  <EvidenceMetadataControls id={item.id} category={item.evidenceCategory} caption={item.caption} disabled={disabled || editingId !== null || deletingId !== null} onSave={(patch) => void patchEvidence(item.id, patch)} onDirtyChange={markDraft} />
                   {evidence.every((proof) => proof.viewerCanDelete) && <div className="flex gap-2">
                     <Button type="button" size="sm" variant="outline" disabled={disabled || editingId !== null || deletingId !== null || index === 0} onClick={() => moveEvidence(item.id, -1)}><ArrowUp className="size-4" /> Monter</Button>
                     <Button type="button" size="sm" variant="outline" disabled={disabled || editingId !== null || deletingId !== null || index === evidence.length - 1} onClick={() => moveEvidence(item.id, 1)}><ArrowDown className="size-4" /> Descendre</Button>

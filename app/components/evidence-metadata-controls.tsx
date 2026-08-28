@@ -4,14 +4,19 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { EVIDENCE_CATEGORIES, EVIDENCE_CATEGORY_LABELS } from "~/lib/evidence";
 
-export function EvidenceMetadataControls({ id, category = "unclassified", caption = null, disabled, onSave }: {
+export function EvidenceMetadataControls({ id, category = "unclassified", caption = null, disabled, onSave, onDirtyChange }: {
   id: string; category?: string; caption?: string | null; disabled: boolean;
   onSave: (patch: { evidenceCategory: string; caption: string | null }) => void;
+  onDirtyChange?: (id: string, dirty: boolean) => void;
 }) {
   const [draftCategory, setDraftCategory] = useState(category);
   const [draftCaption, setDraftCaption] = useState(caption ?? "");
   useEffect(() => { setDraftCategory(category); setDraftCaption(caption ?? ""); }, [id, category, caption]);
   const changed = draftCategory !== category || (draftCaption.trim() || null) !== caption;
+  useEffect(() => {
+    onDirtyChange?.(id, changed);
+    return () => onDirtyChange?.(id, false);
+  }, [id, changed, onDirtyChange]);
   return <div className="grid gap-2">
     <Label htmlFor={`evidence-category-${id}`}>Catégorie</Label>
     <select id={`evidence-category-${id}`} value={draftCategory} disabled={disabled} onChange={(event) => setDraftCategory(event.target.value)} className="h-9 rounded border bg-background px-2 text-sm">
