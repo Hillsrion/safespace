@@ -23,12 +23,18 @@ import {
   type MediaStorage,
 } from "~/services/media-storage.server";
 import { getEffectiveSpaceAccess } from "~/services/effective-space-access.server";
+import { updateEvidenceSchema, type UpdateEvidenceInput } from "~/lib/evidence";
+export { EVIDENCE_CATEGORIES, type EvidenceCategory } from "~/lib/evidence";
 
 type Actor = { id: string };
 type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 type AuthorizedRole = "EDITOR" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN";
 
 export type MediaUploadResponse = {
+  contentRevision: number;
+  evidenceCategory: string;
+  caption: string | null;
+  sortOrder: number;
   mediaId: string;
   url: string;
   mimeType: string;
@@ -225,6 +231,7 @@ export async function uploadMedia(
           metadataStripped: processed.metadataStripped,
           metadataRemoved: processed.metadataRemoved,
           removedMetadataKinds: processed.removedMetadataKinds,
+          sortOrder: ((await tx.media.aggregate({ where: { postId: input.postId }, _max: { sortOrder: true } }))._max.sortOrder ?? -1) + 1,
         },
         select: {
           id: true,
@@ -234,9 +241,12 @@ export async function uploadMedia(
           metadataStripped: true,
           metadataRemoved: true,
           removedMetadataKinds: true,
+          evidenceCategory: true, caption: true, sortOrder: true,
         },
       });
-      await tx.auditLog.create({
+      // Anonymous audits are deliberately not readable by their author. Avoid
+      // INSERT RETURNING, which would require SELECT and roll back under RLS.
+      await tx.auditLog.createMany({
         data: {
           actorUserId:
             postAccess.isAnonymous && postAccess.authorId === actor.id
@@ -254,11 +264,13 @@ export async function uploadMedia(
           },
         },
       });
-      return created;
+      const post = await tx.post.findUniqueOrThrow({ where: { id: input.postId }, select: { contentRevision: true } });
+      return { ...created, contentRevision: post.contentRevision };
     });
 
     return {
       mediaId: media.id,
+      contentRevision: media.contentRevision, evidenceCategory: media.evidenceCategory, caption: media.caption, sortOrder: media.sortOrder,
       url: `/resources/api/media/${media.id}`,
       mimeType: media.mimeType,
       fileSize: media.fileSize,
@@ -369,7 +381,7 @@ export async function deleteMedia(
   actor: Actor,
   mediaId: string,
   options: ServiceOptions = {}
-): Promise<{ deletedMediaId: string; storageDeletionPending: boolean }> {
+): Promise<{ deletedMediaId: string; storageDeletionPending: boolean; contentRevision: number }> {
   const client = options.client ?? prisma;
   const outcome = await runSerializable(client, async (tx) => {
     const media = await tx.media.findUnique({
@@ -403,7 +415,7 @@ export async function deleteMedia(
       spaceId: media.post.spaceId,
     });
     await tx.media.delete({ where: { id: media.id } });
-    await tx.auditLog.create({
+    await tx.auditLog.createMany({
       data: {
         actorUserId:
           media.post.isAnonymous && media.post.authorId === actor.id
@@ -416,7 +428,8 @@ export async function deleteMedia(
         details: { postId: media.post.id },
       },
     });
-    return { mediaId: media.id, storageKeys };
+    const post = await tx.post.findUniqueOrThrow({ where: { id: media.post.id }, select: { contentRevision: true } });
+    return { mediaId: media.id, storageKeys, contentRevision: post.contentRevision };
   });
 
   const deletion = await processMediaDeletionJobs(outcome.storageKeys, {
@@ -425,6 +438,46 @@ export async function deleteMedia(
   });
   return {
     deletedMediaId: outcome.mediaId,
+    contentRevision: outcome.contentRevision,
     storageDeletionPending: deletion.failed > 0,
   };
+}
+
+export async function updateMediaEvidence(
+  actor: Actor,
+  mediaId: string,
+  input: UpdateEvidenceInput,
+  options: ServiceOptions = {}
+) {
+  const client = options.client ?? prisma;
+  const parsed = updateEvidenceSchema.safeParse(input);
+  if (!parsed.success) throw errors.badRequest("Invalid evidence metadata");
+  input = parsed.data;
+  return runSerializable(client, async (tx) => {
+    const media = await tx.media.findUnique({ where: { id: mediaId }, select: { id: true, uploaderId: true, evidenceCategory: true, caption: true, sortOrder: true, post: { select: { id: true, authorId: true, spaceId: true, contentRevision: true, isAnonymous: true, status: true } } } });
+    if (!media) throw errors.notFound("Media not found");
+    const role = await currentRole(tx, actor.id, media.post.spaceId);
+    if (role === null) throw errors.notFound("Media not found");
+    const mayModerate = role === "MODERATOR" || role === "ADMIN" || role === "SUPER_ADMIN";
+    const ownsEvidence = role === "EDITOR" && media.post.status === "active" && media.post.authorId === actor.id && media.uploaderId === actor.id;
+    if (!mayModerate && !ownsEvidence) throw errors.forbidden("You do not have permission to edit this media");
+    if (!Number.isInteger(input.expectedRevision) || input.expectedRevision !== media.post.contentRevision) throw errors.conflict("The post changed concurrently; reload before editing evidence");
+    const rows = await tx.media.findMany({ where: { postId: media.post.id }, select: { id: true, uploaderId: true, sortOrder: true }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] });
+    let reordered = false;
+    if (input.orderedMediaIds) {
+      if (input.orderedMediaIds.length < 1 || input.orderedMediaIds.length > 10 || new Set(input.orderedMediaIds).size !== input.orderedMediaIds.length || !input.orderedMediaIds.includes(mediaId)) throw errors.badRequest("Evidence order is invalid");
+      if (rows.length !== input.orderedMediaIds.length || rows.some(({ id }) => !input.orderedMediaIds!.includes(id))) throw errors.badRequest("Evidence order must contain exactly this post's evidence");
+      if (!mayModerate && rows.some((row) => row.uploaderId !== actor.id)) throw errors.forbidden("Moderator rights are required to reorder another uploader's evidence");
+      for (const [sortOrder, id] of input.orderedMediaIds.entries()) {
+        if (rows.find((row) => row.id === id)?.sortOrder === sortOrder) continue;
+        await tx.media.update({ where: { id }, data: { sortOrder } }); reordered = true;
+      }
+    }
+    const changes = { ...(input.caption !== undefined && input.caption !== media.caption ? { caption: input.caption } : {}), ...(input.evidenceCategory && input.evidenceCategory !== media.evidenceCategory ? { evidenceCategory: input.evidenceCategory } : {}) };
+    if (Object.keys(changes).length) await tx.media.update({ where: { id: mediaId }, data: changes });
+    const updated = await tx.media.findUniqueOrThrow({ where: { id: mediaId }, select: { id: true, evidenceCategory: true, caption: true, sortOrder: true } });
+    if (reordered || Object.keys(changes).length) await tx.auditLog.createMany({ data: { actorUserId: media.post.isAnonymous && media.post.authorId === actor.id ? null : actor.id, action: "media_update", targetEntityType: "Media", targetEntityId: mediaId, spaceId: media.post.spaceId, details: { postId: media.post.id, changedFields: Object.keys(changes), reordered } } });
+    const revision = await tx.post.findUniqueOrThrow({ where: { id: media.post.id }, select: { contentRevision: true } });
+    return { media: updated, contentRevision: revision.contentRevision, orderedMediaIds: input.orderedMediaIds ?? rows.map(({ id }) => id) };
+  });
 }

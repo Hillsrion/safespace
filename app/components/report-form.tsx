@@ -23,7 +23,7 @@ import {
 export type WritableSpace = { id: string; name: string; role: string };
 
 type ReportFormProps = {
-  initialValues: CreateReportInput;
+  initialValues: CreateReportInput & { contentRevision?: number };
   method: "POST" | "PATCH";
   spaces: WritableSpace[];
   submitLabel: string;
@@ -45,9 +45,11 @@ export function ReportForm({
   existingEvidence = [],
   requiresSensitiveReview = false,
 }: ReportFormProps) {
+  const { contentRevision: initialRevision, ...initialReportValues } = initialValues;
   const navigate = useNavigate();
   const [serverError, setServerError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [evidenceRevision, setEvidenceRevision] = useState(initialRevision);
   const [pendingEvidence, setPendingEvidence] = useState<PendingEvidence[]>([]);
   const [savedEvidence, setSavedEvidence] = useState<ExistingEvidence[]>(existingEvidence);
   const [reviewRequired, setReviewRequired] = useState(requiresSensitiveReview);
@@ -57,6 +59,7 @@ export function ReportForm({
     reportedEntityId: string;
   } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isEditingEvidence, setIsEditingEvidence] = useState(false);
   const evidenceSequenceRef = useRef(0);
   const uploadGenerationRef = useRef(0);
   const mountedRef = useRef(true);
@@ -68,7 +71,7 @@ export function ReportForm({
   }, []);
   const form = useForm<CreateReportInput>({
     resolver: zodResolver(createReportSchema) as Resolver<CreateReportInput>,
-    defaultValues: initialValues,
+    defaultValues: initialReportValues,
   });
   const handles = form.watch("entity.handles");
   const selectedSpaceId = form.watch("spaceId");
@@ -147,9 +150,11 @@ export function ReportForm({
         const result = await response.json();
         if (!mountedRef.current || generation !== uploadGenerationRef.current) return false;
         if (!result.mediaId || typeof result.mediaId !== "string") throw new Error("upload_failed");
+        if (Number.isInteger(result.contentRevision)) setEvidenceRevision(result.contentRevision);
         setSavedEvidence((current) => [...current, {
           id: result.mediaId, mimeType: result.mimeType ?? item.file.type, fileSize: result.fileSize ?? item.file.size,
           isBlurred: true, viewerCanDelete: true,
+          evidenceCategory: result.evidenceCategory, caption: result.caption, sortOrder: result.sortOrder,
         }]);
         setPendingEvidence((current) => current.filter((candidate) => candidate.id !== item.id));
       } catch {
@@ -178,7 +183,7 @@ export function ReportForm({
   };
 
   const submit = form.handleSubmit(async (values) => {
-    if (saveBusyRef.current || uploadBusyRef.current) return;
+    if (saveBusyRef.current || uploadBusyRef.current || isEditingEvidence) return;
     saveBusyRef.current = true;
     setServerError(null);
     try {
@@ -213,6 +218,7 @@ export function ReportForm({
       reportedEntityId: payload.post.reportedEntity.id,
     };
     setPersistedPost(target);
+    setEvidenceRevision(payload.post.contentRevision);
     setReviewRequired((current) => current || payload.post.requiresSensitiveReview);
     const uploadItems = pendingEvidence.filter((item) => item.status !== "uploading");
     const uploadsSucceeded = await uploadEvidence(target, uploadItems);
@@ -233,7 +239,7 @@ export function ReportForm({
       <CardHeader><CardTitle>{title}</CardTitle></CardHeader>
       <CardContent>
         <form className="space-y-6" onSubmit={submit}>
-          <fieldset className="space-y-6" disabled={form.formState.isSubmitting || isUploading}>
+          <fieldset className="space-y-6" disabled={form.formState.isSubmitting || isUploading || isEditingEvidence}>
           {serverError && (
             <Alert variant="destructive">
               <AlertTitle>Enregistrement impossible</AlertTitle>
@@ -387,6 +393,10 @@ export function ReportForm({
             onRetry={(evidenceId) => void retryEvidence(evidenceId)}
             onDeleted={(id) => setSavedEvidence((current) => current.filter((item) => item.id !== id))}
             onRemovePending={(id) => setPendingEvidence((current) => current.filter((item) => item.id !== id))}
+            expectedRevision={evidenceRevision}
+            onRevisionChange={setEvidenceRevision}
+            onEvidenceChanged={setSavedEvidence}
+            onBusyChange={setIsEditingEvidence}
           />
 
           <div className="flex justify-end gap-3">

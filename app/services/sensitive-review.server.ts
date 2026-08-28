@@ -51,7 +51,7 @@ const POST_SELECT = {
   isAnonymous: true, isAdminOnly: true, status: true, severity: true,
   requiresSensitiveReview: true, contentRevision: true, verificationStatus: true,
   reportedEntity: { select: { id: true, name: true, handles: { select: { handle: true } } } },
-  media: { select: { id: true, mimeType: true, fileSize: true, isBlurred: true } },
+  media: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] as Prisma.MediaOrderByWithRelationInput[], select: { id: true, mimeType: true, fileSize: true, isBlurred: true, evidenceCategory: true, caption: true } },
   sensitiveReviewRounds: {
     orderBy: { revision: "desc" as const }, take: 10,
     select: {
@@ -90,7 +90,7 @@ export async function listSensitiveReviews(actor: Actor, spaceId: string, query:
         severity: post.severity, requiresSensitiveReview: post.requiresSensitiveReview,
         contentRevision: post.contentRevision, verificationStatus: post.verificationStatus,
         entity: { id: post.reportedEntity.id, name: post.reportedEntity.name, handles: post.reportedEntity.handles.map(({ handle }) => handle) },
-        media: post.media.map(({ id, mimeType, fileSize, isBlurred }) => ({ id, mimeType, fileSize, isBlurred })),
+        media: post.media.map(({ id, mimeType, fileSize, isBlurred, evidenceCategory, caption }) => ({ id, mimeType, fileSize, isBlurred, evidenceCategory, caption })),
         canDecide: Boolean(canDecide), nextStage: nextStage <= 3 ? nextStage : null,
         rounds: post.sensitiveReviewRounds.map((item) => ({
           id: item.id, revision: item.revision, status: item.status, reason: item.reason, createdAt: item.createdAt.toISOString(),

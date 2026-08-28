@@ -13,7 +13,8 @@ import { getAllPosts } from "~/db/repositories/posts/queries.server";
 import { useInView } from 'react-intersection-observer';
 import { usePostFeedApi } from '~/services/api.client/posts';
 import { Post } from "~/components/post";
-import { type AuthorProfile, type SpaceInfo, type EvidenceMedia, type TPost, TPostCurrentUser } from "~/lib/types";
+import { type AuthorProfile, type SpaceInfo, type TPost, TPostCurrentUser } from "~/lib/types";
+import { toEvidenceMedia } from "~/lib/evidence";
 import { useUser } from "~/hooks/useUser";
 import { getUserIdentity } from "~/lib/utils";
 import { handleError } from "~/lib/error";
@@ -100,21 +101,6 @@ const mapPrismaUserToAuthor = (user: PrismaUser /* Replace any with actual Prism
   role: null
 });
 
-// Helper function to map Prisma Media to EvidenceMedia
-const mapPrismaMediaToEvidence = (prismaMedia: any[] | undefined /* Replace any with actual Prisma Media type */): EvidenceMedia[] => {
-  if (!prismaMedia) return [];
-  return prismaMedia.map(m => ({
-    id: m.id,
-    url: m.url || `/resources/api/media/${m.id}`,
-    type: m.mimeType?.startsWith("image/")
-      ? "image"
-      : m.mimeType?.startsWith("audio/")
-        ? "audio"
-        : "video",
-    altText: m.fileName || `Media ${m.id}`,
-  }));
-};
-
 // Helper function to map Prisma Space to SpaceInfo
 const mapPrismaSpaceToSpaceInfo = (prismaSpace: any /* Replace any with actual Prisma Space type */): SpaceInfo | undefined => {
     if (!prismaSpace) return undefined;
@@ -183,7 +169,7 @@ export default function Dashboard() {
       },
       createdAt: typedPost.createdAt,
       content: typedPost.description || "",
-      media: mapPrismaMediaToEvidence(typedPost.media),
+      media: toEvidenceMedia(typedPost.media),
       status: typedPost.status === "hidden"
         ? "hidden"
         : typedPost.isAdminOnly

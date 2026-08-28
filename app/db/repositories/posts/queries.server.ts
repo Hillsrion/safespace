@@ -116,7 +116,7 @@ export async function getUserPosts(
           handles: { select: { id: true, handle: true, platform: true } },
         },
       },
-      media: true,
+      media: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       author: {
         select: {
           id: true,
@@ -205,7 +205,7 @@ export async function getSpacePosts(
           handles: { select: { id: true, handle: true, platform: true } },
         },
       },
-      media: true,
+      media: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       author: {
         select: {
           id: true,
@@ -270,7 +270,7 @@ export async function getAllPosts(
           handles: { select: { id: true, handle: true, platform: true } },
         },
       },
-      media: true,
+      media: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       author: {
         select: {
           id: true,

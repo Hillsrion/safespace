@@ -7,6 +7,7 @@ import {
 } from "~/components/ui/dialog";
 import { Button } from "~/components/ui/button";
 import { type EvidenceMedia } from "~/lib/types";
+import { evidenceCategoryLabel } from "~/lib/evidence";
 
 interface MediaDialogProps {
   isOpen: boolean;
@@ -93,6 +94,7 @@ export function MediaDialog({
             </>
           )}
         </div>
+        <div className="px-4 pb-4 text-sm"><p className="text-muted-foreground">{evidenceCategoryLabel(currentMedia.evidenceCategory)}</p>{currentMedia.caption && <p className="whitespace-pre-wrap break-words">{currentMedia.caption}</p>}</div>
       </DialogContent>
     </Dialog>
   );

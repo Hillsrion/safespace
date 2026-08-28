@@ -38,7 +38,7 @@ function createDatabaseMock() {
     reportedEntity: { findMany: vi.fn(), create: vi.fn() },
     reportedEntityHandle: { createMany: vi.fn() },
     post: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-    auditLog: { create: vi.fn() },
+    auditLog: { create: vi.fn(), createMany: vi.fn() },
   };
   const client = {
     $transaction: vi.fn(async (operation: (transaction: typeof tx) => unknown) =>
@@ -55,6 +55,7 @@ function createDatabaseMock() {
   tx.post.create.mockResolvedValue(selectedPost());
   tx.post.update.mockResolvedValue(selectedPost());
   tx.auditLog.create.mockResolvedValue({ id: "audit-id" });
+  tx.auditLog.createMany.mockResolvedValue({ count: 1 });
 
   return { tx, client: client as unknown as PrismaClient, transaction: client.$transaction };
 }
@@ -95,24 +96,24 @@ describe("report write service", () => {
         }),
       })
     );
-    expect(tx.auditLog.create).toHaveBeenNthCalledWith(
+    expect(tx.auditLog.createMany).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        data: expect.objectContaining({
+        data: [expect.objectContaining({
           action: "entity_add",
           actorUserId: null,
           targetEntityId: ENTITY_ID,
-        }),
+        })],
       })
     );
-    expect(tx.auditLog.create).toHaveBeenNthCalledWith(
+    expect(tx.auditLog.createMany).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
-        data: expect.objectContaining({
+        data: [expect.objectContaining({
           action: "post_create",
           actorUserId: null,
           targetEntityId: POST_ID,
-        }),
+        })],
       })
     );
     expect(response).toEqual({
@@ -240,13 +241,13 @@ describe("report write service", () => {
       ],
       skipDuplicates: true,
     });
-    expect(tx.auditLog.create).toHaveBeenNthCalledWith(
+    expect(tx.auditLog.createMany).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        data: expect.objectContaining({
+        data: [expect.objectContaining({
           action: "entity_update",
           details: { addedHandles: ["second.handle"] },
-        }),
+        })],
       })
     );
   });
@@ -408,13 +409,13 @@ describe("report write service", () => {
       client
     );
 
-    expect(tx.auditLog.create).toHaveBeenCalledWith(
+    expect(tx.auditLog.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
+        data: [expect.objectContaining({
           action: "post_update",
           actorUserId: null,
           details: expect.objectContaining({ isAnonymous: true }),
-        }),
+        })],
       })
     );
   });
@@ -461,7 +462,7 @@ describe("report write service", () => {
         handles: [{ handle: "example.person" }],
       },
     ]);
-    tx.auditLog.create.mockRejectedValue(new Error("audit unavailable"));
+    tx.auditLog.createMany.mockRejectedValue(new Error("audit unavailable"));
 
     await expect(
       createReport(

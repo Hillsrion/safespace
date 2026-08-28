@@ -1,4 +1,4 @@
-import { FileLock2, Image, Music2, Trash2, Video } from "lucide-react";
+import { ArrowDown, ArrowUp, FileLock2, Image, Music2, Trash2, Video } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Alert, AlertDescription } from "~/components/ui/alert";
@@ -6,6 +6,8 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { MediaDialog } from "~/components/media-dialog";
+import { EvidenceMetadataControls } from "~/components/evidence-metadata-controls";
+import { evidenceCategoryLabel } from "~/lib/evidence";
 
 export type ExistingEvidence = {
   id: string;
@@ -13,6 +15,9 @@ export type ExistingEvidence = {
   fileSize: number;
   isBlurred: boolean;
   viewerCanDelete: boolean;
+  evidenceCategory?: string;
+  caption?: string | null;
+  sortOrder?: number;
 };
 
 export type PendingEvidence = {
@@ -29,6 +34,10 @@ type Props = {
   onRetry: (evidenceId: string) => void;
   onDeleted?: (evidenceId: string) => void;
   onRemovePending?: (evidenceId: string) => void;
+  expectedRevision?: number;
+  onRevisionChange?: (revision: number) => void;
+  onEvidenceChanged?: (evidence: ExistingEvidence[]) => void;
+  onBusyChange?: (busy: boolean) => void;
 };
 
 const EMPTY_EVIDENCE: ExistingEvidence[] = [];
@@ -63,12 +72,18 @@ export function EvidenceEditor({
   onRetry,
   onDeleted,
   onRemovePending,
+  expectedRevision,
+  onRevisionChange,
+  onEvidenceChanged,
+  onBusyChange,
 }: Props) {
   const [evidence, setEvidence] = useState(existingEvidence);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [metadataError, setMetadataError] = useState<string | null>(null);
   const mountedRef = useRef(true);
   const requestVersionRef = useRef(0);
 
@@ -79,7 +94,10 @@ export function EvidenceEditor({
     setConfirmingId(null);
     setDeleteError(null);
     setViewingId(null);
+    setEditingId(null); setMetadataError(null);
   }, [existingEvidence]);
+
+  useEffect(() => { onBusyChange?.(editingId !== null || deletingId !== null); }, [editingId, deletingId, onBusyChange]);
 
   useEffect(
     () => {
@@ -93,7 +111,7 @@ export function EvidenceEditor({
   );
 
   const deleteEvidence = async (mediaId: string) => {
-    if (disabled || deletingId) return;
+    if (disabled || deletingId || editingId) return;
     const version = ++requestVersionRef.current;
     setDeletingId(mediaId);
     setDeleteError(null);
@@ -107,6 +125,9 @@ export function EvidenceEditor({
         setDeleteError("Suppression impossible. La preuve est conservée.");
         return;
       }
+      const payload = await response.json().catch(() => ({}));
+      if (!mountedRef.current || version !== requestVersionRef.current) return;
+      if (Number.isInteger(payload.contentRevision)) onRevisionChange?.(payload.contentRevision);
       setEvidence((current) => current.filter((item) => item.id !== mediaId));
       onDeleted?.(mediaId);
       setConfirmingId(null);
@@ -117,6 +138,31 @@ export function EvidenceEditor({
     } finally {
       if (mountedRef.current && version === requestVersionRef.current) setDeletingId(null);
     }
+  };
+
+  const patchEvidence = async (mediaId: string, patch: Record<string, unknown>) => {
+    if (disabled || editingId || deletingId || expectedRevision === undefined) return;
+    const version = ++requestVersionRef.current;
+    setEditingId(mediaId); setMetadataError(null);
+    try {
+      const response = await fetch(`/resources/api/media/${encodeURIComponent(mediaId)}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ expectedRevision, ...patch }) });
+      const payload = await response.json().catch(() => null) as { media?: ExistingEvidence; contentRevision?: number; orderedMediaIds?: string[] } | null;
+      if (!mountedRef.current || version !== requestVersionRef.current) return;
+      if (!response.ok || payload?.media?.id !== mediaId || !Number.isInteger(payload.contentRevision) || !Array.isArray(payload.orderedMediaIds) || payload.orderedMediaIds.length !== evidence.length || new Set(payload.orderedMediaIds).size !== evidence.length || evidence.some((item) => !payload.orderedMediaIds!.includes(item.id))) {
+        setMetadataError(response.status === 409 ? "La preuve a changé. Actualisez le rapport avant de réessayer." : "Modification impossible. La preuve est conservée."); return;
+      }
+      const updated = payload.orderedMediaIds!.map((id, sortOrder) => ({ ...evidence.find((item) => item.id === id)!, ...(id === mediaId ? payload.media : {}), sortOrder }));
+      setEvidence(updated); onEvidenceChanged?.(updated);
+      onRevisionChange?.(payload.contentRevision!);
+    } catch { if (mountedRef.current && version === requestVersionRef.current) setMetadataError("Modification impossible. La preuve est conservée."); }
+    finally { if (mountedRef.current && version === requestVersionRef.current) setEditingId(null); }
+  };
+
+  const moveEvidence = (id: string, direction: -1 | 1) => {
+    const index = evidence.findIndex((item) => item.id === id); const target = index + direction;
+    if (index < 0 || target < 0 || target >= evidence.length) return;
+    const ordered = [...evidence]; [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+    void patchEvidence(id, { orderedMediaIds: ordered.map((item) => item.id) });
   };
 
   return (
@@ -136,6 +182,7 @@ export function EvidenceEditor({
           <AlertDescription>{deleteError}</AlertDescription>
         </Alert>
       ) : null}
+      {metadataError ? <Alert variant="destructive" role="alert"><AlertDescription>{metadataError}</AlertDescription></Alert> : null}
 
       {evidence.length > 0 ? (
         <ul className="grid gap-3 sm:grid-cols-2" aria-label="Preuves existantes">
@@ -166,6 +213,15 @@ export function EvidenceEditor({
                 <p className="text-xs text-muted-foreground">
                   Aperçu flouté par défaut{item.isBlurred ? " · fichier protégé" : ""}.
                 </p>
+                <p className="text-xs text-muted-foreground">Catégorie : {evidenceCategoryLabel(item.evidenceCategory)}</p>
+                {item.caption ? <p className="text-sm">{item.caption}</p> : null}
+                {expectedRevision !== undefined && item.viewerCanDelete ? <>
+                  <EvidenceMetadataControls id={item.id} category={item.evidenceCategory} caption={item.caption} disabled={disabled || editingId !== null || deletingId !== null} onSave={(patch) => void patchEvidence(item.id, patch)} />
+                  {evidence.every((proof) => proof.viewerCanDelete) && <div className="flex gap-2">
+                    <Button type="button" size="sm" variant="outline" disabled={disabled || editingId !== null || deletingId !== null || index === 0} onClick={() => moveEvidence(item.id, -1)}><ArrowUp className="size-4" /> Monter</Button>
+                    <Button type="button" size="sm" variant="outline" disabled={disabled || editingId !== null || deletingId !== null || index === evidence.length - 1} onClick={() => moveEvidence(item.id, 1)}><ArrowDown className="size-4" /> Descendre</Button>
+                  </div>}
+                </> : null}
                 <Button type="button" size="sm" variant="outline" onClick={() => setViewingId(item.id)}>
                   Afficher la preuve {index + 1}
                 </Button>
@@ -178,7 +234,7 @@ export function EvidenceEditor({
                           type="button"
                           size="sm"
                           variant="destructive"
-                          disabled={disabled || deletingId !== null}
+                          disabled={disabled || deletingId !== null || editingId !== null}
                           onClick={() => void deleteEvidence(item.id)}
                         >
                           {deletingId === item.id ? "Suppression…" : "Confirmer la suppression"}
@@ -193,7 +249,7 @@ export function EvidenceEditor({
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={disabled || deletingId !== null}
+                      disabled={disabled || deletingId !== null || editingId !== null}
                       onClick={() => {
                         setDeleteError(null);
                         setConfirmingId(item.id);
@@ -213,7 +269,7 @@ export function EvidenceEditor({
         id="evidence-files"
         type="file"
         multiple
-        disabled={disabled}
+        disabled={disabled || deletingId !== null || editingId !== null}
         accept="image/jpeg,image/png,image/webp,image/gif,audio/mpeg,audio/wav,video/mp4,video/quicktime"
         onChange={(event) => {
           onFilesSelected(Array.from(event.target.files ?? []));
@@ -245,7 +301,7 @@ export function EvidenceEditor({
       <MediaDialog
         isOpen={viewingId !== null}
         onOpenChange={(open) => { if (!open) setViewingId(null); }}
-        media={evidence.map((item, index) => ({ id: item.id, url: `/resources/api/media/${encodeURIComponent(item.id)}`, type: kindFor(item.mimeType), altText: `Preuve ${index + 1}` }))}
+        media={evidence.map((item, index) => ({ id: item.id, url: `/resources/api/media/${encodeURIComponent(item.id)}`, type: kindFor(item.mimeType), altText: `Preuve ${index + 1}`, evidenceCategory: item.evidenceCategory, caption: item.caption }))}
         selectedIndex={Math.max(0, evidence.findIndex((item) => item.id === viewingId))}
         onSelectIndex={(index) => setViewingId(evidence[index]?.id ?? null)}
       />

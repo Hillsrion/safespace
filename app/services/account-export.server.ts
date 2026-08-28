@@ -2,12 +2,14 @@ import { z } from "zod";
 import type { PrismaClient } from "~/generated/prisma";
 import { prisma } from "~/db/client.server";
 import { errors } from "~/lib/api/http-error";
+import { EVIDENCE_CATEGORIES } from "~/lib/evidence";
 
 export type AccountExportActor = { id: string };
 const nullableText = z.string().nullable();
 const media = z.object({
   id: z.string(), fileName: z.string(), mimeType: z.string(), fileSize: z.number(),
   metadataStripped: z.boolean(), isBlurred: z.boolean(), createdAt: z.string(),
+  evidenceCategory: z.enum(EVIDENCE_CATEGORIES), caption: z.string().max(280).nullable(), sortOrder: z.number().int().nonnegative(),
 }).strict();
 const ownReviewsSchema = z.array(z.object({
   id: z.string(), postId: z.string(), revision: z.number().int().positive(),
@@ -66,7 +68,7 @@ export async function exportAccountData(actor: AccountExportActor, client: Prism
     const names = new Map(spaces.map((space) => [space.id, space.name]));
     const { memberships, auditLogs } = user;
     return {
-      format: "safespace-account-export", version: 3, generatedAt: new Date().toISOString(),
+      format: "safespace-account-export", version: 4, generatedAt: new Date().toISOString(),
       profile: {
         id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName,
         instagram: user.instagram, isSuperAdmin: user.isSuperAdmin,

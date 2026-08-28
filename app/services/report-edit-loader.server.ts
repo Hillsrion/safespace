@@ -59,6 +59,7 @@ export async function loadReportForEditing({ request, params }: LoaderFunctionAr
       severity: true,
       verificationStatus: true,
       requiresSensitiveReview: true,
+      contentRevision: true,
       space: { select: { id: true, name: true } },
       reportedEntity: {
         select: {
@@ -72,11 +73,14 @@ export async function loadReportForEditing({ request, params }: LoaderFunctionAr
           mimeType: true,
           fileSize: true,
           isBlurred: true,
+          evidenceCategory: true,
+          caption: true,
+          sortOrder: true,
           // Read only to derive the client capability below. It is never
           // serialized, including for anonymous reports.
           uploaderId: true,
         },
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
       },
     },
   });
@@ -101,6 +105,7 @@ export async function loadReportForEditing({ request, params }: LoaderFunctionAr
       severity: post.severity ?? undefined,
       verificationStatus: post.verificationStatus ?? "unverified",
       requiresSensitiveReview: post.requiresSensitiveReview,
+      contentRevision: post.contentRevision,
       entity: {
         name: post.reportedEntity.name,
         handles: post.reportedEntity.handles.map(({ handle }) => handle),
@@ -110,6 +115,9 @@ export async function loadReportForEditing({ request, params }: LoaderFunctionAr
         mimeType: media.mimeType,
         fileSize: media.fileSize,
         isBlurred: media.isBlurred === true,
+        evidenceCategory: media.evidenceCategory,
+        caption: media.caption,
+        sortOrder: media.sortOrder,
         viewerCanDelete:
           mayModerate || (mayEditOwn && media.uploaderId === user.id),
       })),

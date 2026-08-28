@@ -100,6 +100,10 @@ describe("reported entity post access", () => {
             id: "media-1",
             uploaderId: "secret-author",
             fileName: "proof.jpg",
+            mimeType: "image/jpeg",
+            evidenceCategory: "document",
+            caption: "Contrat signé",
+            sortOrder: 0,
           },
         ],
         space: { id: "space-1", name: "Space One" },
@@ -131,5 +135,6 @@ describe("reported entity post access", () => {
       viewerCanModerate: true,
     });
     expect(posts[0].media[0]).not.toHaveProperty("uploaderId");
+    expect(posts[0].media[0]).toMatchObject({ type: "image", url: "/resources/api/media/media-1", evidenceCategory: "document", caption: "Contrat signé" });
   });
 });

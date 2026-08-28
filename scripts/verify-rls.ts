@@ -15,6 +15,7 @@ import { acceptInvitationForExistingUser, InvalidInviteError } from "../app/serv
 import { exportAccountData } from "../app/services/account-export.server";
 import type { MediaStorage } from "../app/services/media-storage.server";
 import { verifySensitiveReview } from "./verify-sensitive-review";
+import { verifyEvidenceOrganization } from "./verify-evidence-organization";
 
 type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 type Actor = { id: string; isSuperAdmin?: boolean };
@@ -437,11 +438,18 @@ async function main(): Promise<void> {
       }
     }
 
+    await admin.media.update({ where: { id: exportSubject.mediaId }, data: { evidenceCategory: "document", caption: "Own private evidence caption", sortOrder: 2 } });
     const verifyOwnExport = async () => {
       const result = await as({ id: exportSubject.id }, () => exportAccountData({ id: exportSubject.id }, scoped));
       assert.deepEqual(result.contributions.map(({ id }) => id), [exportSubject.postId]);
       assert.deepEqual(result.contributions[0].media.map(({ id }) => id), [exportSubject.mediaId], "An author's export must exclude another uploader's media metadata");
       assert.deepEqual(result.uploadedMedia.map(({ id }) => id), [exportSubject.mediaId]);
+      assert.equal(result.version, 4);
+      for (const media of [result.uploadedMedia[0], result.contributions[0].media[0]]) {
+        assert.equal(media.evidenceCategory, "document");
+        assert.equal(media.caption, "Own private evidence caption");
+        assert.equal(media.sortOrder, 2);
+      }
       assert.deepEqual(result.moderationFlags.map(({ id }) => id), [ids.exportOwnFlag]);
       const serialized = JSON.stringify(result);
       for (const forbidden of ['"password"', '"storageKey"', '"uploaderId"', ids.foreignPost, ids.exportForeignMedia, ids.outsider, ids.editor]) {
@@ -603,6 +611,7 @@ async function main(): Promise<void> {
         throw new Error("intentional integration rollback");
       }).catch((error) => { if (!(error instanceof Error) || error.message !== "intentional integration rollback") throw error; });
     });
+    await verifyEvidenceOrganization({ admin, scoped, ids, check });
     await verifySensitiveReview({ admin, runtime: direct, scoped, runtimeUrl: parsedUrl.toString(), ids, check });
     await check("pooled connection has no identity after success, rollback and leave", async () => {
       await as({ id: ids.superadmin, isSuperAdmin: true }, () => scoped.post.count());

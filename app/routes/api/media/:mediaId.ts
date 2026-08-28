@@ -7,7 +7,8 @@ import {
   MediaStorageConfigurationError,
   MediaStorageError,
 } from "~/services/media-storage.server";
-import { deleteMedia, getAuthorizedMediaObject } from "~/services/media.server";
+import { deleteMedia, getAuthorizedMediaObject, updateMediaEvidence } from "~/services/media.server";
+import { updateEvidenceSchema } from "~/lib/evidence";
 import { requireUser } from "~/services/auth.server";
 import { captureServerException } from "~/services/observability.server";
 
@@ -21,7 +22,7 @@ function mediaIdFrom(params: Record<string, string | undefined>): string {
 }
 async function storageFailure(
   error: MediaStorageError | MediaStorageConfigurationError,
-  operation: "media.delete" | "media.download"
+  operation: "media.delete" | "media.download" | "media.update"
 ): Promise<Response> {
   await captureServerException(error, {
     operation,
@@ -44,7 +45,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   try {
     if (request.method.toUpperCase() !== "GET") {
       const response = errorResponse("Method not allowed", "bad_request:api", 405);
-      response.headers.set("Allow", "GET, DELETE");
+      response.headers.set("Allow", "GET, PATCH, DELETE");
       return response;
     }
     const actor = await requireUser(request);
@@ -86,11 +87,21 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
+  const operation = request.method.toUpperCase() === "PATCH" ? "media.update" : "media.delete";
   try {
     requireSameOrigin(request);
+    if (request.method.toUpperCase() === "PATCH") {
+      const actor = await requireUser(request);
+      let payload: unknown;
+      try { payload = await request.json(); } catch { throw errors.badRequest("Invalid JSON body"); }
+      const body = updateEvidenceSchema.safeParse(payload);
+      if (!body.success) throw errors.badRequest("Invalid evidence metadata");
+      const result = await updateMediaEvidence(actor, mediaIdFrom(params), body.data);
+      const response = Response.json({ success: true, ...result }); response.headers.set("Cache-Control", "private, no-store"); return response;
+    }
     if (request.method.toUpperCase() !== "DELETE") {
       const response = errorResponse("Method not allowed", "bad_request:api", 405);
-      response.headers.set("Allow", "GET, DELETE");
+      response.headers.set("Allow", "GET, PATCH, DELETE");
       return response;
     }
     const actor = await requireUser(request);
@@ -101,17 +112,18 @@ export async function action({ request, params }: ActionFunctionArgs) {
   } catch (error) {
     if (error instanceof HttpError) return error.toResponse();
     if (error instanceof MediaStorageError || error instanceof MediaStorageConfigurationError) {
-      return storageFailure(error, "media.delete");
+      return storageFailure(error, operation);
     }
     await captureServerException(error, {
-      operation: "media.delete",
+      operation,
       outcome: "failure",
       errorCode: "server_error:api",
       httpStatus: 500,
     });
-    console.error("Unexpected private media deletion failure", {
+    console.error("Unexpected private media mutation failure", {
+      operation,
       errorType: error instanceof Error ? error.name : "UnknownError",
     });
-    return errorResponse("Media deletion failed", "server_error:api", 500);
+    return errorResponse(operation === "media.update" ? "Media update failed" : "Media deletion failed", "server_error:api", 500);
   }
 }

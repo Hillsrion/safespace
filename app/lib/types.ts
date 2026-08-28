@@ -32,6 +32,8 @@ export type AuthorProfile = UserProfile & {
 
 // Represents an image or video evidence item in a post
 export type EvidenceMedia = {
+  evidenceCategory?: string;
+  caption?: string | null;
   id: string;
   url: string; // URL to the media
   type: "audio" | "image" | "video"; // Type of media

@@ -98,4 +98,14 @@ describe("report persistence and evidence recovery", () => {
     expect(screen.getByText(/1 fichier\(s\) encore à téléverser/)).toBeInTheDocument();
     expect(fetch).not.toHaveBeenCalled(); expect(navigate).not.toHaveBeenCalled();
   });
+
+  it("keeps evidence revision out of the strict report update payload", async () => {
+    vi.mocked(fetch).mockResolvedValue(Response.json(report));
+    render(<ReportForm initialValues={{ spaceId, entity: { name: "Entity", handles: ["handle"] }, description: "Rapport existant", isAnonymous: true, isAdminOnly: false, contentRevision: 7 }}
+      method="PATCH" spaces={[{ id: spaceId, name: "Espace privé", role: "EDITOR" }]} submitLabel="Enregistrer" submitUrl={`/resources/api/posts/${postId}/update`} title="Rapport" />);
+    submit();
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).not.toHaveProperty("contentRevision");
+    await waitFor(() => expect(navigate).toHaveBeenCalled());
+  });
 });

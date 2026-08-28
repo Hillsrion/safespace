@@ -5,6 +5,7 @@ import { jpegWithExif } from "../lib/media/fixtures.server.test-support";
 import {
   deleteMedia,
   getAuthorizedMediaObject,
+  updateMediaEvidence,
   uploadMedia,
 } from "./media.server";
 
@@ -48,6 +49,7 @@ function database(options: {
     authorId: options.postAuthorId ?? ACTOR_ID,
     isAnonymous: true,
     status: options.postStatus ?? "active",
+    contentRevision: 1,
   };
   const mediaRow = {
     id: MEDIA_ID,
@@ -64,6 +66,7 @@ function database(options: {
       isAdminOnly: options.mediaAdminOnly ?? false,
       isAnonymous: post.isAnonymous,
       status: post.status,
+      contentRevision: post.contentRevision,
     },
   };
   const tx = {
@@ -76,9 +79,9 @@ function database(options: {
         options.discipline ? { kind: options.discipline } : null
       ),
     },
-    post: { findUnique: vi.fn(async () => post) },
+    post: { findUnique: vi.fn(async () => post), findUniqueOrThrow: vi.fn(async () => ({ contentRevision: 2 })) },
     media: {
-      aggregate: vi.fn(async () => ({ _count: { _all: 0 }, _sum: { fileSize: null } })),
+      aggregate: vi.fn(async () => ({ _count: { _all: 0 }, _sum: { fileSize: null }, _max: { sortOrder: null } })),
       create: vi.fn(async ({ data }) => ({
         id: MEDIA_ID,
         mimeType: data.mimeType,
@@ -87,14 +90,18 @@ function database(options: {
         metadataStripped: data.metadataStripped,
         metadataRemoved: data.metadataRemoved,
         removedMetadataKinds: data.removedMetadataKinds,
+        evidenceCategory: "unclassified", caption: null, sortOrder: data.sortOrder,
       })),
       findUnique: vi.fn(async () => mediaRow),
+      findMany: vi.fn(async () => [{ id: MEDIA_ID, uploaderId: mediaRow.uploaderId, sortOrder: 0 }]),
+      findUniqueOrThrow: vi.fn(async () => ({ id: MEDIA_ID, evidenceCategory: "document", caption: "Contract", sortOrder: 0 })),
+      update: vi.fn(async ({ data }) => ({ id: MEDIA_ID, evidenceCategory: data.evidenceCategory ?? "unclassified", caption: data.caption ?? null, sortOrder: data.sortOrder ?? 0 })),
       delete: vi.fn(async () => mediaRow),
     },
     mediaDeletionJob: {
       createMany: vi.fn(async () => ({ count: 1 })),
     },
-    auditLog: { create: vi.fn(async () => ({ id: "audit-id" })) },
+    auditLog: { createMany: vi.fn(async () => ({ count: 1 })) },
   };
   const mediaDeletionJob = {
     createMany: vi.fn(async () => ({ count: 1 })),
@@ -110,6 +117,19 @@ function database(options: {
 }
 
 describe("secure media authorization", () => {
+  it("permits an Editor to classify only their own evidence and returns the new revision", async () => {
+    const db = database();
+    await expect(updateMediaEvidence({ id: ACTOR_ID }, MEDIA_ID, { expectedRevision: 1, evidenceCategory: "document", caption: "Contract", orderedMediaIds: [MEDIA_ID] }, { client: db.client })).resolves.toMatchObject({ contentRevision: 2, orderedMediaIds: [MEDIA_ID], media: { evidenceCategory: "document" } });
+    expect(db.tx.media.update).toHaveBeenCalled();
+  });
+
+  it("rejects IDOR, read-only access, suspended access, and stale evidence revisions", async () => {
+    await expect(updateMediaEvidence({ id: OTHER_ID }, MEDIA_ID, { expectedRevision: 1, evidenceCategory: "photo" }, { client: database({ postAuthorId: OTHER_ID, mediaUploaderId: ACTOR_ID }).client })).rejects.toMatchObject({ status: 403 });
+    await expect(updateMediaEvidence({ id: ACTOR_ID }, MEDIA_ID, { expectedRevision: 1, evidenceCategory: "photo" }, { client: database({ role: "READ_ONLY" }).client })).rejects.toMatchObject({ status: 403 });
+    await expect(updateMediaEvidence({ id: ACTOR_ID }, MEDIA_ID, { expectedRevision: 1, evidenceCategory: "photo" }, { client: database({ discipline: "suspension" }).client })).rejects.toMatchObject({ status: 404 });
+    await expect(updateMediaEvidence({ id: ACTOR_ID }, MEDIA_ID, { expectedRevision: 9, evidenceCategory: "photo" }, { client: database().client })).rejects.toMatchObject({ status: 409 });
+    await expect(updateMediaEvidence({ id: ACTOR_ID }, MEDIA_ID, { expectedRevision: 1, evidenceCategory: "photo" }, { client: database({ postStatus: "hidden" }).client })).rejects.toMatchObject({ status: 403 });
+  });
   it("does not let a post ID from another space drive an upload", async () => {
     const db = database({ postSpaceId: OTHER_SPACE_ID });
     const storage = storageMock();
@@ -168,7 +188,7 @@ describe("secure media authorization", () => {
       metadataRemoved: true,
       removedMetadataKinds: expect.arrayContaining(["EXIF/XMP"]),
     });
-    expect(db.tx.auditLog.create).toHaveBeenCalledWith(
+    expect(db.tx.auditLog.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           actorUserId: null,
@@ -283,7 +303,7 @@ describe("secure media authorization", () => {
 
     await expect(
       deleteMedia({ id: ACTOR_ID }, MEDIA_ID, { client: db.client, storage })
-    ).resolves.toEqual({ deletedMediaId: MEDIA_ID, storageDeletionPending: true });
+    ).resolves.toEqual({ deletedMediaId: MEDIA_ID, contentRevision: 2, storageDeletionPending: true });
     expect(db.tx.mediaDeletionJob.createMany).toHaveBeenCalledWith({
       data: [
         {

@@ -1,4 +1,5 @@
 import { prisma } from "~/db/client.server";
+import { toEvidenceMedia } from "~/lib/evidence";
 import type { PrismaClient } from "~/generated/prisma";
 import type { ReportedEntityWithHandles, ReportedEntityPost } from "./types";
 import {
@@ -171,7 +172,7 @@ export async function getReportedEntityPosts(
           // If not directly on model, this might need to be constructed. For now, assume it exists.
         },
       },
-      media: true, // Assuming relation name is 'media' and it fetches all EvidenceMedia fields
+      media: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
       // Assuming each Post can have its own reportedEntity relation
       // This is distinct from the reportedEntityId used in the where clause,
       // which refers to the entity whose profile page is being viewed.
@@ -217,6 +218,7 @@ export async function getReportedEntityPosts(
     author,
 
     content: post.description,
+    media: toEvidenceMedia(post.media),
     status: post.status === "hidden"
       ? "hidden"
       : post.isAdminOnly

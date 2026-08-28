@@ -25,6 +25,7 @@ export function SensitiveReviewCard({ item }: { item: ReviewItem }) {
     id: proof.id, url: `/resources/api/media/${encodeURIComponent(proof.id)}`,
     type: proof.mimeType.startsWith("image/") ? "image" : proof.mimeType.startsWith("audio/") ? "audio" : "video",
     altText: `Preuve ${index + 1}`,
+    evidenceCategory: proof.evidenceCategory, caption: proof.caption,
   }));
   const mutate = async (outcome?: "approve" | "request_changes") => {
     if (hasUnfilledModerationTemplate(note)) { setError("Complétez les champs du modèle avant de décider."); return; }

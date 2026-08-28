@@ -176,8 +176,7 @@ async function auditEntityResolution(
 ): Promise<void> {
   if (!resolution.auditAction) return;
 
-  await tx.auditLog.create({
-    data: {
+  const data = {
       actorUserId: actorId,
       action: resolution.auditAction,
       targetEntityType: "ReportedEntity",
@@ -187,8 +186,19 @@ async function auditEntityResolution(
         resolution.auditAction === "entity_update"
           ? { addedHandles: resolution.addedHandles }
           : undefined,
-    },
-  });
+  };
+  // Prisma create() adds RETURNING. RLS deliberately prevents an anonymous
+  // editor from selecting its detached audit row, so use a non-returning insert.
+  if (actorId === null) await tx.auditLog.createMany({ data: [data] });
+  else await tx.auditLog.create({ data });
+}
+
+async function writeAudit(
+  tx: TransactionClient,
+  data: Parameters<TransactionClient["auditLog"]["create"]>[0]["data"]
+) {
+  if (data.actorUserId === null) await tx.auditLog.createMany({ data: [data] });
+  else await tx.auditLog.create({ data });
 }
 
 function isRetryableTransactionConflict(error: unknown): boolean {
@@ -293,8 +303,7 @@ export async function createReport(
       select: POST_RESPONSE_SELECT,
     });
 
-    await tx.auditLog.create({
-      data: {
+    await writeAudit(tx, {
         actorUserId: input.isAnonymous ? null : actor.id,
         action: "post_create",
         targetEntityType: "Post",
@@ -307,7 +316,6 @@ export async function createReport(
           severity: input.severity ?? null,
           verificationStatus: input.verificationStatus ?? "unverified",
         },
-      },
     });
 
     return toResponse(post);
@@ -380,15 +388,13 @@ export async function updateReport(
       select: POST_RESPONSE_SELECT,
     });
 
-    await tx.auditLog.create({
-      data: {
+    await writeAudit(tx, {
         actorUserId: auditActorId,
         action: "post_update",
         targetEntityType: "Post",
         targetEntityId: post.id,
         spaceId: current.spaceId,
         details: { changedFields, isAnonymous: post.isAnonymous },
-      },
     });
 
     return toResponse(post);

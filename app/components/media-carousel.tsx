@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "~/components/ui/carousel";
 import { Button } from "~/components/ui/button";
 import { type EvidenceMedia } from "~/lib/types";
+import { evidenceCategoryLabel } from "~/lib/evidence";
 
 interface MediaCarouselProps {
   media: EvidenceMedia[];
@@ -81,6 +82,7 @@ export function MediaCarousel({
                   </div>
                 ) : null}
               </div>
+              <div className="mt-2 text-sm"><p className="text-muted-foreground">{evidenceCategoryLabel(mediaItem.evidenceCategory)}</p>{mediaItem.caption && <p className="whitespace-pre-wrap break-words">{mediaItem.caption}</p>}</div>
             </CarouselItem>
           ))}
         </CarouselContent>

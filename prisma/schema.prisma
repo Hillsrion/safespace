@@ -101,6 +101,7 @@ enum AuditAction {
   system_announcement_create
   system_announcement_update
   system_announcement_delete
+  media_update
 }
 
 // User model represents platform users with different roles
@@ -306,6 +307,9 @@ model Media {
   metadataRemoved  Boolean   @default(false)
   removedMetadataKinds Json?
   isBlurred        Boolean   @default(true)
+  evidenceCategory String    @default("unclassified")
+  caption          String?   @db.VarChar(280)
+  sortOrder        Int       @default(0)
   createdAt        DateTime  @default(now())
 
   // Relations
@@ -313,6 +317,7 @@ model Media {
   uploader         User      @relation("MediaUploaders", fields: [uploaderId], references: [id])
 
   @@index([postId])
+  @@index([postId, sortOrder, id])
 }
 
 // Durable outbox for object-storage deletion. It intentionally has no foreign

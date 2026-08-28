@@ -4,7 +4,7 @@ import { exportAccountData } from "./account-export.server";
 
 const actorId = "00000000-0000-4000-8000-000000000010";
 const date = "2026-01-01T00:00:00.000Z";
-const ownMedia = { id: "media-1", fileName: "proof.jpg", mimeType: "image/jpeg", fileSize: 100, metadataStripped: true, isBlurred: true, createdAt: date };
+const ownMedia = { id: "media-1", fileName: "proof.jpg", mimeType: "image/jpeg", fileSize: 100, metadataStripped: true, isBlurred: true, createdAt: date, evidenceCategory: "document", caption: "Contrat signé", sortOrder: 1 };
 const ownData = {
   contributions: [{
     id: "own-post", spaceId: "suspended", reportedEntityId: "entity-1", description: "My report",
@@ -39,9 +39,11 @@ describe("account data export", () => {
   it("exports owned data after access loss without credentials, storage keys or third-party identity", async () => {
     const result = await exportAccountData({ id: actorId }, client);
     const serialized = JSON.stringify(result);
-    expect(result.version).toBe(3);
+    expect(result.version).toBe(4);
     expect(result.profile.email).toBe("member@example.com");
     expect(result.contributions[0].media[0]).toMatchObject({ fileName: "proof.jpg", metadataStripped: true });
+    expect(result.contributions[0].media[0]).toEqual(ownMedia);
+    expect(result.uploadedMedia[0]).toMatchObject(ownMedia);
     expect(result.memberships[0]).toMatchObject({ spaceId: "suspended", spaceName: null });
     expect(serialized).not.toContain("password");
     expect(serialized).not.toContain("storageKey");
