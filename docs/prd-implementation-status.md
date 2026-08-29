@@ -23,6 +23,11 @@ les écarts de contrat et ce qui doit être vérifié sur l’environnement rée
   Voir [activité des membres](member-space-activity.md).
 - Recherche et filtres, raccourci clavier, persistance des recherches sauvegardées.
   Cette persistance ne constitue pas un système de livraison d’alertes.
+- Contrat API du compte (`/auth/me`, lecture/mise à jour/suppression de
+  `users/current`) et collection de rapports par espace : pagination bornée,
+  filtres, périmètre de l’URL contrôlé, anonymat et méthodes de mutation
+  strictes. La suppression de compte conserve la confirmation renforcée et le
+  choix explicite du devenir des contributions.
 
 La CI exécute les tests applicatifs, serveur et PostgreSQL réel, construit les
 images web/migration/worker et teste leur démarrage avec des droits limités.
@@ -35,7 +40,7 @@ complète dans un navigateur connecté à des services de production.
 | --- | --- |
 | Filigranes — PRD « Media Management » | Absents. Prévoir un vrai rendu serveur, conserver l’intégrité de la preuve et les contrôles privés ; un texte CSS ne protège pas le fichier. Aucun partage public ne doit être introduit implicitement. |
 | Vérification des identifiants — PRD « Reporting System » | Normalisation, syntaxe, multi-identifiants et conflits sont contrôlés ; aucune vérification externe d’existence ou de propriété n’est attestée. Définir explicitement ce que signifie une revue interne d’identifiant. Les recherches via API Instagram sont classées futures par le PRD. |
-| Contrat API — section « API Routes » | Les workflows actuels utilisent des routes différentes de plusieurs chemins proposés. Le préfixe `/resources/api` est intentionnel et partagé par les clients. Il reste à fournir ou formaliser la correspondance pour `auth/me`, `users/current`, les collections de posts par espace et les listes d’entités accessibles aux simples membres. Ne pas confondre différence de chemin et défaut d’autorisation. |
+| Contrat API — section « API Routes » | `auth/me`, `users/current` et les collections/éléments de rapports par espace sont maintenant fournis (`users/current` et les rapports restent sous le préfixe interne intentionnel `/resources/api`). Les preuves continuent d’être téléversées après la création du rapport : `mediaIds` n’accepte jamais de rattachement arbitraire. Il reste à formaliser les listes d’entités accessibles aux simples membres et, si un envoi atomique rapport+preuves est requis, à concevoir des jetons de téléversement temporaires plutôt que des identifiants réutilisables. |
 | Recherche et performance | Les résultats sont filtrés par les droits, mais les objectifs de latence/charge et l’usage réel des index doivent être mesurés ; la seule présence d’un index n’en est pas la preuve. |
 | Exploitation réelle | Vérifier TLS, chiffrement et droits des fournisseurs, sauvegarde/restauration, observabilité, charge et traitement effectif des suppressions sur le déploiement cible. Les tests locaux et les images CI ne prouvent pas cette configuration. |
 

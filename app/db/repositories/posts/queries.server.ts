@@ -326,7 +326,7 @@ export async function deletePost(
   postId: string,
   actorId: string,
   client: PrismaClient = prisma,
-  options: { storage?: MediaStorage } = {}
+  options: { storage?: MediaStorage; expectedSpaceId?: string } = {}
 ) {
   const outcome = await client.$transaction(
     async (tx) => {
@@ -342,6 +342,9 @@ export async function deletePost(
         },
       });
       if (!post) throw errors.notFound("Post not found");
+      if (options.expectedSpaceId && post.spaceId !== options.expectedSpaceId) {
+        throw errors.notFound("Post not found");
+      }
 
       const access = await getCurrentSpaceAccess(tx, actorId, post.spaceId);
       const isModerator =

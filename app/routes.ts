@@ -34,6 +34,7 @@ export default [
   route(":spaceId/login", routePath("space-login.tsx")),
   route("auth/superadmin/login", routePath("auth/superadmin/login.tsx")),
   route("auth/logout", routePath("auth/logout.tsx")),
+  route("auth/me", routePath("api/auth/me.ts")),
   route(DASHBOARD_PATH, layoutPath("dashboard.tsx"), [
     index(routePath("dashboard/index.tsx")),
     route("welcome", routePath("dashboard/welcome.tsx")),
@@ -74,7 +75,10 @@ export default [
       route(`spaces/:spaceId/entities/:entityId`, routePath("api/spaces/:spaceId/entities/:entityId.ts")),
       route(`account/delete`, routePath("api/account/delete.ts")),
       route(`account/export`, routePath("api/account/export.ts")),
+      route(`users/current`, routePath("api/users/current.ts")),
       route(`spaces/:spaceId/posts/:postId/flag`, routePath("api/spaces/:spaceId/posts/:postId/flag.ts")),
+      route(`spaces/:spaceId/posts`, routePath("api/spaces/:spaceId/posts.ts")),
+      route(`spaces/:spaceId/posts/:postId`, routePath("api/spaces/:spaceId/posts/:postId.ts")),
       route(`spaces/:spaceId/moderation/flags`, routePath("api/spaces/:spaceId/moderation/flags.ts")),
       route(`spaces/:spaceId/moderation/flags/:flagId`, routePath("api/spaces/:spaceId/moderation/flags/:flagId.ts")),
       route(`spaces/:spaceId/moderation/appeals`, routePath("api/spaces/:spaceId/moderation/appeals.ts")),
