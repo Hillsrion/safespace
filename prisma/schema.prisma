@@ -133,6 +133,7 @@ model User {
   resolvedFlags PostFlag[] @relation("FlagResolvers")
   auditLogs     AuditLog[] @relation("AuditActors")
   addedEntities ReportedEntity[] @relation("EntityAdders")
+  reviewedEntityHandles ReportedEntityHandle[] @relation("HandleReviewers")
   savedSearches SavedSearch[]
   filedModerationAppeals ModerationAppeal[] @relation("AppealFilers")
   reviewedModerationAppeals ModerationAppeal[] @relation("AppealReviewers")
@@ -237,12 +238,19 @@ model ReportedEntityHandle {
   platform         String    @default("Instagram")
   handle           String
   createdAt        DateTime  @default(now())
+  reviewStatus     String    @default("unreviewed")
+  reviewNote       String?   @db.VarChar(500)
+  reviewedAt       DateTime?
+  reviewedByUserId String?   @db.Uuid
 
   // Relations
   reportedEntity   ReportedEntity @relation(fields: [reportedEntityId], references: [id], onDelete: Cascade)
+  reviewedBy       User? @relation("HandleReviewers", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
 
   @@unique([reportedEntityId, handle])
   @@index([handle])
+  @@index([reviewStatus])
+  @@index([reviewedByUserId])
 }
 
 // Post model represents reports about reported entities

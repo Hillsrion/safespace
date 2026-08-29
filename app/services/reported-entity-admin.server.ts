@@ -36,6 +36,9 @@ const ENTITY_SELECT = {
       platform: true,
       handle: true,
       createdAt: true,
+      reviewStatus: true,
+      reviewNote: true,
+      reviewedAt: true,
     },
     orderBy: { handle: "asc" },
   },
@@ -53,6 +56,9 @@ type EntityRow = {
     platform: string;
     handle: string;
     createdAt: Date;
+    reviewStatus: string;
+    reviewNote: string | null;
+    reviewedAt: Date | null;
   }>;
   _count: { posts: number };
 };
@@ -140,9 +146,50 @@ function toEntityResponse(entity: EntityRow) {
       platform: handle.platform,
       handle: handle.handle,
       createdAt: handle.createdAt.toISOString(),
+      reviewStatus: handle.reviewStatus,
+      reviewNote: handle.reviewNote,
+      reviewedAt: handle.reviewedAt?.toISOString() ?? null,
     })),
     postCount: entity._count.posts,
   };
+}
+
+export async function reviewReportedEntityHandle(
+  actor: ReportedEntityAdminActor,
+  spaceId: string,
+  entityId: string,
+  handleId: string,
+  input: { status: "unreviewed" | "consistent" | "questionable" | "obsolete"; note?: string },
+  client: PrismaClient = prisma
+) {
+  return runSerializable(client, async (tx) => {
+    await requireAuthorizedSpace(tx, actor, spaceId);
+    const handle = await tx.reportedEntityHandle.findFirst({
+      where: { id: handleId, reportedEntityId: entityId, reportedEntity: { spaceId } },
+      select: { id: true },
+    });
+    if (!handle) notFound("Reported entity handle not found");
+    const note = input.status === "unreviewed" ? null : input.note?.trim();
+    if (input.status !== "unreviewed" && (!note || note.length < 3 || note.length > 500)) {
+      forbidden("A review reason between 3 and 500 characters is required");
+    }
+    const updated = await tx.reportedEntityHandle.update({
+      where: { id: handle.id },
+      data: {
+        reviewStatus: input.status,
+        reviewNote: note,
+        reviewedAt: input.status === "unreviewed" ? null : new Date(),
+        reviewedByUserId: input.status === "unreviewed" ? null : actor.id,
+      },
+      select: { id: true, reviewStatus: true, reviewNote: true, reviewedAt: true },
+    });
+    await tx.auditLog.create({ data: {
+      actorUserId: actor.id, action: "entity_update", targetEntityType: "ReportedEntityHandle",
+      targetEntityId: handle.id, spaceId,
+      details: { changedFields: ["internalHandleReview"], reviewStatus: input.status },
+    } });
+    return { ...updated, reviewedAt: updated.reviewedAt?.toISOString() ?? null };
+  });
 }
 
 function handleKey(handle: { platform: string; handle: string }): string {

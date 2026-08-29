@@ -73,6 +73,7 @@ export default [
       route(`spaces/:spaceId/leave`, routePath("api/spaces/:spaceId/leave.ts")),
       route(`spaces/:spaceId/entities`, routePath("api/spaces/:spaceId/entities.ts")),
       route(`spaces/:spaceId/entities/:entityId`, routePath("api/spaces/:spaceId/entities/:entityId.ts")),
+      route(`spaces/:spaceId/entities/:entityId/handles/:handleId/review`, routePath("api/spaces/:spaceId/entities/:entityId/handles/:handleId/review.ts")),
       route(`account/delete`, routePath("api/account/delete.ts")),
       route(`account/export`, routePath("api/account/export.ts")),
       route(`users/current`, routePath("api/users/current.ts")),

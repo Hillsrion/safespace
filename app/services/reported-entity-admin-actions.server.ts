@@ -20,7 +20,17 @@ import {
   listReportedEntitiesForAdmin,
   ReportedEntityAdminError,
   updateReportedEntityForAdmin,
+  reviewReportedEntityHandle,
 } from "~/services/reported-entity-admin.server";
+import { z } from "zod";
+
+const handleReviewParamsSchema = z.object({
+  spaceId: z.string().uuid(), entityId: z.string().uuid(), handleId: z.string().uuid(),
+});
+const handleReviewSchema = z.object({
+  status: z.enum(["unreviewed", "consistent", "questionable", "obsolete"]),
+  note: z.string().trim().min(3).max(500).optional(),
+}).strict();
 
 function errorResponse(error: unknown, message: string): Response {
   if (error instanceof HttpError) return error.toResponse();
@@ -67,6 +77,23 @@ async function readJson(request: Request): Promise<unknown> {
 
 function parseQuery(request: Request): Record<string, string> {
   return Object.fromEntries(new URL(request.url).searchParams);
+}
+
+export async function reviewReportedEntityHandleAction({ request, params }: ActionFunctionArgs) {
+  try {
+    requireSameOrigin(request);
+    if (request.method.toUpperCase() !== "PATCH") return methodNotAllowed("PATCH");
+    const actor = await requireActor(request);
+    const parsedParams = handleReviewParamsSchema.safeParse(params);
+    const parsedBody = handleReviewSchema.safeParse(await readJson(request));
+    if (!parsedParams.success || !parsedBody.success) throw errors.badRequest("Invalid handle review");
+    return Response.json({ success: true, review: await reviewReportedEntityHandle(
+      actor, parsedParams.data.spaceId, parsedParams.data.entityId,
+      parsedParams.data.handleId, parsedBody.data
+    ) });
+  } catch (error) {
+    return errorResponse(error, "Failed to review reported entity handle");
+  }
 }
 
 export async function listReportedEntitiesLoader({
