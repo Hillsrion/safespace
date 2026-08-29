@@ -401,7 +401,8 @@ export async function updatePostStatus(
   postId: string,
   status: "active" | "hidden",
   actorId: string,
-  client: PrismaClient = prisma
+  client: PrismaClient = prisma,
+  options: { expectedSpaceId?: string; reason?: string } = {}
 ) {
   return client.$transaction(
     async (tx) => {
@@ -410,6 +411,9 @@ export async function updatePostStatus(
         select: { id: true, spaceId: true, status: true },
       });
       if (!post) throw errors.notFound("Post not found");
+      if (options.expectedSpaceId && post.spaceId !== options.expectedSpaceId) {
+        throw errors.notFound("Post not found");
+      }
 
       const access = await getCurrentSpaceAccess(tx, actorId, post.spaceId);
       if (
@@ -436,6 +440,7 @@ export async function updatePostStatus(
             changedFields: ["status"],
             previousStatus: post.status,
             status,
+            ...(options.reason ? { reason: options.reason } : {}),
           },
         },
       });

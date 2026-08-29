@@ -55,8 +55,14 @@ describe("usePostActions", () => {
 
       expect(mocks.revalidate).toHaveBeenCalledOnce();
       if (action === "delete") {
+        expect(mocks.deletePost).toHaveBeenCalledWith("post-1", "space-1");
         expect(mocks.removePost).toHaveBeenCalledWith("post-1");
       } else {
+        expect(mocks.updatePostStatus).toHaveBeenCalledWith(
+          "post-1",
+          "space-1",
+          action
+        );
         expect(mocks.updateStoreStatus).toHaveBeenCalledWith(
           "post-1",
           action === "hide" ? "hidden" : "published"

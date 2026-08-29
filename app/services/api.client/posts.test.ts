@@ -21,17 +21,19 @@ describe("post action client contract", () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => Response.json({ success: true })));
     const { result } = renderHook(() => usePostActionsApi());
     await act(async () => {
-      await result.current.updatePostStatus("post-id", "hide");
+      await result.current.updatePostStatus("post-id", "space-id", "hide");
       await result.current.flagPost("post-id", "space-id", "Reason");
     });
     const calls = vi.mocked(fetch).mock.calls;
-    expect(calls[0][0]).toBe("/resources/api/posts/post-id/edit");
-    expect((calls[0][1]?.body as FormData).get("_action")).toBe("hide");
+    expect(calls[0][0]).toBe("/resources/api/admin/spaces/space-id/posts/post-id/moderate");
+    expect(calls[0][1]).toMatchObject({ method: "PUT" });
+    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ action: "hide" });
     expect(calls[1][0]).toBe("/resources/api/spaces/space-id/posts/post-id/flag");
     for (const [url, options] of calls) {
       expect(new URL(String(url), "https://safe.test/dashboard/entities/entity-id").pathname).toBe(url);
-      expect(options).toMatchObject({ method: "POST", credentials: "include" });
+      expect(options).toMatchObject({ credentials: "include" });
     }
+    expect(calls[1][1]).toMatchObject({ method: "POST" });
   });
 
   it("uses an absolute scoped pagination URL even when the dashboard has a trailing slash", async () => {
@@ -49,7 +51,7 @@ describe("post action client contract", () => {
     const { result } = renderHook(() => usePostActionsApi());
     await act(async () => {
       await result.current.deletePost("post-id", "space-id");
-      await result.current.updatePostStatus("post-id", "hide");
+      await result.current.updatePostStatus("post-id", "space-id", "hide");
       await result.current.flagPost("post-id", "space-id");
     });
     expect(handleError).not.toHaveBeenCalled();

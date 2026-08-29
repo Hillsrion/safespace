@@ -156,6 +156,24 @@ describe("post mutation authorization", () => {
     expect(tx.auditLog.create).not.toHaveBeenCalled();
   });
 
+  it("does not reveal or moderate a post through another space path", async () => {
+    const { client, tx } = transactionClient({
+      actor: {
+        isSuperAdmin: false,
+        memberships: [{ role: "ADMIN" }],
+      },
+    });
+
+    await expect(
+      updatePostStatus("post-1", "hidden", "admin-1", client, {
+        expectedSpaceId: "another-space",
+      })
+    ).rejects.toMatchObject({ status: 404 });
+    expect(tx.user.findUnique).not.toHaveBeenCalled();
+    expect(tx.post.update).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
   it("atomically audits hide/unhide as post_update", async () => {
     const { client, transaction, tx } = transactionClient({
       actor: {
@@ -164,7 +182,10 @@ describe("post mutation authorization", () => {
       },
     });
 
-    await updatePostStatus("post-1", "hidden", "admin-1", client);
+    await updatePostStatus("post-1", "hidden", "admin-1", client, {
+      expectedSpaceId: "space-1",
+      reason: "Contenu à examiner",
+    });
 
     expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: "Serializable",
@@ -181,6 +202,7 @@ describe("post mutation authorization", () => {
           changedFields: ["status"],
           previousStatus: "active",
           status: "hidden",
+          reason: "Contenu à examiner",
         },
       }),
     });

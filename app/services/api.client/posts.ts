@@ -24,18 +24,13 @@ export function usePostActionsApi() {
 
   const updatePostStatus = async (
     postId: string,
+    spaceId: string,
     action: Exclude<PostAction, "delete">
   ) => {
-    const formData = new FormData();
-    formData.append("_action", action as string);
-
-    return callApi(`/${RESOURCES_API_PREFIX}/posts/${encodeURIComponent(postId)}/edit`, {
-      method: "POST",
+    return callApi(`/${RESOURCES_API_PREFIX}/admin/spaces/${encodeURIComponent(spaceId)}/posts/${encodeURIComponent(postId)}/moderate`, {
+      method: "PUT",
       showErrorToast: false,
-      headers: {
-        // Let the browser set the content-type with boundary for FormData
-      },
-      body: formData,
+      body: { action },
     });
   };
 

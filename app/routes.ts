@@ -75,6 +75,7 @@ export default [
       route(`spaces/:spaceId/entities`, routePath("api/spaces/:spaceId/entities.ts")),
       route(`spaces/:spaceId/entities/:entityId`, routePath("api/spaces/:spaceId/entities/:entityId.ts")),
       route(`spaces/:spaceId/entities/:entityId/handles/:handleId/review`, routePath("api/spaces/:spaceId/entities/:entityId/handles/:handleId/review.ts")),
+      route(`admin/spaces/:spaceId/posts/:postId/moderate`, routePath("api/admin/spaces/:spaceId/posts/:postId/moderate.ts")),
       route(`spaces/:spaceId/reported-entities`, routePath("api/spaces/:spaceId/reported-entities.ts")),
       route(`spaces/:spaceId/reported-entities/:entityId`, routePath("api/spaces/:spaceId/reported-entities/:entityId.ts")),
       route(`account/delete`, routePath("api/account/delete.ts")),
@@ -91,7 +92,6 @@ export default [
       route(`spaces/:spaceId/moderation/discipline/:disciplineId`, routePath("api/spaces/:spaceId/moderation/discipline/:disciplineId.ts")),
       route(`spaces/:spaceId/members/:userId/moderation-history`, routePath("api/spaces/:spaceId/members/:userId/moderation-history.ts")),
       route(`posts/feed`, routePath("api/posts/feed.ts")),
-      route(`posts/:id/edit`, routePath("api/posts/:id/edit.ts")),
     ]),
   ]),
 ] satisfies RouteConfig;
