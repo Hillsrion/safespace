@@ -93,6 +93,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
     where = { ...where, posts: { some: postSummaryFilter } };
   }
 
+  const manageableSpaces = spaces.filter(({ role }) => {
+    const normalized = role.trim().toUpperCase();
+    return user.isSuperAdmin || normalized === "ADMIN";
+  });
+  const manageableSpaceIds = new Set(manageableSpaces.map(({ id }) => id));
+
   const [entities, total] = await Promise.all([
     prisma.reportedEntity.findMany({
       where,
@@ -108,14 +114,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         handles: {
           orderBy: { createdAt: "asc" },
           take: 5,
-          select: {
-            id: true,
-            handle: true,
-            platform: true,
-            reviewStatus: true,
-            reviewNote: true,
-            reviewedAt: true,
-          },
+          select: { id: true, handle: true, platform: true },
         },
         _count: { select: { posts: { where: postSummaryFilter } } },
         posts: {
@@ -129,13 +128,29 @@ export async function loader({ request }: LoaderFunctionArgs) {
     prisma.reportedEntity.count({ where }),
   ]);
 
-  const manageableSpaces = spaces.filter(({ role }) => {
-    const normalized = role.trim().toUpperCase();
-    return user.isSuperAdmin || normalized === "ADMIN";
-  });
+  // Review notes are administrative data. Keep them out of the serialized
+  // loader payload for handles belonging to spaces the viewer cannot manage.
+  const manageableHandleIds = entities
+    .filter((entity) => manageableSpaceIds.has(entity.space.id))
+    .flatMap((entity) => entity.handles.map(({ id }) => id));
+  const reviewRows = manageableHandleIds.length > 0
+    ? await prisma.reportedEntityHandle.findMany({
+        where: { id: { in: manageableHandleIds } },
+        select: {
+          id: true,
+          reviewStatus: true,
+          reviewNote: true,
+          reviewedAt: true,
+        },
+      })
+    : [];
+  const handleReviews = Object.fromEntries(
+    reviewRows.map(({ id, ...review }) => [id, review])
+  );
 
   return {
     entities,
+    handleReviews,
     page,
     query,
     severity: severity ?? "",
@@ -147,7 +162,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function ReportedEntitiesPage() {
-  const { entities, manageableSpaces, page, query, severity, total, totalPages, verification } = useLoaderData<typeof loader>();
+  const { entities, handleReviews, manageableSpaces, page, query, severity, total, totalPages, verification } = useLoaderData<typeof loader>();
   const manageableSpaceIds = new Set(manageableSpaces.map(({ id }) => id));
   const pageUrl = (targetPage: number) => {
     const params = new URLSearchParams();
@@ -225,7 +240,12 @@ export default function ReportedEntitiesPage() {
                           id: entity.id,
                           name: entity.name,
                           spaceId: entity.space.id,
-                          handles: entity.handles,
+                          handles: entity.handles.map((handle) => ({
+                            ...handle,
+                            reviewStatus: handleReviews[handle.id]?.reviewStatus ?? "unreviewed",
+                            reviewNote: handleReviews[handle.id]?.reviewNote ?? null,
+                            reviewedAt: handleReviews[handle.id]?.reviewedAt ?? null,
+                          })),
                           postCount: entity._count.posts,
                         }}
                       />

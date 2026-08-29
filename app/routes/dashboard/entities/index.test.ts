@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   currentUser: vi.fn(),
   entities: vi.fn(),
   entityCount: vi.fn(),
+  reviews: vi.fn(),
   spaces: vi.fn(),
 }));
 
@@ -11,6 +12,7 @@ vi.mock("../../../services/auth.server", () => ({ getCurrentUser: mocks.currentU
 vi.mock("../../../db/client.server", () => ({
   prisma: {
     reportedEntity: { count: mocks.entityCount, findMany: mocks.entities },
+    reportedEntityHandle: { findMany: mocks.reviews },
   },
 }));
 vi.mock("../../../db/repositories/spaces/queries.server", () => ({
@@ -19,12 +21,26 @@ vi.mock("../../../db/repositories/spaces/queries.server", () => ({
 
 import { loader } from "./index";
 
+const SPACE_ID = "22222222-2222-4222-8222-222222222222";
+const HANDLE_ID = "44444444-4444-4444-8444-444444444444";
+const entity = {
+  id: "33333333-3333-4333-8333-333333333333",
+  name: "Entité",
+  createdAt: new Date("2026-08-29T10:00:00.000Z"),
+  updatedAt: new Date("2026-08-29T10:00:00.000Z"),
+  space: { id: SPACE_ID, name: "Espace" },
+  handles: [{ id: HANDLE_ID, handle: "example", platform: "Instagram" }],
+  _count: { posts: 0 },
+  posts: [],
+};
+
 describe("reported entity dashboard loader", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.currentUser.mockResolvedValue({ id: "member", isSuperAdmin: false });
     mocks.entities.mockResolvedValue([]);
     mocks.entityCount.mockResolvedValue(0);
+    mocks.reviews.mockResolvedValue([]);
     mocks.spaces.mockResolvedValue([]);
   });
   it("filters visible report summaries without selecting authors", async () => {
@@ -81,5 +97,57 @@ describe("reported entity dashboard loader", () => {
     await expect(loader({ request: new Request("https://safe.test/dashboard/entities"), params: {}, context: {} })).rejects.toMatchObject({ status: 302 });
     expect(mocks.entities).not.toHaveBeenCalled();
     expect(mocks.spaces).not.toHaveBeenCalled();
+  });
+  it("never fetches or serializes review notes for an ordinary member", async () => {
+    mocks.spaces.mockResolvedValue([{ id: SPACE_ID, name: "Espace", role: "EDITOR" }]);
+    mocks.entities.mockResolvedValue([entity]);
+    mocks.entityCount.mockResolvedValue(1);
+    mocks.reviews.mockResolvedValue([{
+      id: HANDLE_ID,
+      reviewStatus: "questionable",
+      reviewNote: "Note administrative privée",
+      reviewedAt: new Date("2026-08-29T10:00:00.000Z"),
+    }]);
+
+    const result = await loader({
+      request: new Request("https://safe.test/dashboard/entities"),
+      params: {},
+      context: {},
+    });
+
+    expect(result.handleReviews).toEqual({});
+    expect(mocks.reviews).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain("Note administrative privée");
+  });
+  it("returns reviews only for handles on the administrator's visible page", async () => {
+    mocks.spaces.mockResolvedValue([{ id: SPACE_ID, name: "Espace", role: "ADMIN" }]);
+    mocks.entities.mockResolvedValue([entity]);
+    mocks.entityCount.mockResolvedValue(1);
+    mocks.reviews.mockResolvedValue([{
+      id: HANDLE_ID,
+      reviewStatus: "questionable",
+      reviewNote: "Note administrative privée",
+      reviewedAt: new Date("2026-08-29T10:00:00.000Z"),
+    }]);
+
+    const result = await loader({
+      request: new Request("https://safe.test/dashboard/entities"),
+      params: {},
+      context: {},
+    });
+
+    expect(mocks.reviews).toHaveBeenCalledWith({
+      where: { id: { in: [HANDLE_ID] } },
+      select: {
+        id: true,
+        reviewStatus: true,
+        reviewNote: true,
+        reviewedAt: true,
+      },
+    });
+    expect(result.handleReviews[HANDLE_ID]).toMatchObject({
+      reviewStatus: "questionable",
+      reviewNote: "Note administrative privée",
+    });
   });
 });

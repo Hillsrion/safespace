@@ -165,6 +165,13 @@ discipline active/expirée, de confidentialité et de concurrence réelle sur
 plusieurs connexions. La suppression d’un reviewer est testée avec le vrai
 workflow `deleteAccount`, sans rôle propriétaire pour l’opération.
 
+La revue interne des identifiants ajoute des assertions PostgreSQL dédiées :
+un éditeur ne peut pas préqualifier un identifiant à l’insertion, seuls les
+administrateurs du bon espace peuvent changer son statut, et le reviewer ainsi
+que l’heure UTC sont dérivés par la base plutôt que fournis par le client. Le
+test couvre aussi les tentatives de falsification, les contraintes de note, le
+reset atomique et le détachement de l’identité après suppression du compte.
+
 Les mutations SQL d'autorisation sont annulées individuellement ; les workflows
 de départ sont validés après commit. Les fixtures portent des UUID et préfixes
 uniques ; elles sont supprimées à la fin, comme le rôle

@@ -16,6 +16,7 @@ import { exportAccountData } from "../app/services/account-export.server";
 import type { MediaStorage } from "../app/services/media-storage.server";
 import { verifySensitiveReview } from "./verify-sensitive-review";
 import { verifyEvidenceOrganization } from "./verify-evidence-organization";
+import { verifyInternalHandleReview } from "./verify-internal-handle-review";
 import { verifyMemberSpaceActivity } from "./verify-member-space-activity";
 
 type TransactionClient = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
@@ -614,6 +615,7 @@ async function main(): Promise<void> {
       }).catch((error) => { if (!(error instanceof Error) || error.message !== "intentional integration rollback") throw error; });
     });
     await verifyEvidenceOrganization({ admin, scoped, ids, check });
+    await verifyInternalHandleReview({ admin, scoped, ids, check });
     await verifySensitiveReview({ admin, runtime: direct, scoped, runtimeUrl: parsedUrl.toString(), ids, check });
     await check("pooled connection has no identity after success, rollback and leave", async () => {
       await as({ id: ids.superadmin, isSuperAdmin: true }, () => scoped.post.count());

@@ -32,6 +32,11 @@ les écarts de contrat et ce qui doit être vérifié sur l’environnement rée
   dérivée privée « SafeSpace - CONFIDENTIEL » est entièrement décodée et
   réencodée à la demande, sans modifier l’original canonique ni son empreinte.
   Elle conserve les mêmes autorisations et n’accepte pas les requêtes partielles.
+- Revue interne des identifiants par les administrateurs d’espace : statuts
+  explicites, justification bornée, provenance et horodatage imposés par
+  PostgreSQL, journal d’audit sans contenu de la note. Cette revue est présentée
+  comme une qualification interne et jamais comme une preuve d’existence ou de
+  propriété du compte externe.
 
 La CI exécute les tests applicatifs, serveur et PostgreSQL réel, construit les
 images web/migration/worker et teste leur démarrage avec des droits limités.
@@ -43,7 +48,7 @@ complète dans un navigateur connecté à des services de production.
 | Sujet | Situation et prochain critère de sortie |
 | --- | --- |
 | Filigranes — PRD « Media Management » | Réalisés côté serveur pour images/GIF/vidéos, comme dérivées privées bornées et vérifiées. L’original reste la preuve de référence ; aucun partage public ni filigrane CSS n’est introduit. L’audio reste inchangé : l’API refuse explicitement un filigrane visuel sur ce type. |
-| Vérification des identifiants — PRD « Reporting System » | Normalisation, syntaxe, multi-identifiants et conflits sont contrôlés ; aucune vérification externe d’existence ou de propriété n’est attestée. Définir explicitement ce que signifie une revue interne d’identifiant. Les recherches via API Instagram sont classées futures par le PRD. |
+| Vérification des identifiants — PRD « Reporting System » | Normalisation, syntaxe, multi-identifiants et conflits sont contrôlés. La revue interne signifie uniquement « non examiné », « cohérent », « à clarifier » ou « obsolète », avec justification administrative ; elle est désormais utilisable, auditée et protégée contre la falsification du reviewer ou de l’heure. Aucune vérification externe d’existence ou de propriété n’est attestée. Les recherches via API Instagram restent futures selon le PRD. |
 | Contrat API — section « API Routes » | `auth/me`, `users/current` et les collections/éléments de rapports par espace sont maintenant fournis (`users/current` et les rapports restent sous le préfixe interne intentionnel `/resources/api`). Les preuves continuent d’être téléversées après la création du rapport : `mediaIds` n’accepte jamais de rattachement arbitraire. Il reste à formaliser les listes d’entités accessibles aux simples membres et, si un envoi atomique rapport+preuves est requis, à concevoir des jetons de téléversement temporaires plutôt que des identifiants réutilisables. |
 | Recherche et performance | Les résultats sont filtrés par les droits, mais les objectifs de latence/charge et l’usage réel des index doivent être mesurés ; la seule présence d’un index n’en est pas la preuve. |
 | Exploitation réelle | Vérifier TLS, chiffrement et droits des fournisseurs, sauvegarde/restauration, observabilité, charge et traitement effectif des suppressions sur le déploiement cible. Les tests locaux et les images CI ne prouvent pas cette configuration. |
