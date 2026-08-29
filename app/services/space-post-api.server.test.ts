@@ -95,6 +95,31 @@ describe("space post API contract", () => {
     expect(refused.status).toBe(400);
   });
 
+  it("maps the scoped PRD update contract without trusting a body space", async () => {
+    mocks.updateReport.mockResolvedValue({ success: true });
+    const response = await spacePostAction(args("PUT", {
+      targetEntityName: "Entity corrigée",
+      targetEntityHandles: ["@safe"],
+      description: "Rapport corrigé",
+      isAnonymous: true,
+    }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.updateReport).toHaveBeenCalledWith(
+      POST,
+      expect.objectContaining({ id: USER }),
+      {
+        spaceId: SPACE,
+        entity: { name: "Entity corrigée", handles: ["safe"] },
+        description: "Rapport corrigé",
+        isAnonymous: true,
+        isAdminOnly: undefined,
+        severity: undefined,
+        verificationStatus: undefined,
+      }
+    );
+  });
+
   it("enforces methods, CSRF and expected space on deletion", async () => {
     expect((await spacePostAction(args("PATCH", {}))).status).toBe(405);
     const foreign = args("DELETE");

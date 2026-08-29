@@ -7,14 +7,14 @@ import { usePostActionsApi, usePostFeedApi } from "./posts";
 describe("post action client contract", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.unstubAllGlobals());
-  it("sends authenticated DELETE to the strict post deletion endpoint", async () => {
+  it("sends authenticated DELETE to the strict space-scoped post endpoint", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ success: true, action: "deleted" })));
     const { result } = renderHook(() => usePostActionsApi());
     const postId = "11111111-1111-4111-8111-111111111111";
     await act(async () => {
-      expect((await result.current.deletePost(postId)).data?.success).toBe(true);
+      expect((await result.current.deletePost(postId, "space-id")).data?.success).toBe(true);
     });
-    expect(fetch).toHaveBeenCalledExactlyOnceWith(`/resources/api/posts/${postId}/delete`, expect.objectContaining({ method: "DELETE", credentials: "include", body: undefined }));
+    expect(fetch).toHaveBeenCalledExactlyOnceWith(`/resources/api/spaces/space-id/posts/${postId}`, expect.objectContaining({ method: "DELETE", credentials: "include", body: undefined }));
   });
 
   it("keeps moderation and flag URLs rooted when called from a nested entity page", async () => {
@@ -48,7 +48,7 @@ describe("post action client contract", () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => Response.json({ error: "Server diagnostic", code: "forbidden:api" }, { status: 403 })));
     const { result } = renderHook(() => usePostActionsApi());
     await act(async () => {
-      await result.current.deletePost("post-id");
+      await result.current.deletePost("post-id", "space-id");
       await result.current.updatePostStatus("post-id", "hide");
       await result.current.flagPost("post-id", "space-id");
     });

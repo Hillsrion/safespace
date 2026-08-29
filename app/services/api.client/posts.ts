@@ -15,8 +15,8 @@ export interface PostActionResponse {
 export function usePostActionsApi() {
   const { callApi, ...rest } = useApi<PostActionResponse>();
 
-  const deletePost = async (postId: string) => {
-    return callApi(`/${RESOURCES_API_PREFIX}/posts/${encodeURIComponent(postId)}/delete`, {
+  const deletePost = async (postId: string, spaceId: string) => {
+    return callApi(`/${RESOURCES_API_PREFIX}/spaces/${encodeURIComponent(spaceId)}/posts/${encodeURIComponent(postId)}`, {
       method: "DELETE",
       showErrorToast: false,
     });

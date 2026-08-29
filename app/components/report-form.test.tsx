@@ -17,7 +17,7 @@ const report: ReportWriteResponse = { success: true, post: {
 const uploadResponse = (id: string) => Response.json({ mediaId: id, mimeType: "image/jpeg", fileSize: 100, metadataStripped: true });
 function setup(sensitive = false) {
   return render(<ReportForm initialValues={{ spaceId, entity: { name: "Entity", handles: ["handle"] }, description: "Description initiale", isAnonymous: true, isAdminOnly: false, verificationStatus: "verified" }}
-    method="POST" spaces={[{ id: spaceId, name: "Espace privé", role: "MODERATOR" }]} submitLabel="Enregistrer" submitUrl="/resources/api/posts/create" title="Rapport" requiresSensitiveReview={sensitive} />);
+    method="POST" spaces={[{ id: spaceId, name: "Espace privé", role: "MODERATOR" }]} submitLabel="Enregistrer" title="Rapport" requiresSensitiveReview={sensitive} />);
 }
 function files(...names: string[]) {
   fireEvent.change(screen.getByLabelText("Preuves privées", { selector: "input" }), { target: { files: names.map((name) => new File(["bytes"], name, { type: "image/jpeg" })) } });
@@ -44,7 +44,18 @@ describe("report persistence and evidence recovery", () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith(`/dashboard/entities/${entityId}`));
     const calls = vi.mocked(fetch).mock.calls;
     expect(calls.filter(([, init]) => init?.headers)).toHaveLength(2);
-    expect(calls[3]).toEqual([`/resources/api/posts/${postId}/update`, expect.objectContaining({ method: "PATCH" })]);
+    expect(calls[0]).toEqual([
+      `/resources/api/spaces/${spaceId}/posts`,
+      expect.objectContaining({ method: "POST" }),
+    ]);
+    expect(JSON.parse(String(calls[0][1]?.body))).toMatchObject({
+      targetEntityName: "Entity",
+      targetEntityHandles: ["handle"],
+      description: "Description initiale",
+    });
+    expect(JSON.parse(String(calls[0][1]?.body))).not.toHaveProperty("spaceId");
+    expect(JSON.parse(String(calls[0][1]?.body))).not.toHaveProperty("entity");
+    expect(calls[3]).toEqual([`/resources/api/spaces/${spaceId}/posts/${postId}`, expect.objectContaining({ method: "PUT" })]);
     expect(JSON.parse(String(calls[3][1]?.body)).description).toBe("Description corrigée après upload partiel");
     const uploads = calls.filter(([url]) => url === "/resources/api/media/upload");
     expect(uploads.map(([, init]) => (init?.body as FormData).get("file") as File).map(({ name }) => name)).toEqual(["first.jpg", "second.jpg", "second.jpg"]);
@@ -102,7 +113,7 @@ describe("report persistence and evidence recovery", () => {
   it("keeps evidence revision out of the strict report update payload", async () => {
     vi.mocked(fetch).mockResolvedValue(Response.json(report));
     render(<ReportForm initialValues={{ spaceId, entity: { name: "Entity", handles: ["handle"] }, description: "Rapport existant", isAnonymous: true, isAdminOnly: false, contentRevision: 7 }}
-      method="PATCH" spaces={[{ id: spaceId, name: "Espace privé", role: "EDITOR" }]} submitLabel="Enregistrer" submitUrl={`/resources/api/posts/${postId}/update`} title="Rapport" />);
+      method="PUT" postId={postId} spaces={[{ id: spaceId, name: "Espace privé", role: "EDITOR" }]} submitLabel="Enregistrer" title="Rapport" />);
     submit();
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body))).not.toHaveProperty("contentRevision");
@@ -118,7 +129,7 @@ describe("report persistence and evidence recovery", () => {
       .mockResolvedValueOnce(Response.json(report));
     render(<ReportForm initialValues={{ spaceId, entity: { name: "Entity", handles: ["handle"] }, description: "Rapport existant", isAnonymous: true, isAdminOnly: false, contentRevision: 1 }}
       existingEvidence={[first, second].map((id, sortOrder) => ({ id, sortOrder, mimeType: "image/jpeg", fileSize: 100, isBlurred: true, viewerCanDelete: true }))}
-      method="PATCH" spaces={[{ id: spaceId, name: "Espace privé", role: "EDITOR" }]} submitLabel="Enregistrer" submitUrl={`/resources/api/posts/${postId}/update`} title="Rapport" />);
+      method="PUT" postId={postId} spaces={[{ id: spaceId, name: "Espace privé", role: "EDITOR" }]} submitLabel="Enregistrer" title="Rapport" />);
     fireEvent.change(screen.getAllByLabelText("Légende")[0], { target: { value: "Première légende" } });
     fireEvent.change(screen.getAllByLabelText("Légende")[1], { target: { value: "Seconde légende" } });
     expect(screen.getByRole("button", { name: "Enregistrer" })).toBeDisabled();

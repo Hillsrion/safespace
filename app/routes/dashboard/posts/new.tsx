@@ -45,7 +45,6 @@ export default function NewReportPage() {
         method="POST"
         spaces={spaces}
         submitLabel="Publier le signalement"
-        submitUrl="/resources/api/posts/create"
         title="Informations du rapport"
       />
     </div>

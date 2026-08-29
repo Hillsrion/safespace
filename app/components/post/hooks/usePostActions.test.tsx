@@ -71,7 +71,7 @@ describe("usePostActions", () => {
       data: null,
       error: { message: "raw database hostname and post contents" },
     });
-    const { result } = renderHook(() => usePostActions({ postId: "post-1" }));
+    const { result } = renderHook(() => usePostActions({ postId: "post-1", spaceId: "space-1" }));
 
     await act(async () => {
       await expect(result.current.handlePostAction("delete")).resolves.toEqual({
@@ -91,7 +91,7 @@ describe("usePostActions", () => {
 
   it("recovers from a rejected network mutation without revalidation", async () => {
     mocks.updatePostStatus.mockRejectedValue(new TypeError("private network detail"));
-    const { result } = renderHook(() => usePostActions({ postId: "post-1" }));
+    const { result } = renderHook(() => usePostActions({ postId: "post-1", spaceId: "space-1" }));
 
     await act(async () => {
       await expect(result.current.handlePostAction("hide")).resolves.toEqual({
@@ -108,7 +108,7 @@ describe("usePostActions", () => {
     mocks.revalidate.mockImplementationOnce(() => {
       throw new Error("private loader diagnostic");
     });
-    const { result } = renderHook(() => usePostActions({ postId: "post-1" }));
+    const { result } = renderHook(() => usePostActions({ postId: "post-1", spaceId: "space-1" }));
 
     await act(async () => {
       await expect(result.current.handlePostAction("delete")).resolves.toEqual({
@@ -133,7 +133,7 @@ describe("usePostActions", () => {
           resolveDelete = resolve;
         })
     );
-    const { result } = renderHook(() => usePostActions({ postId: "post-1" }));
+    const { result } = renderHook(() => usePostActions({ postId: "post-1", spaceId: "space-1" }));
 
     let first: Promise<unknown>;
     let second: Promise<unknown>;
@@ -158,7 +158,7 @@ describe("usePostActions", () => {
   it("keeps buttons busy through a slow refresh and preserves committed success if it rejects", async () => {
     let rejectRefresh!: (reason: Error) => void;
     mocks.revalidate.mockReturnValueOnce(new Promise((_, reject) => { rejectRefresh = reject; }));
-    const { result } = renderHook(() => usePostActions({ postId: "post-1" }));
+    const { result } = renderHook(() => usePostActions({ postId: "post-1", spaceId: "space-1" }));
     let completion!: Promise<unknown>;
     act(() => { completion = result.current.handlePostAction("hide"); });
     await waitFor(() => expect(mocks.revalidate).toHaveBeenCalledOnce());

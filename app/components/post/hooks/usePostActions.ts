@@ -26,6 +26,9 @@ export function usePostActions({ postId, spaceId }: UsePostActionsProps) {
   const { deletePost, flagPost, updatePostStatus } = usePostActionsApi();
 
   const handlePostAction = async (action: PostAction) => {
+    if (action === "delete" && !spaceId) {
+      return { success: false, error: "Espace introuvable" };
+    }
     if (busyRef.current) {
       return { success: false, error: "Une action est déjà en cours" };
     }
@@ -35,7 +38,7 @@ export function usePostActions({ postId, spaceId }: UsePostActionsProps) {
     try {
       const { data, error } =
         action === "delete"
-          ? await deletePost(postId)
+          ? await deletePost(postId, spaceId!)
           : await updatePostStatus(postId, action);
 
       if (error || !data?.success) {

@@ -30,10 +30,10 @@ export default function EditReportPage() {
           severity: post.severity,
           verificationStatus: post.verificationStatus,
         }}
-        method="PATCH"
+        method="PUT"
+        postId={post.id}
         spaces={spaces}
         submitLabel="Enregistrer les modifications"
-        submitUrl={`/resources/api/posts/${post.id}/update`}
         title="Contenu du rapport"
         existingEvidence={post.evidence}
         requiresSensitiveReview={post.requiresSensitiveReview}

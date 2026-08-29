@@ -22,16 +22,19 @@ import {
 
 export type WritableSpace = { id: string; name: string; role: string };
 
-type ReportFormProps = {
+type ReportFormBaseProps = {
   initialValues: CreateReportInput & { contentRevision?: number };
-  method: "POST" | "PATCH";
   spaces: WritableSpace[];
   submitLabel: string;
-  submitUrl: string;
   title: string;
   existingEvidence?: ExistingEvidence[];
   requiresSensitiveReview?: boolean;
 };
+
+type ReportFormProps = ReportFormBaseProps & (
+  | { method: "POST"; postId?: never }
+  | { method: "PUT"; postId: string }
+);
 
 type ErrorPayload = { error?: string };
 
@@ -40,8 +43,8 @@ export function ReportForm({
   method,
   spaces,
   submitLabel,
-  submitUrl,
   title,
+  postId,
   existingEvidence = [],
   requiresSensitiveReview = false,
 }: ReportFormProps) {
@@ -194,11 +197,24 @@ export function ReportForm({
       // retained default value from an existing verified report.
       verificationStatus: mayVerify && !isSensitive ? values.verificationStatus : undefined,
     };
-      const response = await fetch(persistedPost ? `/resources/api/posts/${persistedPost.id}/update` : submitUrl, {
-        method: persistedPost ? "PATCH" : method,
+      const targetPostId = persistedPost?.id ?? postId;
+      const spacePath = encodeURIComponent(values.spaceId);
+      const endpoint = targetPostId
+        ? `/resources/api/spaces/${spacePath}/posts/${encodeURIComponent(targetPostId)}`
+        : `/resources/api/spaces/${spacePath}/posts`;
+      const response = await fetch(endpoint, {
+        method: targetPostId ? "PUT" : "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(authorizedValues),
+        body: JSON.stringify({
+          targetEntityName: authorizedValues.entity.name,
+          targetEntityHandles: authorizedValues.entity.handles,
+          description: authorizedValues.description,
+          isAnonymous: authorizedValues.isAnonymous,
+          isAdminOnly: authorizedValues.isAdminOnly,
+          severity: authorizedValues.severity,
+          verificationStatus: authorizedValues.verificationStatus,
+        }),
       });
       const responsePayload = (await response.json().catch(() => ({}))) as
         | ReportWriteResponse
@@ -253,7 +269,7 @@ export function ReportForm({
             <select
               id="spaceId"
               className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm disabled:opacity-60"
-              disabled={method === "PATCH" || persistedPost !== null}
+              disabled={method === "PUT" || persistedPost !== null}
               {...form.register("spaceId")}
             >
               {spaces.map((space) => (
