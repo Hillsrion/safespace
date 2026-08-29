@@ -108,7 +108,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
         handles: {
           orderBy: { createdAt: "asc" },
           take: 5,
-          select: { id: true, handle: true, platform: true },
+          select: {
+            id: true,
+            handle: true,
+            platform: true,
+            reviewStatus: true,
+            reviewNote: true,
+            reviewedAt: true,
+          },
         },
         _count: { select: { posts: { where: postSummaryFilter } } },
         posts: {

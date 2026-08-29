@@ -17,6 +17,7 @@ vi.mock("./reported-entity-admin.server", () => {
     deleteReportedEntityForAdmin: vi.fn(),
     getReportedEntityForAdmin: vi.fn(),
     listReportedEntitiesForAdmin: vi.fn(),
+    reviewReportedEntityHandle: vi.fn(),
     updateReportedEntityForAdmin: vi.fn(),
   };
 });
@@ -26,16 +27,19 @@ import {
   createReportedEntityAction,
   listReportedEntitiesLoader,
   mutateReportedEntityAction,
+  reviewReportedEntityHandleAction,
 } from "./reported-entity-admin-actions.server";
 import {
   createReportedEntityForAdmin,
   deleteReportedEntityForAdmin,
   listReportedEntitiesForAdmin,
+  reviewReportedEntityHandle,
 } from "./reported-entity-admin.server";
 
 const ACTOR_ID = "11111111-1111-4111-8111-111111111111";
 const SPACE_ID = "22222222-2222-4222-8222-222222222222";
 const ENTITY_ID = "33333333-3333-4333-8333-333333333333";
+const HANDLE_ID = "44444444-4444-4444-8444-444444444444";
 const actor = { id: ACTOR_ID };
 
 function request(
@@ -191,5 +195,118 @@ describe("reported entity admin HTTP boundaries", () => {
       name: "Entity",
       handles: [{ platform: "Instagram", handle: "entity" }],
     });
+  });
+
+  it("rejects cross-origin and non-PATCH handle review requests before service access", async () => {
+    const crossOrigin = await reviewReportedEntityHandleAction({
+      request: request(
+        `/resources/api/spaces/${SPACE_ID}/entities/${ENTITY_ID}/handles/${HANDLE_ID}/review`,
+        "PATCH",
+        { status: "consistent", note: "Matches the report context." },
+        { origin: "https://evil.test" }
+      ),
+      params: { spaceId: SPACE_ID, entityId: ENTITY_ID, handleId: HANDLE_ID },
+      context: undefined,
+    } as never);
+    const wrongMethod = await reviewReportedEntityHandleAction({
+      request: request(
+        `/resources/api/spaces/${SPACE_ID}/entities/${ENTITY_ID}/handles/${HANDLE_ID}/review`,
+        "POST",
+        { status: "consistent", note: "Matches the report context." }
+      ),
+      params: { spaceId: SPACE_ID, entityId: ENTITY_ID, handleId: HANDLE_ID },
+      context: undefined,
+    } as never);
+
+    expect(crossOrigin.status).toBe(403);
+    expect(wrongMethod.status).toBe(405);
+    expect(wrongMethod.headers.get("Allow")).toBe("PATCH");
+    expect(reviewReportedEntityHandle).not.toHaveBeenCalled();
+  });
+
+  it("requires a signed-in actor and strictly validated handle-review path and body", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValueOnce(null);
+    const unauthenticated = await reviewReportedEntityHandleAction({
+      request: request(
+        `/resources/api/spaces/${SPACE_ID}/entities/${ENTITY_ID}/handles/${HANDLE_ID}/review`,
+        "PATCH",
+        { status: "consistent", note: "Matches the report context." }
+      ),
+      params: { spaceId: SPACE_ID, entityId: ENTITY_ID, handleId: HANDLE_ID },
+      context: undefined,
+    } as never);
+    const invalidPath = await reviewReportedEntityHandleAction({
+      request: request(
+        "/resources/api/spaces/invalid/entities/invalid/handles/invalid/review",
+        "PATCH",
+        { status: "consistent", note: "Matches the report context." }
+      ),
+      params: { spaceId: "invalid", entityId: "invalid", handleId: "invalid" },
+      context: undefined,
+    } as never);
+    const missingReason = await reviewReportedEntityHandleAction({
+      request: request(
+        `/resources/api/spaces/${SPACE_ID}/entities/${ENTITY_ID}/handles/${HANDLE_ID}/review`,
+        "PATCH",
+        { status: "consistent" }
+      ),
+      params: { spaceId: SPACE_ID, entityId: ENTITY_ID, handleId: HANDLE_ID },
+      context: undefined,
+    } as never);
+    const massAssignment = await reviewReportedEntityHandleAction({
+      request: request(
+        `/resources/api/spaces/${SPACE_ID}/entities/${ENTITY_ID}/handles/${HANDLE_ID}/review`,
+        "PATCH",
+        {
+          status: "consistent",
+          note: "Matches the report context.",
+          reviewedByUserId: "99999999-9999-4999-8999-999999999999",
+        }
+      ),
+      params: { spaceId: SPACE_ID, entityId: ENTITY_ID, handleId: HANDLE_ID },
+      context: undefined,
+    } as never);
+
+    expect([unauthenticated.status, invalidPath.status, missingReason.status, massAssignment.status]).toEqual([
+      401, 400, 400, 400,
+    ]);
+    expect(reviewReportedEntityHandle).not.toHaveBeenCalled();
+  });
+
+  it("accepts a reset to unreviewed and forwards only the closed, normalized review payload", async () => {
+    vi.mocked(reviewReportedEntityHandle).mockResolvedValue({
+      id: HANDLE_ID,
+      reviewStatus: "unreviewed",
+      reviewNote: null,
+      reviewedAt: null,
+    });
+
+    const response = await reviewReportedEntityHandleAction({
+      request: request(
+        `/resources/api/spaces/${SPACE_ID}/entities/${ENTITY_ID}/handles/${HANDLE_ID}/review`,
+        "PATCH",
+        { status: "unreviewed", note: "  Ignored by the service reset.  " }
+      ),
+      params: { spaceId: SPACE_ID, entityId: ENTITY_ID, handleId: HANDLE_ID },
+      context: undefined,
+    } as never);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      review: {
+        id: HANDLE_ID,
+        reviewStatus: "unreviewed",
+        reviewNote: null,
+        reviewedAt: null,
+      },
+    });
+    expect(reviewReportedEntityHandle).toHaveBeenCalledWith(
+      actor,
+      SPACE_ID,
+      ENTITY_ID,
+      HANDLE_ID,
+      { status: "unreviewed", note: "Ignored by the service reset." }
+    );
   });
 });

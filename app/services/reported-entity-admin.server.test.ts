@@ -7,6 +7,7 @@ import {
   getReportedEntityForAdmin,
   listReportedEntitiesForAdmin,
   ReportedEntityAdminError,
+  reviewReportedEntityHandle,
   updateReportedEntityForAdmin,
 } from "./reported-entity-admin.server";
 
@@ -58,6 +59,15 @@ function createHarness(options: { role?: string; isSuperAdmin?: boolean; discipl
       create: vi.fn().mockResolvedValue(entityRow()),
       update: vi.fn().mockResolvedValue(entityRow()),
       delete: vi.fn().mockResolvedValue({ id: ENTITY_ID }),
+    },
+    reportedEntityHandle: {
+      findFirst: vi.fn().mockResolvedValue({ id: HANDLE_ID }),
+      update: vi.fn().mockResolvedValue({
+        id: HANDLE_ID,
+        reviewStatus: "consistent",
+        reviewNote: "Matches the report context.",
+        reviewedAt: new Date("2026-08-29T10:00:00.000Z"),
+      }),
     },
     auditLog: {
       create: vi.fn().mockResolvedValue({ id: "audit-id" }),
@@ -299,5 +309,164 @@ describe("reported entity admin service", () => {
       )
     ).rejects.toThrow("audit unavailable");
     expect(h.tx.reportedEntity.create).toHaveBeenCalledOnce();
+  });
+
+  it("reviews exactly the handle nested under the authorized space and keeps the note out of the audit", async () => {
+    const h = createHarness();
+
+    await expect(
+      reviewReportedEntityHandle(
+        { id: ACTOR_ID },
+        SPACE_ID,
+        ENTITY_ID,
+        HANDLE_ID,
+        { status: "consistent", note: "  Matches the report context.  " },
+        h.client
+      )
+    ).resolves.toEqual({
+      id: HANDLE_ID,
+      reviewStatus: "consistent",
+      reviewNote: "Matches the report context.",
+      reviewedAt: "2026-08-29T10:00:00.000Z",
+    });
+
+    expect(h.tx.reportedEntityHandle.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: HANDLE_ID,
+        reportedEntityId: ENTITY_ID,
+        reportedEntity: { spaceId: SPACE_ID },
+      },
+      select: { id: true },
+    });
+    expect(h.tx.reportedEntityHandle.update).toHaveBeenCalledWith({
+      where: { id: HANDLE_ID },
+      data: expect.objectContaining({
+        reviewStatus: "consistent",
+        reviewNote: "Matches the report context.",
+        reviewedByUserId: ACTOR_ID,
+        reviewedAt: expect.any(Date),
+      }),
+      select: { id: true, reviewStatus: true, reviewNote: true, reviewedAt: true },
+    });
+    expect(h.tx.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        actorUserId: ACTOR_ID,
+        action: "entity_update",
+        targetEntityType: "ReportedEntityHandle",
+        targetEntityId: HANDLE_ID,
+        spaceId: SPACE_ID,
+        details: {
+          changedFields: ["internalHandleReview"],
+          reviewStatus: "consistent",
+        },
+      },
+    });
+    expect(JSON.stringify(h.tx.auditLog.create.mock.calls[0][0])).not.toContain(
+      "Matches the report context."
+    );
+  });
+
+  it("denies handle reviews to non-admin and disciplined members before looking up a handle", async () => {
+    for (const options of [{ role: "EDITOR" }, { discipline: "suspension" as const }]) {
+      const h = createHarness(options);
+
+      await expect(
+        reviewReportedEntityHandle(
+          { id: ACTOR_ID },
+          SPACE_ID,
+          ENTITY_ID,
+          HANDLE_ID,
+          { status: "consistent", note: "Matches the report context." },
+          h.client
+        )
+      ).rejects.toMatchObject({ status: 403 });
+
+      expect(h.tx.reportedEntityHandle.findFirst).not.toHaveBeenCalled();
+      expect(h.tx.reportedEntityHandle.update).not.toHaveBeenCalled();
+      expect(h.tx.auditLog.create).not.toHaveBeenCalled();
+    }
+  });
+
+  it("does not reveal or change handles that are outside the requested entity or space", async () => {
+    const h = createHarness();
+    h.tx.reportedEntityHandle.findFirst.mockResolvedValue(null);
+
+    await expect(
+      reviewReportedEntityHandle(
+        { id: ACTOR_ID },
+        SPACE_ID,
+        ENTITY_ID,
+        HANDLE_ID,
+        { status: "obsolete", note: "Belongs to another entity." },
+        h.client
+      )
+    ).rejects.toMatchObject({ status: 404 });
+
+    expect(h.tx.reportedEntityHandle.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: HANDLE_ID,
+          reportedEntityId: ENTITY_ID,
+          reportedEntity: { spaceId: SPACE_ID },
+        },
+      })
+    );
+    expect(h.tx.reportedEntityHandle.update).not.toHaveBeenCalled();
+    expect(h.tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("requires a bounded reason for a reviewed status before any mutation", async () => {
+    const h = createHarness();
+
+    await expect(
+      reviewReportedEntityHandle(
+        { id: ACTOR_ID },
+        SPACE_ID,
+        ENTITY_ID,
+        HANDLE_ID,
+        { status: "questionable", note: "no" },
+        h.client
+      )
+    ).rejects.toMatchObject({ status: 400 });
+
+    expect(h.tx.reportedEntityHandle.update).not.toHaveBeenCalled();
+    expect(h.tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it("clears reviewer metadata when a handle is returned to unreviewed", async () => {
+    const h = createHarness();
+    h.tx.reportedEntityHandle.update.mockResolvedValue({
+      id: HANDLE_ID,
+      reviewStatus: "unreviewed",
+      reviewNote: null,
+      reviewedAt: null,
+    });
+
+    await expect(
+      reviewReportedEntityHandle(
+        { id: ACTOR_ID },
+        SPACE_ID,
+        ENTITY_ID,
+        HANDLE_ID,
+        { status: "unreviewed", note: "This must not be retained." },
+        h.client
+      )
+    ).resolves.toEqual({
+      id: HANDLE_ID,
+      reviewStatus: "unreviewed",
+      reviewNote: null,
+      reviewedAt: null,
+    });
+
+    expect(h.tx.reportedEntityHandle.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          reviewStatus: "unreviewed",
+          reviewNote: null,
+          reviewedAt: null,
+          reviewedByUserId: null,
+        }),
+      })
+    );
   });
 });

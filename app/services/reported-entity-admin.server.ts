@@ -15,7 +15,7 @@ export type ReportedEntityAdminActor = { id: string };
 
 export class ReportedEntityAdminError extends Error {
   constructor(
-    public readonly status: 403 | 404 | 409,
+    public readonly status: 400 | 403 | 404 | 409,
     message: string,
     public readonly details?: unknown
   ) {
@@ -65,6 +65,10 @@ type EntityRow = {
 
 function forbidden(message: string): never {
   throw new ReportedEntityAdminError(403, message);
+}
+
+function badRequest(message: string): never {
+  throw new ReportedEntityAdminError(400, message);
 }
 
 function notFound(message: string): never {
@@ -171,7 +175,7 @@ export async function reviewReportedEntityHandle(
     if (!handle) notFound("Reported entity handle not found");
     const note = input.status === "unreviewed" ? null : input.note?.trim();
     if (input.status !== "unreviewed" && (!note || note.length < 3 || note.length > 500)) {
-      forbidden("A review reason between 3 and 500 characters is required");
+      badRequest("A review reason between 3 and 500 characters is required");
     }
     const updated = await tx.reportedEntityHandle.update({
       where: { id: handle.id },

@@ -27,10 +27,16 @@ import { z } from "zod";
 const handleReviewParamsSchema = z.object({
   spaceId: z.string().uuid(), entityId: z.string().uuid(), handleId: z.string().uuid(),
 });
-const handleReviewSchema = z.object({
-  status: z.enum(["unreviewed", "consistent", "questionable", "obsolete"]),
-  note: z.string().trim().min(3).max(500).optional(),
-}).strict();
+const handleReviewSchema = z.union([
+  z.object({
+    status: z.literal("unreviewed"),
+    note: z.string().trim().min(3).max(500).optional(),
+  }).strict(),
+  z.object({
+    status: z.enum(["consistent", "questionable", "obsolete"]),
+    note: z.string().trim().min(3).max(500),
+  }).strict(),
+]);
 
 function errorResponse(error: unknown, message: string): Response {
   if (error instanceof HttpError) return error.toResponse();
