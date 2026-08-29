@@ -15,10 +15,19 @@ import { getCurrentUser } from "~/services/auth.server";
 const paramsSchema = z.object({
   spaceId: z.string().uuid(),
   userId: z.string().uuid(),
-});
+}).strict();
 const roleBodySchema = z.object({
   role: z.enum(["READ_ONLY", "EDITOR", "MODERATOR", "ADMIN"]),
-});
+}).strict();
+
+function methodNotAllowed(allow: string): Response {
+  const response = Response.json(
+    { success: false, error: "Method not allowed" },
+    { status: 405 }
+  );
+  response.headers.set("Allow", allow);
+  return response;
+}
 
 function errorResponse(error: unknown, message: string): Response {
   if (error instanceof HttpError) return error.toResponse();
@@ -46,10 +55,8 @@ export async function changeSpaceMemberRoleAction({
   params,
 }: ActionFunctionArgs): Promise<Response> {
   try {
+    if (request.method.toUpperCase() !== "PUT") return methodNotAllowed("PUT");
     requireSameOrigin(request);
-    if (request.method.toUpperCase() !== "PATCH") {
-      throw errors.badRequest("Method not allowed");
-    }
 
     const user = await getCurrentUser(request);
     if (!user) throw errors.unauthorized("Authentication required");
@@ -81,10 +88,8 @@ export async function kickSpaceMemberAction({
   params,
 }: ActionFunctionArgs): Promise<Response> {
   try {
+    if (request.method.toUpperCase() !== "DELETE") return methodNotAllowed("DELETE");
     requireSameOrigin(request);
-    if (request.method.toUpperCase() !== "DELETE") {
-      throw errors.badRequest("Method not allowed");
-    }
 
     const user = await getCurrentUser(request);
     if (!user) throw errors.unauthorized("Authentication required");

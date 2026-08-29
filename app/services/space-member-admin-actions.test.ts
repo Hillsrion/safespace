@@ -33,7 +33,7 @@ const userId = "00000000-0000-4000-8000-000000000002";
 const actor = { id: "00000000-0000-4000-8000-000000000003" };
 
 function jsonRequest(method: string, body?: unknown, origin = "https://safe.test") {
-  return new Request(`https://safe.test/resources/api/spaces/${spaceId}/members/${userId}`, {
+  return new Request(`https://safe.test/resources/api/admin/spaces/${spaceId}/users/${userId}`, {
     method,
     headers: {
       Origin: origin,
@@ -51,14 +51,14 @@ describe("member administration resource actions", () => {
   it("requires authentication and rejects CSRF requests before role changes", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(null);
     const unauthenticated = await changeRole({
-      request: jsonRequest("PATCH", { role: "EDITOR" }),
+      request: jsonRequest("PUT", { role: "EDITOR" }),
       params: { spaceId, userId },
       context: undefined,
     } as never);
     expect(unauthenticated.status).toBe(401);
 
     const crossOrigin = await changeRole({
-      request: jsonRequest("PATCH", { role: "EDITOR" }, "https://evil.test"),
+      request: jsonRequest("PUT", { role: "EDITOR" }, "https://evil.test"),
       params: { spaceId, userId },
       context: undefined,
     } as never);
@@ -69,14 +69,14 @@ describe("member administration resource actions", () => {
   it("validates UUID path parameters and the replacement role", async () => {
     vi.mocked(getCurrentUser).mockResolvedValue(actor as never);
     const invalidPath = await changeRole({
-      request: jsonRequest("PATCH", { role: "EDITOR" }),
+      request: jsonRequest("PUT", { role: "EDITOR" }),
       params: { spaceId: "not-a-uuid", userId },
       context: undefined,
     } as never);
     expect(invalidPath.status).toBe(400);
 
     const invalidRole = await changeRole({
-      request: jsonRequest("PATCH", { role: "OWNER" }),
+      request: jsonRequest("PUT", { role: "OWNER" }),
       params: { spaceId, userId },
       context: undefined,
     } as never);
@@ -90,7 +90,7 @@ describe("member administration resource actions", () => {
       new MembershipAdminError(409, "A space must retain at least one administrator")
     );
     const conflict = await changeRole({
-      request: jsonRequest("PATCH", { role: "EDITOR" }),
+      request: jsonRequest("PUT", { role: "EDITOR" }),
       params: { spaceId, userId },
       context: undefined,
     } as never);
@@ -105,5 +105,34 @@ describe("member administration resource actions", () => {
       context: undefined,
     } as never);
     expect(missingMember.status).toBe(404);
+  });
+
+  it("rejects legacy methods and undeclared role fields", async () => {
+    vi.mocked(getCurrentUser).mockResolvedValue(actor as never);
+
+    const legacyMethod = await changeRole({
+      request: jsonRequest("PATCH", { role: "EDITOR" }),
+      params: { spaceId, userId },
+      context: undefined,
+    } as never);
+    expect(legacyMethod.status).toBe(405);
+    expect(legacyMethod.headers.get("Allow")).toBe("PUT");
+
+    const extraField = await changeRole({
+      request: jsonRequest("PUT", { role: "EDITOR", spaceId: "another-space" }),
+      params: { spaceId, userId },
+      context: undefined,
+    } as never);
+    expect(extraField.status).toBe(400);
+
+    const roleOnDeleteEndpoint = await kickMember({
+      request: jsonRequest("PUT", { role: "EDITOR" }),
+      params: { spaceId, userId },
+      context: undefined,
+    } as never);
+    expect(roleOnDeleteEndpoint.status).toBe(405);
+    expect(roleOnDeleteEndpoint.headers.get("Allow")).toBe("DELETE");
+    expect(changeSpaceMemberRole).not.toHaveBeenCalled();
+    expect(kickSpaceMember).not.toHaveBeenCalled();
   });
 });

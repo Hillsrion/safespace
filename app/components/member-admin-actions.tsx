@@ -26,7 +26,7 @@ export function MemberAdminActions({
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"role" | "kick" | null>(null);
   const mayManage = isSuperAdmin || normalizedCurrentRole !== "ADMIN";
-  const baseUrl = `/resources/api/spaces/${spaceId}/members/${userId}`;
+  const baseUrl = `/resources/api/admin/spaces/${encodeURIComponent(spaceId)}/users/${encodeURIComponent(userId)}`;
 
   useEffect(() => setRole(normalizedCurrentRole), [normalizedCurrentRole]);
 
@@ -34,7 +34,7 @@ export function MemberAdminActions({
     setError(null);
     setPendingAction("role");
     const response = await fetch(`${baseUrl}/role`, {
-      method: "PATCH",
+      method: "PUT",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role }),
@@ -54,7 +54,7 @@ export function MemberAdminActions({
     }
     setError(null);
     setPendingAction("kick");
-    const response = await fetch(`${baseUrl}/kick`, {
+    const response = await fetch(baseUrl, {
       method: "DELETE",
       credentials: "include",
     });
