@@ -2,6 +2,7 @@ import type { PrismaClient } from "~/generated/prisma";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  getReportedEntityForMemberById,
   getReportedEntityForMember,
   listReportedEntitiesForMember,
 } from "./reported-entity-member.server";
@@ -274,5 +275,31 @@ describe("reported entity member read service", () => {
       )
     ).rejects.toMatchObject({ status: 404 });
     expect(client.post.findMany).not.toHaveBeenCalled();
+  });
+
+  it("resolves the server-owned space before using the scoped paginated read", async () => {
+    vi.mocked(client.reportedEntity.findFirst)
+      .mockResolvedValueOnce({ spaceId: SPACE_ID } as never)
+      .mockResolvedValueOnce(entity as never);
+
+    const result = await getReportedEntityForMemberById(
+      USER_ID,
+      ENTITY_ID,
+      { page: 2, limit: 10 },
+      client
+    );
+
+    expect(client.reportedEntity.findFirst).toHaveBeenNthCalledWith(1, {
+      where: { id: ENTITY_ID },
+      select: { spaceId: true },
+    });
+    expect(client.reportedEntity.findFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ where: { id: ENTITY_ID, spaceId: SPACE_ID } })
+    );
+    expect(client.post.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 10, take: 10 })
+    );
+    expect(result.entity.spaceId).toBe(SPACE_ID);
   });
 });

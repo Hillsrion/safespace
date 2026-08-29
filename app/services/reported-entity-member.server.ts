@@ -218,3 +218,29 @@ export async function getReportedEntityForMember(
     totalPages: Math.ceil(publicEntity.postCount / query.limit),
   };
 }
+
+/**
+ * Resolve an entity's space privately, then apply the same effective-member
+ * boundary as the explicitly scoped read. This keeps legacy UI routes that
+ * only contain an entity id from trusting a client-provided space id.
+ */
+export async function getReportedEntityForMemberById(
+  userId: string,
+  entityId: string,
+  query: ReportedEntityMemberPageQuery,
+  client: MemberReadClient = prisma
+) {
+  const entityScope = await client.reportedEntity.findFirst({
+    where: { id: entityId },
+    select: { spaceId: true },
+  });
+  if (!entityScope) throw errors.notFound("Reported entity not found");
+
+  return getReportedEntityForMember(
+    userId,
+    entityScope.spaceId,
+    entityId,
+    query,
+    client
+  );
+}
