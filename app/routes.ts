@@ -66,6 +66,7 @@ export default [
       route(`superadmin/announcements/:announcementId`, routePath("api/superadmin/announcements/:announcementId.ts")),
       route(`announcements`, routePath("api/announcements.ts")),
       route(`spaces`, routePath("api/spaces.ts")),
+      route(`spaces/:spaceId`, routePath("api/spaces/:spaceId.ts")),
       route(`spaces/:spaceId/sensitive-reviews`, routePath("api/spaces/:spaceId/sensitive-reviews.ts")),
       route(`spaces/:spaceId/sensitive-reviews/:postId`, routePath("api/spaces/:spaceId/sensitive-reviews/:postId.ts")),
       route(`spaces/:spaceId/members/:userId/role`, routePath("api/spaces/:spaceId/members/:userId/role.ts")),

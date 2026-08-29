@@ -24,10 +24,11 @@ les écarts de contrat et ce qui doit être vérifié sur l’environnement rée
 - Recherche et filtres, raccourci clavier, persistance des recherches sauvegardées.
   Cette persistance ne constitue pas un système de livraison d’alertes.
 - Contrat API du compte (`/auth/me`, lecture/mise à jour/suppression de
-  `users/current`) et collection de rapports par espace : pagination bornée,
-  filtres, périmètre de l’URL contrôlé, anonymat et méthodes de mutation
-  strictes. La suppression de compte conserve la confirmation renforcée et le
-  choix explicite du devenir des contributions.
+  `users/current`), lecture minimisée d’un espace selon l’appartenance effective
+  et collection de rapports par espace : pagination bornée, filtres, périmètre
+  de l’URL contrôlé, anonymat et méthodes de mutation strictes. La suppression
+  de compte conserve la confirmation renforcée et le choix explicite du devenir
+  des contributions.
 - Option de filigrane visuel pour les images, animations et vidéos : une
   dérivée privée « SafeSpace - CONFIDENTIEL » est entièrement décodée et
   réencodée à la demande, sans modifier l’original canonique ni son empreinte.
