@@ -12,7 +12,7 @@ vi.mock("../../../services/auth.server", () => ({ getCurrentUser: mocks.currentU
 vi.mock("../../../db/client.server", () => ({
   prisma: {
     reportedEntity: { count: mocks.entityCount, findMany: mocks.entities },
-    reportedEntityHandle: { findMany: mocks.reviews },
+    reportedEntityHandleReview: { findMany: mocks.reviews },
   },
 }));
 vi.mock("../../../db/repositories/spaces/queries.server", () => ({
@@ -103,7 +103,7 @@ describe("reported entity dashboard loader", () => {
     mocks.entities.mockResolvedValue([entity]);
     mocks.entityCount.mockResolvedValue(1);
     mocks.reviews.mockResolvedValue([{
-      id: HANDLE_ID,
+      reportedEntityHandleId: HANDLE_ID,
       reviewStatus: "questionable",
       reviewNote: "Note administrative privée",
       reviewedAt: new Date("2026-08-29T10:00:00.000Z"),
@@ -124,7 +124,7 @@ describe("reported entity dashboard loader", () => {
     mocks.entities.mockResolvedValue([entity]);
     mocks.entityCount.mockResolvedValue(1);
     mocks.reviews.mockResolvedValue([{
-      id: HANDLE_ID,
+      reportedEntityHandleId: HANDLE_ID,
       reviewStatus: "questionable",
       reviewNote: "Note administrative privée",
       reviewedAt: new Date("2026-08-29T10:00:00.000Z"),
@@ -137,9 +137,9 @@ describe("reported entity dashboard loader", () => {
     });
 
     expect(mocks.reviews).toHaveBeenCalledWith({
-      where: { id: { in: [HANDLE_ID] } },
+      where: { reportedEntityHandleId: { in: [HANDLE_ID] } },
       select: {
-        id: true,
+        reportedEntityHandleId: true,
         reviewStatus: true,
         reviewNote: true,
         reviewedAt: true,

@@ -34,9 +34,11 @@ les écarts de contrat et ce qui doit être vérifié sur l’environnement rée
   Elle conserve les mêmes autorisations et n’accepte pas les requêtes partielles.
 - Revue interne des identifiants par les administrateurs d’espace : statuts
   explicites, justification bornée, provenance et horodatage imposés par
-  PostgreSQL, journal d’audit sans contenu de la note. Cette revue est présentée
-  comme une qualification interne et jamais comme une preuve d’existence ou de
-  propriété du compte externe.
+  PostgreSQL, journal d’audit sans contenu de la note. Les données de revue sont
+  isolées des identifiants lisibles par les membres dans une relation protégée
+  par une RLS réservée aux administrateurs. Cette revue est présentée comme une
+  qualification interne et jamais comme une preuve d’existence ou de propriété
+  du compte externe.
 
 La CI exécute les tests applicatifs, serveur et PostgreSQL réel, construit les
 images web/migration/worker et teste leur démarrage avec des droits limités.

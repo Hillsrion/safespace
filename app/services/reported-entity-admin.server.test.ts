@@ -30,6 +30,7 @@ function entityRow(overrides: Record<string, unknown> = {}) {
         platform: "Instagram",
         handle: "reported.account",
         createdAt: new Date("2026-08-23T10:00:00.000Z"),
+        review: null,
       },
     ],
     _count: { posts: 0 },
@@ -62,12 +63,15 @@ function createHarness(options: { role?: string; isSuperAdmin?: boolean; discipl
     },
     reportedEntityHandle: {
       findFirst: vi.fn().mockResolvedValue({ id: HANDLE_ID }),
-      update: vi.fn().mockResolvedValue({
-        id: HANDLE_ID,
+    },
+    reportedEntityHandleReview: {
+      upsert: vi.fn().mockResolvedValue({
+        reportedEntityHandleId: HANDLE_ID,
         reviewStatus: "consistent",
         reviewNote: "Matches the report context.",
         reviewedAt: new Date("2026-08-29T10:00:00.000Z"),
       }),
+      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     auditLog: {
       create: vi.fn().mockResolvedValue({ id: "audit-id" }),
@@ -311,7 +315,7 @@ describe("reported entity admin service", () => {
     expect(h.tx.reportedEntity.create).toHaveBeenCalledOnce();
   });
 
-  it("reviews exactly the handle nested under the authorized space and keeps the note out of the audit", async () => {
+  it("reviews exactly the handle nested under the authorized space and leaves auditing to PostgreSQL", async () => {
     const h = createHarness();
 
     await expect(
@@ -338,32 +342,25 @@ describe("reported entity admin service", () => {
       },
       select: { id: true },
     });
-    expect(h.tx.reportedEntityHandle.update).toHaveBeenCalledWith({
-      where: { id: HANDLE_ID },
-      data: expect.objectContaining({
+    expect(h.tx.reportedEntityHandleReview.upsert).toHaveBeenCalledWith({
+      where: { reportedEntityHandleId: HANDLE_ID },
+      create: {
+        reportedEntityHandleId: HANDLE_ID,
         reviewStatus: "consistent",
         reviewNote: "Matches the report context.",
-        reviewedByUserId: ACTOR_ID,
-        reviewedAt: expect.any(Date),
-      }),
-      select: { id: true, reviewStatus: true, reviewNote: true, reviewedAt: true },
-    });
-    expect(h.tx.auditLog.create).toHaveBeenCalledWith({
-      data: {
-        actorUserId: ACTOR_ID,
-        action: "entity_update",
-        targetEntityType: "ReportedEntityHandle",
-        targetEntityId: HANDLE_ID,
-        spaceId: SPACE_ID,
-        details: {
-          changedFields: ["internalHandleReview"],
-          reviewStatus: "consistent",
-        },
+      },
+      update: {
+        reviewStatus: "consistent",
+        reviewNote: "Matches the report context.",
+      },
+      select: {
+        reportedEntityHandleId: true,
+        reviewStatus: true,
+        reviewNote: true,
+        reviewedAt: true,
       },
     });
-    expect(JSON.stringify(h.tx.auditLog.create.mock.calls[0][0])).not.toContain(
-      "Matches the report context."
-    );
+    expect(h.tx.auditLog.create).not.toHaveBeenCalled();
   });
 
   it("denies handle reviews to non-admin and disciplined members before looking up a handle", async () => {
@@ -382,7 +379,8 @@ describe("reported entity admin service", () => {
       ).rejects.toMatchObject({ status: 403 });
 
       expect(h.tx.reportedEntityHandle.findFirst).not.toHaveBeenCalled();
-      expect(h.tx.reportedEntityHandle.update).not.toHaveBeenCalled();
+      expect(h.tx.reportedEntityHandleReview.upsert).not.toHaveBeenCalled();
+      expect(h.tx.reportedEntityHandleReview.deleteMany).not.toHaveBeenCalled();
       expect(h.tx.auditLog.create).not.toHaveBeenCalled();
     }
   });
@@ -411,7 +409,8 @@ describe("reported entity admin service", () => {
         },
       })
     );
-    expect(h.tx.reportedEntityHandle.update).not.toHaveBeenCalled();
+    expect(h.tx.reportedEntityHandleReview.upsert).not.toHaveBeenCalled();
+    expect(h.tx.reportedEntityHandleReview.deleteMany).not.toHaveBeenCalled();
     expect(h.tx.auditLog.create).not.toHaveBeenCalled();
   });
 
@@ -429,18 +428,13 @@ describe("reported entity admin service", () => {
       )
     ).rejects.toMatchObject({ status: 400 });
 
-    expect(h.tx.reportedEntityHandle.update).not.toHaveBeenCalled();
+    expect(h.tx.reportedEntityHandleReview.upsert).not.toHaveBeenCalled();
+    expect(h.tx.reportedEntityHandleReview.deleteMany).not.toHaveBeenCalled();
     expect(h.tx.auditLog.create).not.toHaveBeenCalled();
   });
 
-  it("clears reviewer metadata when a handle is returned to unreviewed", async () => {
+  it("removes the private review row when a handle is returned to unreviewed", async () => {
     const h = createHarness();
-    h.tx.reportedEntityHandle.update.mockResolvedValue({
-      id: HANDLE_ID,
-      reviewStatus: "unreviewed",
-      reviewNote: null,
-      reviewedAt: null,
-    });
 
     await expect(
       reviewReportedEntityHandle(
@@ -458,15 +452,10 @@ describe("reported entity admin service", () => {
       reviewedAt: null,
     });
 
-    expect(h.tx.reportedEntityHandle.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          reviewStatus: "unreviewed",
-          reviewNote: null,
-          reviewedAt: null,
-          reviewedByUserId: null,
-        }),
-      })
-    );
+    expect(h.tx.reportedEntityHandleReview.deleteMany).toHaveBeenCalledWith({
+      where: { reportedEntityHandleId: HANDLE_ID },
+    });
+    expect(h.tx.reportedEntityHandleReview.upsert).not.toHaveBeenCalled();
+    expect(h.tx.auditLog.create).not.toHaveBeenCalled();
   });
 });

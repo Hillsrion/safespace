@@ -615,7 +615,13 @@ async function main(): Promise<void> {
       }).catch((error) => { if (!(error instanceof Error) || error.message !== "intentional integration rollback") throw error; });
     });
     await verifyEvidenceOrganization({ admin, scoped, ids, check });
-    await verifyInternalHandleReview({ admin, scoped, ids, check });
+    await verifyInternalHandleReview({
+      admin,
+      scoped,
+      runtimeUrl: parsedUrl.toString(),
+      ids,
+      check,
+    });
     await verifySensitiveReview({ admin, runtime: direct, scoped, runtimeUrl: parsedUrl.toString(), ids, check });
     await check("pooled connection has no identity after success, rollback and leave", async () => {
       await as({ id: ids.superadmin, isSuperAdmin: true }, () => scoped.post.count());

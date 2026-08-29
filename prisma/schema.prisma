@@ -16,27 +16,27 @@ datasource db {
 
 // Enums for post-related statuses and severities
 enum PostStatus {
-  active    // Post is visible and active
-  hidden    // Post is hidden from public view but still exists
+  active // Post is visible and active
+  hidden // Post is hidden from public view but still exists
 }
 
 enum PostSeverity {
-  low       // Minor issue
-  medium    // Moderate issue
-  high      // Serious issue
+  low // Minor issue
+  medium // Moderate issue
+  high // Serious issue
 }
 
 enum PostVerificationStatus {
-  unverified  // Report has not been verified
-  pending     // Report is under review
-  verified    // Report has been verified
-  disputed    // Report is disputed
+  unverified // Report has not been verified
+  pending // Report is under review
+  verified // Report has been verified
+  disputed // Report is disputed
 }
 
 enum PostFlagStatus {
-  pending_review  // Flag is awaiting review
-  resolved        // Flag has been reviewed and resolved
-  rejected        // Flag was found invalid and rejected
+  pending_review // Flag is awaiting review
+  resolved // Flag has been reviewed and resolved
+  rejected // Flag was found invalid and rejected
 }
 
 enum ModerationAppealStatus {
@@ -72,22 +72,22 @@ enum SensitiveReviewOutcome {
 
 // AuditLog actions represent different types of user/system actions
 enum AuditAction {
-  user_invite     // User invited another user
-  user_kick       // User was kicked from space
+  user_invite // User invited another user
+  user_kick // User was kicked from space
   user_role_change // User role changed
-  user_leave      // User left a space
-  account_delete  // User deleted their account
-  account_update  // Profile, email, or password updated
-  post_create     // Post created
-  post_update     // Post updated
-  post_delete     // Post deleted
-  post_flag       // Post flagged
-  flag_resolve    // Flag resolved
-  entity_add      // Reported entity added
-  entity_update   // Reported entity updated
-  entity_delete   // Reported entity deleted
-  media_upload    // Private evidence uploaded and attached to a post
-  media_delete    // Evidence detached and queued for storage deletion
+  user_leave // User left a space
+  account_delete // User deleted their account
+  account_update // Profile, email, or password updated
+  post_create // Post created
+  post_update // Post updated
+  post_delete // Post deleted
+  post_flag // Post flagged
+  flag_resolve // Flag resolved
+  entity_add // Reported entity added
+  entity_update // Reported entity updated
+  entity_delete // Reported entity deleted
+  media_upload // Private evidence uploaded and attached to a post
+  media_delete // Evidence detached and queued for storage deletion
   moderation_appeal_create
   moderation_appeal_decide
   discipline_issue
@@ -95,9 +95,9 @@ enum AuditAction {
   sensitive_review_require
   sensitive_review_decide
   sensitive_review_invalidate
-  space_create    // Space created
-  space_update    // Space updated
-  space_delete    // Space deleted
+  space_create // Space created
+  space_update // Space updated
+  space_delete // Space deleted
   system_announcement_create
   system_announcement_update
   system_announcement_delete
@@ -112,57 +112,57 @@ enum AuditAction {
 // Users can belong to multiple spaces with different roles in each space
 // SuperAdmins have global access while other roles are space-specific
 model User {
-  id            String    @id @default(uuid()) @db.Uuid
-  email         String    @unique
-  password      String
-  firstName     String
-  lastName      String
-  instagram     String?   // Optional Instagram username
-  isSuperAdmin  Boolean   @default(false) // Global flag for super admin access
+  id                      String    @id @default(uuid()) @db.Uuid
+  email                   String    @unique
+  password                String
+  firstName               String
+  lastName                String
+  instagram               String? // Optional Instagram username
+  isSuperAdmin            Boolean   @default(false) // Global flag for super admin access
   codeOfConductAcceptedAt DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @default(now()) @updatedAt
 
   // Relations
-  memberships   UserSpaceMembership[]
-  createdSpaces Space[]   @relation("SpaceCreators")
-  authoredPosts Post[]    @relation("AuthoredPosts")
-  sentInvites   Invite[]  @relation("SentInvites")
-  uploadedMedia Media[]   @relation("MediaUploaders")
-  postedFlags   PostFlag[] @relation("PostFlaggers")
-  resolvedFlags PostFlag[] @relation("FlagResolvers")
-  auditLogs     AuditLog[] @relation("AuditActors")
-  addedEntities ReportedEntity[] @relation("EntityAdders")
-  reviewedEntityHandles ReportedEntityHandle[] @relation("HandleReviewers")
-  savedSearches SavedSearch[]
-  filedModerationAppeals ModerationAppeal[] @relation("AppealFilers")
-  reviewedModerationAppeals ModerationAppeal[] @relation("AppealReviewers")
-  receivedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineSubjects")
-  issuedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineIssuers")
-  revokedDisciplinaryActions DisciplinaryAction[] @relation("DisciplineRevokers")
-  sensitiveReviewDecisions SensitiveReviewDecision[]
-  createdSystemAnnouncements SystemAnnouncement[] @relation("SystemAnnouncementCreators")
+  memberships                 UserSpaceMembership[]
+  createdSpaces               Space[]                      @relation("SpaceCreators")
+  authoredPosts               Post[]                       @relation("AuthoredPosts")
+  sentInvites                 Invite[]                     @relation("SentInvites")
+  uploadedMedia               Media[]                      @relation("MediaUploaders")
+  postedFlags                 PostFlag[]                   @relation("PostFlaggers")
+  resolvedFlags               PostFlag[]                   @relation("FlagResolvers")
+  auditLogs                   AuditLog[]                   @relation("AuditActors")
+  addedEntities               ReportedEntity[]             @relation("EntityAdders")
+  reportedEntityHandleReviews ReportedEntityHandleReview[] @relation("HandleReviewers")
+  savedSearches               SavedSearch[]
+  filedModerationAppeals      ModerationAppeal[]           @relation("AppealFilers")
+  reviewedModerationAppeals   ModerationAppeal[]           @relation("AppealReviewers")
+  receivedDisciplinaryActions DisciplinaryAction[]         @relation("DisciplineSubjects")
+  issuedDisciplinaryActions   DisciplinaryAction[]         @relation("DisciplineIssuers")
+  revokedDisciplinaryActions  DisciplinaryAction[]         @relation("DisciplineRevokers")
+  sensitiveReviewDecisions    SensitiveReviewDecision[]
+  createdSystemAnnouncements  SystemAnnouncement[]         @relation("SystemAnnouncementCreators")
 }
 
 // Space model represents a community/organization within the platform
 // Each space is an independent community with its own members and posts
 // Users can belong to multiple spaces
 model Space {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String    @unique
-  description String?   @db.Text
-  createdBy   String    @db.Uuid
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now()) @updatedAt
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  description String?  @db.Text
+  createdBy   String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
   // Relations
-  creator     User      @relation("SpaceCreators", fields: [createdBy], references: [id])
-  memberships UserSpaceMembership[]
-  posts       Post[]
-  invites     Invite[]
-  auditLogs   AuditLog[]
-  reportedEntities ReportedEntity[]
-  moderationAppeals ModerationAppeal[]
+  creator             User                  @relation("SpaceCreators", fields: [createdBy], references: [id])
+  memberships         UserSpaceMembership[]
+  posts               Post[]
+  invites             Invite[]
+  auditLogs           AuditLog[]
+  reportedEntities    ReportedEntity[]
+  moderationAppeals   ModerationAppeal[]
   disciplinaryActions DisciplinaryAction[]
 
   @@index([name])
@@ -170,18 +170,17 @@ model Space {
 
 // Join table for User and Space
 model UserSpaceMembership {
-  userId    String   @db.Uuid
-  spaceId   String   @db.Uuid
-  role      String   // 'Admin', 'Moderator', 'Editor', 'Read-only'
-  joinedAt  DateTime @default(now())
+  userId   String   @db.Uuid
+  spaceId  String   @db.Uuid
+  role     String // 'Admin', 'Moderator', 'Editor', 'Read-only'
+  joinedAt DateTime @default(now())
 
   // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  space     Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  activity  MemberSpaceActivity?
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  space    Space                @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  activity MemberSpaceActivity?
 
   @@id([userId, spaceId])
-
 }
 
 // One coarse UTC activity day per active membership. This intentionally does
@@ -198,57 +197,67 @@ model MemberSpaceActivity {
 }
 
 model Invite {
-  id              String    @id @default(uuid()) @db.Uuid
+  id              String   @id @default(uuid()) @db.Uuid
   email           String
-  token           String    @unique
-  spaceId         String    @db.Uuid
+  token           String   @unique
+  spaceId         String   @db.Uuid
   roleToAssign    String
-  invitedByUserId String    @db.Uuid
+  invitedByUserId String   @db.Uuid
   expiresAt       DateTime
-  isUsed          Boolean   @default(false)
-  createdAt       DateTime  @default(now())
+  isUsed          Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
   // Relations
-  space           Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  inviter         User      @relation("SentInvites", fields: [invitedByUserId], references: [id])
+  space   Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  inviter User  @relation("SentInvites", fields: [invitedByUserId], references: [id])
 
   @@index([email, spaceId])
 }
 
 model ReportedEntity {
-  id            String    @id @default(uuid()) @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
   name          String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt
-  addedByUserId String?   @db.Uuid
-  spaceId       String    @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @default(now()) @updatedAt
+  addedByUserId String?  @db.Uuid
+  spaceId       String   @db.Uuid
 
   // Relations
-  addedBy       User?     @relation("EntityAdders", fields: [addedByUserId], references: [id], onDelete: SetNull)
-  space         Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  handles       ReportedEntityHandle[]
-  posts         Post[]
+  addedBy User?                  @relation("EntityAdders", fields: [addedByUserId], references: [id], onDelete: SetNull)
+  space   Space                  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  handles ReportedEntityHandle[]
+  posts   Post[]
 
   @@index([name])
 }
 
 model ReportedEntityHandle {
-  id               String    @id @default(uuid()) @db.Uuid
-  reportedEntityId String    @db.Uuid
-  platform         String    @default("Instagram")
+  id               String   @id @default(uuid()) @db.Uuid
+  reportedEntityId String   @db.Uuid
+  platform         String   @default("Instagram")
   handle           String
-  createdAt        DateTime  @default(now())
-  reviewStatus     String    @default("unreviewed")
-  reviewNote       String?   @db.VarChar(500)
-  reviewedAt       DateTime?
-  reviewedByUserId String?   @db.Uuid
+  createdAt        DateTime @default(now())
 
   // Relations
-  reportedEntity   ReportedEntity @relation(fields: [reportedEntityId], references: [id], onDelete: Cascade)
-  reviewedBy       User? @relation("HandleReviewers", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reportedEntity ReportedEntity              @relation(fields: [reportedEntityId], references: [id], onDelete: Cascade)
+  review         ReportedEntityHandleReview?
 
   @@unique([reportedEntityId, handle])
   @@index([handle])
+}
+
+// Administrative-only metadata. The absence of a row means that the handle
+// has not been internally reviewed; this is never proof of an external account.
+model ReportedEntityHandleReview {
+  reportedEntityHandleId String   @id @db.Uuid
+  reviewStatus           String
+  reviewNote             String   @db.VarChar(500)
+  reviewedAt             DateTime @default(now()) @db.Timestamp(3)
+  reviewedByUserId       String?  @db.Uuid
+
+  reportedEntityHandle ReportedEntityHandle @relation(fields: [reportedEntityHandleId], references: [id], onDelete: Cascade)
+  reviewedBy           User?                @relation("HandleReviewers", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
   @@index([reviewStatus])
   @@index([reviewedByUserId])
 }
@@ -257,27 +266,27 @@ model ReportedEntityHandle {
 // Posts must target a specific entity (name + one or more Instagram identifiers)
 // If a targeted entity is not in the database, they are auto-added
 model Post {
-  id                 String    @id @default(uuid()) @db.Uuid
-  spaceId            String    @db.Uuid
-  authorId           String?   @db.Uuid
-  reportedEntityId   String    @db.Uuid
-  description        String    @db.Text
-  isAnonymous        Boolean   @default(false)
-  isAdminOnly        Boolean   @default(false)
-  status             PostStatus @default(active) // Post visibility status: active, hidden, deleted
-  severity           PostSeverity? // Severity level of the reported issue: low, medium, high
-  verificationStatus PostVerificationStatus? // Verification status of the report: unverified, pending, verified, disputed
-  requiresSensitiveReview Boolean @default(false)
-  contentRevision    Int       @default(1)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @default(now()) @updatedAt
+  id                      String                  @id @default(uuid()) @db.Uuid
+  spaceId                 String                  @db.Uuid
+  authorId                String?                 @db.Uuid
+  reportedEntityId        String                  @db.Uuid
+  description             String                  @db.Text
+  isAnonymous             Boolean                 @default(false)
+  isAdminOnly             Boolean                 @default(false)
+  status                  PostStatus              @default(active) // Post visibility status: active, hidden, deleted
+  severity                PostSeverity? // Severity level of the reported issue: low, medium, high
+  verificationStatus      PostVerificationStatus? // Verification status of the report: unverified, pending, verified, disputed
+  requiresSensitiveReview Boolean                 @default(false)
+  contentRevision         Int                     @default(1)
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @default(now()) @updatedAt
 
   // Relations
-  space              Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  author             User?     @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: SetNull)
-  reportedEntity     ReportedEntity @relation(fields: [reportedEntityId], references: [id])
-  media              Media[]
-  flags              PostFlag[]
+  space                 Space                  @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  author                User?                  @relation("AuthoredPosts", fields: [authorId], references: [id], onDelete: SetNull)
+  reportedEntity        ReportedEntity         @relation(fields: [reportedEntityId], references: [id])
+  media                 Media[]
+  flags                 PostFlag[]
   sensitiveReviewRounds SensitiveReviewRound[]
 
   @@index([createdAt])
@@ -287,56 +296,56 @@ model Post {
 // No content snapshots or hidden author identity: a detached author blocks
 // further review. Historical rounds are invalidated, never reused after edits.
 model SensitiveReviewRound {
-  id           String @id @default(uuid()) @db.Uuid
-  postId       String @db.Uuid
-  revision     Int
-  status       SensitiveReviewStatus @default(pending)
-  reason       String @db.Text
-  createdAt    DateTime @default(now())
-  post         Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  decisions    SensitiveReviewDecision[]
+  id        String                    @id @default(uuid()) @db.Uuid
+  postId    String                    @db.Uuid
+  revision  Int
+  status    SensitiveReviewStatus     @default(pending)
+  reason    String                    @db.Text
+  createdAt DateTime                  @default(now())
+  post      Post                      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  decisions SensitiveReviewDecision[]
 
   @@unique([postId, revision])
   @@index([status, createdAt])
 }
 
 model SensitiveReviewDecision {
-  id             String @id @default(uuid()) @db.Uuid
-  roundId        String @db.Uuid
+  id             String                 @id @default(uuid()) @db.Uuid
+  roundId        String                 @db.Uuid
   stage          Int // 1: space moderator, 2: space admin, 3: superadmin
-  reviewerUserId String? @db.Uuid
+  reviewerUserId String?                @db.Uuid
   outcome        SensitiveReviewOutcome
-  note           String @db.Text
-  createdAt      DateTime @default(now())
-  round          SensitiveReviewRound @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  reviewer       User? @relation(fields: [reviewerUserId], references: [id], onDelete: SetNull)
+  note           String                 @db.Text
+  createdAt      DateTime               @default(now())
+  round          SensitiveReviewRound   @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  reviewer       User?                  @relation(fields: [reviewerUserId], references: [id], onDelete: SetNull)
 
   @@unique([roundId, stage])
   @@unique([roundId, reviewerUserId])
 }
 
 model Media {
-  id               String    @id @default(uuid()) @db.Uuid
-  postId           String    @db.Uuid
-  uploaderId       String    @db.Uuid
-  storageKey       String    @unique
-  fileName         String
-  mimeType         String
-  fileSize         Int
-  originalFileSize Int?
-  sha256           String?
-  metadataStripped Boolean   @default(false)
-  metadataRemoved  Boolean   @default(false)
+  id                   String   @id @default(uuid()) @db.Uuid
+  postId               String   @db.Uuid
+  uploaderId           String   @db.Uuid
+  storageKey           String   @unique
+  fileName             String
+  mimeType             String
+  fileSize             Int
+  originalFileSize     Int?
+  sha256               String?
+  metadataStripped     Boolean  @default(false)
+  metadataRemoved      Boolean  @default(false)
   removedMetadataKinds Json?
-  isBlurred        Boolean   @default(true)
-  evidenceCategory String    @default("unclassified")
-  caption          String?   @db.VarChar(280)
-  sortOrder        Int       @default(0)
-  createdAt        DateTime  @default(now())
+  isBlurred            Boolean  @default(true)
+  evidenceCategory     String   @default("unclassified")
+  caption              String?  @db.VarChar(280)
+  sortOrder            Int      @default(0)
+  createdAt            DateTime @default(now())
 
   // Relations
-  post             Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  uploader         User      @relation("MediaUploaders", fields: [uploaderId], references: [id])
+  post     Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  uploader User @relation("MediaUploaders", fields: [uploaderId], references: [id])
 
   @@index([postId])
   @@index([postId, sortOrder, id])
@@ -346,18 +355,18 @@ model Media {
 // key so post/account cascades cannot erase the only record of an R2 object
 // that still needs to be removed.
 model MediaDeletionJob {
-  id            String    @id @default(uuid()) @db.Uuid
-  storageKey    String    @unique
-  requestedByUserId String? @db.Uuid
-  spaceId       String?   @db.Uuid
-  attempts      Int       @default(0)
-  lastError     String?
-  lastAttemptAt DateTime?
-  leaseToken    String?   @db.Uuid
-  leaseExpiresAt DateTime?
-  nextAttemptAt DateTime  @default(dbgenerated("(clock_timestamp() AT TIME ZONE 'UTC')"))
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt
+  id                String    @id @default(uuid()) @db.Uuid
+  storageKey        String    @unique
+  requestedByUserId String?   @db.Uuid
+  spaceId           String?   @db.Uuid
+  attempts          Int       @default(0)
+  lastError         String?
+  lastAttemptAt     DateTime?
+  leaseToken        String?   @db.Uuid
+  leaseExpiresAt    DateTime?
+  nextAttemptAt     DateTime  @default(dbgenerated("(clock_timestamp() AT TIME ZONE 'UTC')"))
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @default(now()) @updatedAt
 
   @@index([createdAt])
   @@index([requestedByUserId])
@@ -369,94 +378,94 @@ model MediaDeletionJob {
 // Users can flag posts for moderation review
 // Flags can be resolved by admins or moderators
 model PostFlag {
-  id              String    @id @default(uuid()) @db.Uuid
-  postId          String    @db.Uuid
-  flaggerUserId   String    @db.Uuid
-  reason          String?   @db.Text
-  status          PostFlagStatus @default(pending_review) // Flag processing status: pending_review, resolved, rejected
-  resolvedByUserId String?   @db.Uuid
-  resolvedAt      DateTime?
-  createdAt       DateTime  @default(now())
+  id               String         @id @default(uuid()) @db.Uuid
+  postId           String         @db.Uuid
+  flaggerUserId    String         @db.Uuid
+  reason           String?        @db.Text
+  status           PostFlagStatus @default(pending_review) // Flag processing status: pending_review, resolved, rejected
+  resolvedByUserId String?        @db.Uuid
+  resolvedAt       DateTime?
+  createdAt        DateTime       @default(now())
 
   // Relations
-  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  flagger         User      @relation("PostFlaggers", fields: [flaggerUserId], references: [id])
-  resolver        User?     @relation("FlagResolvers", fields: [resolvedByUserId], references: [id])
-  appeals         ModerationAppeal[]
+  post     Post               @relation(fields: [postId], references: [id], onDelete: Cascade)
+  flagger  User               @relation("PostFlaggers", fields: [flaggerUserId], references: [id])
+  resolver User?              @relation("FlagResolvers", fields: [resolvedByUserId], references: [id])
+  appeals  ModerationAppeal[]
+  // Pending-only uniqueness is enforced by the partial unique index in
+  // 20260823194500_add_pending_post_flag_uniqueness/migration.sql.
 
   @@index([postId])
   @@index([status])
-  // Pending-only uniqueness is enforced by the partial unique index in
-  // 20260823194500_add_pending_post_flag_uniqueness/migration.sql.
 }
 
 // A filer can request a second review once a flag has received a decision.
 // This never stores post-author information, so anonymous reporting remains
 // anonymous throughout the appeal workflow.
 model ModerationAppeal {
-  id               String                @id @default(uuid()) @db.Uuid
-  spaceId          String                @db.Uuid
-  postFlagId       String                @db.Uuid
-  filedByUserId    String                @db.Uuid
-  reason           String                @db.Text
+  id               String                 @id @default(uuid()) @db.Uuid
+  spaceId          String                 @db.Uuid
+  postFlagId       String                 @db.Uuid
+  filedByUserId    String                 @db.Uuid
+  reason           String                 @db.Text
   status           ModerationAppealStatus @default(pending)
-  reviewedByUserId String?               @db.Uuid
-  decisionNote     String?               @db.Text
+  reviewedByUserId String?                @db.Uuid
+  decisionNote     String?                @db.Text
   decidedAt        DateTime?
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @default(now()) @updatedAt
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @default(now()) @updatedAt
 
-  space      Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  postFlag   PostFlag @relation(fields: [postFlagId], references: [id], onDelete: Cascade)
-  filer      User     @relation("AppealFilers", fields: [filedByUserId], references: [id], onDelete: Cascade)
-  reviewer   User?    @relation("AppealReviewers", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  space    Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  postFlag PostFlag @relation(fields: [postFlagId], references: [id], onDelete: Cascade)
+  filer    User     @relation("AppealFilers", fields: [filedByUserId], references: [id], onDelete: Cascade)
+  reviewer User?    @relation("AppealReviewers", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  // One open appeal per filer and flag is enforced with a partial unique
+  // index in the migration to permit a new appeal after a final decision.
 
   @@index([spaceId, status, createdAt])
   @@index([filedByUserId, createdAt])
-  // One open appeal per filer and flag is enforced with a partial unique
-  // index in the migration to permit a new appeal after a final decision.
 }
 
 // Immutable-by-default record of progressive disciplinary decisions. A
 // revocation changes only the resolution fields, retaining an auditable trail.
 model DisciplinaryAction {
-  id                 String                @id @default(uuid()) @db.Uuid
-  spaceId            String                @db.Uuid
-  userId             String?               @db.Uuid
-  issuedByUserId     String?               @db.Uuid
-  kind               DisciplineActionKind
-  level              Int
-  reason             String                @db.Text
-  status             DisciplineActionStatus @default(active)
-  expiresAt          DateTime?
-  revokedByUserId    String?               @db.Uuid
-  revokedAt          DateTime?
-  revocationReason   String?               @db.Text
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @default(now()) @updatedAt
+  id               String                 @id @default(uuid()) @db.Uuid
+  spaceId          String                 @db.Uuid
+  userId           String?                @db.Uuid
+  issuedByUserId   String?                @db.Uuid
+  kind             DisciplineActionKind
+  level            Int
+  reason           String                 @db.Text
+  status           DisciplineActionStatus @default(active)
+  expiresAt        DateTime?
+  revokedByUserId  String?                @db.Uuid
+  revokedAt        DateTime?
+  revocationReason String?                @db.Text
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @default(now()) @updatedAt
 
-  space     Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
-  user      User? @relation("DisciplineSubjects", fields: [userId], references: [id], onDelete: SetNull)
-  issuer    User? @relation("DisciplineIssuers", fields: [issuedByUserId], references: [id], onDelete: SetNull)
-  revoker   User? @relation("DisciplineRevokers", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+  space   Space @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  user    User? @relation("DisciplineSubjects", fields: [userId], references: [id], onDelete: SetNull)
+  issuer  User? @relation("DisciplineIssuers", fields: [issuedByUserId], references: [id], onDelete: SetNull)
+  revoker User? @relation("DisciplineRevokers", fields: [revokedByUserId], references: [id], onDelete: SetNull)
 
   @@index([spaceId, userId, createdAt])
   @@index([spaceId, status, createdAt])
 }
 
 model AuditLog {
-  id               String    @id @default(uuid()) @db.Uuid
-  actorUserId      String?   @db.Uuid
+  id               String      @id @default(uuid()) @db.Uuid
+  actorUserId      String?     @db.Uuid
   action           AuditAction // Type of action performed by the actor
   targetEntityType String?
-  targetEntityId   String?   @db.Uuid
-  spaceId          String?   @db.Uuid
+  targetEntityId   String?     @db.Uuid
+  spaceId          String?     @db.Uuid
   details          Json?
-  createdAt        DateTime  @default(now())
+  createdAt        DateTime    @default(now())
 
   // Relations
-  actor            User?     @relation("AuditActors", fields: [actorUserId], references: [id])
-  space            Space?    @relation(fields: [spaceId], references: [id])
+  actor User?  @relation("AuditActors", fields: [actorUserId], references: [id])
+  space Space? @relation(fields: [spaceId], references: [id])
 
   @@index([createdAt])
   @@index([actorUserId])
@@ -491,13 +500,13 @@ model SavedSearch {
 // Global, plaintext notices. Publication and expiry are UTC DateTime values;
 // active visibility is enforced again by PostgreSQL RLS.
 model SystemAnnouncement {
-  id              String   @id @default(uuid()) @db.Uuid
-  content         String   @db.Text
+  id              String    @id @default(uuid()) @db.Uuid
+  content         String    @db.Text
   publishedAt     DateTime
   expiresAt       DateTime?
-  createdByUserId String?  @db.Uuid
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @default(now()) @updatedAt
+  createdByUserId String?   @db.Uuid
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now()) @updatedAt
 
   creator User? @relation("SystemAnnouncementCreators", fields: [createdByUserId], references: [id], onDelete: SetNull)
 

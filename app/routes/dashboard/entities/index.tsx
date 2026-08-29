@@ -134,10 +134,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     .filter((entity) => manageableSpaceIds.has(entity.space.id))
     .flatMap((entity) => entity.handles.map(({ id }) => id));
   const reviewRows = manageableHandleIds.length > 0
-    ? await prisma.reportedEntityHandle.findMany({
-        where: { id: { in: manageableHandleIds } },
+    ? await prisma.reportedEntityHandleReview.findMany({
+        where: { reportedEntityHandleId: { in: manageableHandleIds } },
         select: {
-          id: true,
+          reportedEntityHandleId: true,
           reviewStatus: true,
           reviewNote: true,
           reviewedAt: true,
@@ -145,7 +145,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
       })
     : [];
   const handleReviews = Object.fromEntries(
-    reviewRows.map(({ id, ...review }) => [id, review])
+    reviewRows.map(({ reportedEntityHandleId, ...review }) => [
+      reportedEntityHandleId,
+      review,
+    ])
   );
 
   return {

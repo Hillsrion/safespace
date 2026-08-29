@@ -14,6 +14,7 @@ const MODEL_DELEGATES = new Set([
   "invite",
   "reportedEntity",
   "reportedEntityHandle",
+  "reportedEntityHandleReview",
   "post",
   "media",
   "mediaDeletionJob",

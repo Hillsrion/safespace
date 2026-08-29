@@ -36,9 +36,13 @@ const ENTITY_SELECT = {
       platform: true,
       handle: true,
       createdAt: true,
-      reviewStatus: true,
-      reviewNote: true,
-      reviewedAt: true,
+      review: {
+        select: {
+          reviewStatus: true,
+          reviewNote: true,
+          reviewedAt: true,
+        },
+      },
     },
     orderBy: { handle: "asc" },
   },
@@ -56,9 +60,11 @@ type EntityRow = {
     platform: string;
     handle: string;
     createdAt: Date;
-    reviewStatus: string;
-    reviewNote: string | null;
-    reviewedAt: Date | null;
+    review: {
+      reviewStatus: string;
+      reviewNote: string;
+      reviewedAt: Date;
+    } | null;
   }>;
   _count: { posts: number };
 };
@@ -150,9 +156,9 @@ function toEntityResponse(entity: EntityRow) {
       platform: handle.platform,
       handle: handle.handle,
       createdAt: handle.createdAt.toISOString(),
-      reviewStatus: handle.reviewStatus,
-      reviewNote: handle.reviewNote,
-      reviewedAt: handle.reviewedAt?.toISOString() ?? null,
+      reviewStatus: handle.review?.reviewStatus ?? "unreviewed",
+      reviewNote: handle.review?.reviewNote ?? null,
+      reviewedAt: handle.review?.reviewedAt.toISOString() ?? null,
     })),
     postCount: entity._count.posts,
   };
@@ -173,26 +179,46 @@ export async function reviewReportedEntityHandle(
       select: { id: true },
     });
     if (!handle) notFound("Reported entity handle not found");
-    const note = input.status === "unreviewed" ? null : input.note?.trim();
-    if (input.status !== "unreviewed" && (!note || note.length < 3 || note.length > 500)) {
+    if (input.status === "unreviewed") {
+      await tx.reportedEntityHandleReview.deleteMany({
+        where: { reportedEntityHandleId: handle.id },
+      });
+      return {
+        id: handle.id,
+        reviewStatus: "unreviewed" as const,
+        reviewNote: null,
+        reviewedAt: null,
+      };
+    }
+    const note = input.note?.trim();
+    if (!note || note.length < 3 || note.length > 500) {
       badRequest("A review reason between 3 and 500 characters is required");
     }
-    const updated = await tx.reportedEntityHandle.update({
-      where: { id: handle.id },
-      data: {
+
+    const updated = await tx.reportedEntityHandleReview.upsert({
+      where: { reportedEntityHandleId: handle.id },
+      create: {
+        reportedEntityHandleId: handle.id,
         reviewStatus: input.status,
         reviewNote: note,
-        reviewedAt: input.status === "unreviewed" ? null : new Date(),
-        reviewedByUserId: input.status === "unreviewed" ? null : actor.id,
       },
-      select: { id: true, reviewStatus: true, reviewNote: true, reviewedAt: true },
+      update: {
+        reviewStatus: input.status,
+        reviewNote: note,
+      },
+      select: {
+        reportedEntityHandleId: true,
+        reviewStatus: true,
+        reviewNote: true,
+        reviewedAt: true,
+      },
     });
-    await tx.auditLog.create({ data: {
-      actorUserId: actor.id, action: "entity_update", targetEntityType: "ReportedEntityHandle",
-      targetEntityId: handle.id, spaceId,
-      details: { changedFields: ["internalHandleReview"], reviewStatus: input.status },
-    } });
-    return { ...updated, reviewedAt: updated.reviewedAt?.toISOString() ?? null };
+    return {
+      id: updated.reportedEntityHandleId,
+      reviewStatus: updated.reviewStatus,
+      reviewNote: updated.reviewNote,
+      reviewedAt: updated.reviewedAt.toISOString(),
+    };
   });
 }
 
