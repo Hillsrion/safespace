@@ -3,6 +3,7 @@ import { data, type LoaderFunctionArgs } from "react-router";
 import { prisma } from "~/db/client.server";
 import { Prisma } from "~/generated/prisma";
 import { HttpError, errors } from "~/lib/api/http-error";
+import { parseUniqueSearchParams } from "~/lib/api/query-params";
 import { redactAnonymousPost } from "~/lib/post-privacy";
 import { advancedSearchQuerySchema } from "~/lib/search";
 import { requireUser } from "~/services/auth.server";
@@ -119,8 +120,7 @@ export async function assertSearchSpaceAccess(
 }
 
 function parseSearchQuery(request: Request) {
-  const url = new URL(request.url);
-  const params = Object.fromEntries(url.searchParams);
+  const params = parseUniqueSearchParams(request);
   if (params.q === undefined && params.query !== undefined) {
     params.q = params.query;
     delete params.query;

@@ -6,6 +6,7 @@ import { createReport, updateReport } from "~/db/repositories/posts/write.server
 import { deletePost } from "~/db/repositories/posts/queries.server";
 import type { PrismaClient } from "~/generated/prisma";
 import { HttpError, errors } from "~/lib/api/http-error";
+import { parseUniqueSearchParams } from "~/lib/api/query-params";
 import { errorResponse } from "~/lib/api/response";
 import { createReportSchema, reportIdSchema, updateReportSchema } from "~/lib/reports";
 import { requireSameOrigin } from "~/lib/security.server";
@@ -150,8 +151,7 @@ export async function spacePostsLoader({ request, params }: LoaderFunctionArgs) 
     if (!parsedParams.success) throw errors.badRequest("Invalid space path");
     const user = await getCurrentUser(request);
     if (!user) throw errors.unauthorized("Authentication required");
-    const url = new URL(request.url);
-    const parsedQuery = listQuerySchema.safeParse(Object.fromEntries(url.searchParams));
+    const parsedQuery = listQuerySchema.safeParse(parseUniqueSearchParams(request));
     if (!parsedQuery.success) throw errors.badRequest("Invalid post list query");
     return Response.json(await listSpacePosts(user.id, parsedParams.data.spaceId, parsedQuery.data));
   } catch (error) { return boundaryError(error, "database.query"); }

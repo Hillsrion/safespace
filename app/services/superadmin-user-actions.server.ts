@@ -1,5 +1,6 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { HttpError, errors } from "~/lib/api/http-error";
+import { parseUniqueSearchParams } from "~/lib/api/query-params";
 import { logServerException } from "~/lib/error/server-error.server";
 import { publicMessageForStatus } from "~/lib/error/public";
 import { errorResponse } from "~/lib/api/response";
@@ -41,7 +42,7 @@ export async function listAdminUsersLoader({ request }: LoaderFunctionArgs) {
   try {
     const actor = await requireActor(request);
     const parsed = adminUserListQuerySchema.safeParse(
-      Object.fromEntries(new URL(request.url).searchParams)
+      parseUniqueSearchParams(request)
     );
     if (!parsed.success) {
       throw errors.badRequest(

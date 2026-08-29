@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { HttpError, errors } from "~/lib/api/http-error";
+import { parseUniqueSearchParams } from "~/lib/api/query-params";
 import { logServerException } from "~/lib/error/server-error.server";
 import { requireSameOrigin } from "~/lib/security.server";
 import { requireUser } from "~/services/auth.server";
@@ -22,7 +23,7 @@ export async function sensitiveReviewsLoader({ request, params }: LoaderFunction
     if (request.method !== "GET") return methodNotAllowed("GET");
     const actor = await requireUser(request);
     const path = sensitiveReviewPathSchema.pick({ spaceId: true }).safeParse(params);
-    const query = sensitiveReviewQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+    const query = sensitiveReviewQuerySchema.safeParse(parseUniqueSearchParams(request));
     if (!path.success || !query.success) throw errors.badRequest("Invalid review queue parameters");
     return Response.json({ success: true, ...await listSensitiveReviews(actor, path.data.spaceId, query.data) }, { headers });
   } catch (error) { return failure(error); }

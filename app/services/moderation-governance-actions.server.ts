@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 
 import { HttpError, errors } from "~/lib/api/http-error";
+import { parseUniqueSearchParams } from "~/lib/api/query-params";
 import { logServerException } from "~/lib/error/server-error.server";
 import {
   appealDecisionSchema,
@@ -89,7 +90,7 @@ export async function moderationAppealsLoader({ request, params }: LoaderFunctio
     if (request.method.toUpperCase() !== "GET") return methodNotAllowed("GET");
     const actor = await requireUser(request);
     const { spaceId } = parsePath(moderationSpacePathSchema, params, "Invalid moderation appeals path");
-    const query = appealsQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+    const query = appealsQuerySchema.safeParse(parseUniqueSearchParams(request));
     if (!query.success) throw errors.badRequest("Invalid moderation appeals query", "bad_request:api", query.error.flatten());
     return Response.json(
       { success: true, ...(await listModerationAppeals(actor, spaceId, query.data)) },

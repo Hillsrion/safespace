@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { HttpError, errors } from "~/lib/api/http-error";
+import { parseUniqueSearchParams } from "~/lib/api/query-params";
 import { logServerException } from "~/lib/error/server-error.server";
 import { publicMessageForStatus } from "~/lib/error/public";
 import { errorResponse as apiErrorResponse } from "~/lib/api/response";
@@ -57,7 +58,7 @@ async function readJson(request: Request): Promise<unknown> {
 }
 
 function parseQuery(request: Request): Record<string, string> {
-  return Object.fromEntries(new URL(request.url).searchParams);
+  return parseUniqueSearchParams(request);
 }
 
 function methodNotAllowed(allow: string): Response {
