@@ -2,7 +2,6 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { z } from "zod";
 
 import { prisma } from "~/db/client.server";
-import { redactAnonymousPost, withViewerPermissions } from "~/db/repositories/posts/queries.server";
 import { createReport, updateReport } from "~/db/repositories/posts/write.server";
 import { deletePost } from "~/db/repositories/posts/queries.server";
 import type { PrismaClient } from "~/generated/prisma";
@@ -13,6 +12,10 @@ import { requireSameOrigin } from "~/lib/security.server";
 import { logServerException } from "~/lib/error/server-error.server";
 import { getCurrentUser } from "~/services/auth.server";
 import { getEffectiveSpaceAccess } from "~/services/effective-space-access.server";
+import {
+  getSpacePostVisibilityWhere,
+  toSafeSpacePost,
+} from "~/services/space-post-visibility.server";
 
 const paramsSchema = z.object({ spaceId: z.string().uuid(), postId: reportIdSchema.optional() });
 const listQuerySchema = z.object({
@@ -68,10 +71,6 @@ async function jsonBody(request: Request): Promise<unknown> {
   catch { throw errors.badRequest("A valid JSON body is required"); }
 }
 
-function isElevated(access: Awaited<ReturnType<typeof getEffectiveSpaceAccess>>) {
-  return access.isSuperAdmin || access.role === "ADMIN" || access.role === "MODERATOR";
-}
-
 const postInclude = {
   author: { select: { id: true, firstName: true, lastName: true, instagram: true } },
   space: { select: { id: true, name: true } },
@@ -92,15 +91,6 @@ const postInclude = {
   },
 } as const;
 
-function safePost<T extends { authorId: string | null; isAnonymous: boolean; spaceId: string }>(
-  post: T,
-  userId: string,
-  access: Awaited<ReturnType<typeof getEffectiveSpaceAccess>>
-) {
-  const role = access.isSuperAdmin ? "SUPERADMIN" : access.role;
-  return redactAnonymousPost(withViewerPermissions(post, userId, role));
-}
-
 /** Read service with explicit space scoping in addition to PostgreSQL RLS. */
 export async function listSpacePosts(
   userId: string,
@@ -110,10 +100,7 @@ export async function listSpacePosts(
 ) {
   const access = await getEffectiveSpaceAccess(client, userId, spaceId);
   if (!access.isSuperAdmin && access.role === null) throw errors.notFound("Space not found");
-  const elevated = isElevated(access);
-  const visibility = elevated
-    ? {}
-    : { OR: [{ status: "active" as const, isAdminOnly: false }, { authorId: userId }] };
+  const visibility = getSpacePostVisibilityWhere(userId, access);
   const where = {
     spaceId,
     ...visibility,
@@ -131,7 +118,7 @@ export async function listSpacePosts(
     client.post.count({ where }),
   ]);
   return {
-    posts: posts.map((post) => safePost(post, userId, access)),
+    posts: posts.map((post) => toSafeSpacePost(post, userId, access)),
     page: query.page,
     limit: query.limit,
     total,
@@ -147,15 +134,13 @@ export async function getSpacePost(
 ) {
   const access = await getEffectiveSpaceAccess(client, userId, spaceId);
   if (!access.isSuperAdmin && access.role === null) throw errors.notFound("Post not found");
-  const visibility = isElevated(access)
-    ? {}
-    : { OR: [{ status: "active" as const, isAdminOnly: false }, { authorId: userId }] };
+  const visibility = getSpacePostVisibilityWhere(userId, access);
   const post = await client.post.findFirst({
     where: { id: postId, spaceId, ...visibility },
     include: postInclude,
   });
   if (!post) throw errors.notFound("Post not found");
-  return safePost(post, userId, access);
+  return toSafeSpacePost(post, userId, access);
 }
 
 export async function spacePostsLoader({ request, params }: LoaderFunctionArgs) {

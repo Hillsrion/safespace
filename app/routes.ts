@@ -74,6 +74,8 @@ export default [
       route(`spaces/:spaceId/entities`, routePath("api/spaces/:spaceId/entities.ts")),
       route(`spaces/:spaceId/entities/:entityId`, routePath("api/spaces/:spaceId/entities/:entityId.ts")),
       route(`spaces/:spaceId/entities/:entityId/handles/:handleId/review`, routePath("api/spaces/:spaceId/entities/:entityId/handles/:handleId/review.ts")),
+      route(`spaces/:spaceId/reported-entities`, routePath("api/spaces/:spaceId/reported-entities.ts")),
+      route(`spaces/:spaceId/reported-entities/:entityId`, routePath("api/spaces/:spaceId/reported-entities/:entityId.ts")),
       route(`account/delete`, routePath("api/account/delete.ts")),
       route(`account/export`, routePath("api/account/export.ts")),
       route(`users/current`, routePath("api/users/current.ts")),
