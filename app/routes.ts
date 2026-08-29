@@ -74,6 +74,7 @@ export default [
       route(`spaces/:spaceId/entities/:entityId`, routePath("api/spaces/:spaceId/entities/:entityId.ts")),
       route(`spaces/:spaceId/entities/:entityId/handles/:handleId/review`, routePath("api/spaces/:spaceId/entities/:entityId/handles/:handleId/review.ts")),
       route(`admin/spaces/:spaceId/posts/:postId/moderate`, routePath("api/admin/spaces/:spaceId/posts/:postId/moderate.ts")),
+      route(`admin/spaces/:spaceId/users`, routePath("api/admin/spaces/:spaceId/users.ts")),
       route(`admin/spaces/:spaceId/users/:userId/role`, routePath("api/admin/spaces/:spaceId/users/:userId/role.ts")),
       route(`admin/spaces/:spaceId/users/:userId`, routePath("api/admin/spaces/:spaceId/users/:userId.ts")),
       route(`spaces/:spaceId/reported-entities`, routePath("api/spaces/:spaceId/reported-entities.ts")),
