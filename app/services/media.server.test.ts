@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "~/generated/prisma";
 import type { MediaStorage } from "./media-storage.server";
-import { jpegWithExif } from "../lib/media/fixtures.server.test-support";
+import { jpegWithExif, validMediaFixture } from "../lib/media/fixtures.server.test-support";
 import {
   deleteMedia,
   getAuthorizedMediaObject,
+  getAuthorizedWatermarkedMediaObject,
   updateMediaEvidence,
   uploadMedia,
 } from "./media.server";
@@ -284,6 +285,61 @@ describe("secure media authorization", () => {
       })
     ).resolves.toMatchObject({ mediaId: MEDIA_ID, mimeType: "image/jpeg" });
     expect(storage.getObject).toHaveBeenCalledWith(STORAGE_KEY, { range: "bytes=0-2" });
+  });
+
+  it("authorizes and renders a separate watermark without replacing the stored original", async () => {
+    const db = database({ role: "READ_ONLY" });
+    const storage = storageMock();
+    const bytes = validMediaFixture("image/jpeg");
+    db.tx.media.findUnique.mockResolvedValue({
+      id: MEDIA_ID,
+      storageKey: STORAGE_KEY,
+      fileName: "proof.jpg",
+      mimeType: "image/jpeg",
+      fileSize: bytes.byteLength,
+      metadataStripped: true,
+      post: { spaceId: SPACE_ID, isAdminOnly: false, status: "active" },
+    });
+    storage.getObject.mockResolvedValue({
+      acceptRanges: "bytes",
+      body: new Response(bytes).body,
+      contentLength: bytes.byteLength,
+      contentRange: null,
+      contentType: "image/jpeg",
+      status: 200,
+    });
+
+    const result = await getAuthorizedWatermarkedMediaObject(
+      { id: ACTOR_ID }, MEDIA_ID, { client: db.client, storage }
+    );
+
+    expect(result).toMatchObject({
+      mediaId: MEDIA_ID,
+      mimeType: "image/jpeg",
+      status: 200,
+      watermark: "visual-v1",
+    });
+    expect(result.body).not.toEqual(bytes);
+    expect(storage.getObject).toHaveBeenCalledWith(STORAGE_KEY);
+    expect(storage.putObject).not.toHaveBeenCalled();
+  });
+
+  it("refuses visual watermarking for audio before reading storage", async () => {
+    const db = database({ role: "READ_ONLY" });
+    const storage = storageMock();
+    db.tx.media.findUnique.mockResolvedValue({
+      id: MEDIA_ID,
+      storageKey: STORAGE_KEY,
+      fileName: "proof.mp3",
+      mimeType: "audio/mpeg",
+      fileSize: 10,
+      metadataStripped: true,
+      post: { spaceId: SPACE_ID, isAdminOnly: false, status: "active" },
+    });
+    await expect(
+      getAuthorizedWatermarkedMediaObject({ id: ACTOR_ID }, MEDIA_ID, { client: db.client, storage })
+    ).rejects.toMatchObject({ status: 400 });
+    expect(storage.getObject).not.toHaveBeenCalled();
   });
 
   it("does not let an Editor delete another author's evidence", async () => {

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MEDIA_POLICY, sniffMediaMimeType, type SupportedMediaMimeType } from "./media-policy.server";
 import { inspectMediaStructure } from "./media-structure.server";
 import { MediaProcessingError, stripMediaMetadata } from "./metadata-stripper.server";
+import { renderMediaWatermark } from "./media-decoder.server";
 import {
   bytesJoin, mediaWithMetadata, mp4Box, pngChunk, PRIVATE_METADATA_MARKER,
   riffChunk, riffFile, textBytes, uint32, validMediaFixture, validMediaVariant,
@@ -18,6 +19,31 @@ const spawnMock = vi.spyOn(childProcess, "spawn");
 afterEach(() => { vi.unstubAllEnvs(); vi.clearAllMocks(); });
 
 describe("real media decoding and privacy reconstruction", () => {
+  it.each(["image/jpeg", "image/png", "image/gif", "image/webp", "video/mp4"] as const)(
+    "renders a separate, structurally valid watermark derivative for %s",
+    async (mime) => {
+      const canonical = await stripMediaMetadata(validMediaFixture(mime), mime);
+      const marked = await renderMediaWatermark(canonical.bytes, mime);
+      expect(sniffMediaMimeType(marked.bytes)).toBe(mime);
+      expect(marked.bytes).not.toEqual(canonical.bytes);
+      const before = inspectMediaStructure(canonical.bytes, mime);
+      expect(marked).toMatchObject({
+        width: before.width,
+        height: before.height,
+        frames: before.frames,
+      });
+    },
+    20_000
+  );
+
+  it("rejects a watermark font path that could inject an FFmpeg filter", async () => {
+    const canonical = await stripMediaMetadata(validMediaFixture("image/jpeg"), "image/jpeg");
+    vi.stubEnv("MEDIA_WATERMARK_FONT_PATH", "/tmp/font.ttf;movie=/private/file[out]");
+    await expect(renderMediaWatermark(canonical.bytes, "image/jpeg")).rejects.toMatchObject({
+      reason: "processor_unavailable",
+    });
+  });
+
   it.each(TYPES)("fully decodes and rebuilds a real %s fixture without changing MIME", async (mime) => {
     const input = validMediaFixture(mime);
     const result = await stripMediaMetadata(input, mime);

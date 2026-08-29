@@ -1,4 +1,5 @@
 import childProcess from "node:child_process";
+import { existsSync } from "node:fs";
 import { chmod, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
@@ -7,7 +8,7 @@ import { MediaProcessingError } from "./media-processing-error.server";
 import { checkDimensions, MEDIA_PROCESSING_LIMITS as LIMITS } from "./media-processing-policy.server";
 import { inspectMediaStructure, type StructuredMedia } from "./media-structure.server";
 
-type Configuration = { ffmpeg: string; ffprobe: string; timeoutMs: number; concurrent: number };
+type Configuration = { ffmpeg: string; ffprobe: string; watermarkFont: string; timeoutMs: number; concurrent: number };
 type ProbeStream = {
   codec_name?: string; codec_type?: string; width?: number; height?: number;
   sample_rate?: string; channels?: number; duration?: string; nb_frames?: string;
@@ -34,9 +35,22 @@ function configuration(): Configuration {
     }
     return value;
   }
+  const watermarkFont = binary(
+    "MEDIA_WATERMARK_FONT_PATH",
+    existsSync("/System/Library/Fonts/Supplemental/Arial.ttf")
+      ? "/System/Library/Fonts/Supplemental/Arial.ttf"
+      : "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+  );
+  // This path is embedded in an FFmpeg filter expression, unlike executable
+  // paths which are passed as spawn arguments. Keep its grammar deliberately
+  // narrower so environment configuration cannot inject another filter.
+  if (!/^[A-Za-z0-9_./ -]+$/.test(watermarkFont)) {
+    throw new MediaProcessingError("Watermark font configuration is invalid", "processor_unavailable");
+  }
   return {
     ffmpeg: binary("MEDIA_FFMPEG_PATH", "ffmpeg"),
     ffprobe: binary("MEDIA_FFPROBE_PATH", "ffprobe"),
+    watermarkFont,
     timeoutMs: integer("MEDIA_PROCESSING_TIMEOUT_MS", 30_000, 1000, 120_000),
     concurrent: integer("MEDIA_PROCESSING_MAX_CONCURRENT", 2, 1, 4),
   };
@@ -187,12 +201,27 @@ function validateProbe(text: string, mime: SupportedMediaMimeType, structure: St
   return probe;
 }
 
-function encodingArguments(mime: SupportedMediaMimeType, source: StructuredMedia): string[] {
+function watermarkFilter(fontPath: string): string {
+  const escaped = fontPath.replaceAll("\\", "\\\\").replaceAll(":", "\\:").replaceAll("'", "\\'");
+  return `drawtext=fontfile='${escaped}':text='SafeSpace - CONFIDENTIEL':fontcolor=white@0.38:fontsize=max(8\\,h/18):x=(w-text_w)/2:y=(h-text_h)/2:box=1:boxcolor=black@0.24:boxborderw=max(2\\,h/60)`;
+}
+
+function encodingArguments(
+  mime: SupportedMediaMimeType,
+  source: StructuredMedia,
+  watermarkFont?: string
+): string[] {
   const kind = MEDIA_POLICY[mime].kind;
+  const mark = watermarkFont ? watermarkFilter(watermarkFont) : undefined;
+  const videoFilters = [
+    "sidedata=mode=delete",
+    ...(kind === "video" ? ["pad=ceil(iw/2)*2:ceil(ih/2)*2"] : []),
+    ...(mark ? [mark] : []),
+  ].join(",");
   const maps = mime === "image/gif" ? [
-    "-filter_complex", "[0:v:0]sidedata=mode=delete,split[v][p];[p]palettegen=stats_mode=single[pal];[v][pal]paletteuse=new=1[out]", "-map", "[out]",
+    "-filter_complex", `[0:v:0]sidedata=mode=delete${mark ? `,${mark}` : ""},split[v][p];[p]palettegen=stats_mode=single[pal];[v][pal]paletteuse=new=1[out]`, "-map", "[out]",
   ] : kind === "audio" ? ["-map", "0:a:0", "-af", "asidedata=mode=delete"] : [
-    "-map", "0:v:0", "-vf", kind === "video" ? "sidedata=mode=delete,pad=ceil(iw/2)*2:ceil(ih/2)*2" : "sidedata=mode=delete",
+    "-map", "0:v:0", "-vf", videoFilters,
     ...(kind === "video" ? ["-map", "0:a:0?", "-af", "asidedata=mode=delete"] : []),
   ];
   const common = [
@@ -219,7 +248,12 @@ function encodingArguments(mime: SupportedMediaMimeType, source: StructuredMedia
 }
 
 /** Fully decodes/re-encodes. No stream copy, metadata copy or partial success. */
-export async function canonicalizeMedia(input: Uint8Array, mime: SupportedMediaMimeType, source: StructuredMedia): Promise<StructuredMedia> {
+async function processMedia(
+  input: Uint8Array,
+  mime: SupportedMediaMimeType,
+  source: StructuredMedia,
+  watermark: boolean
+): Promise<StructuredMedia> {
   const config = configuration();
   if (activeJobs >= config.concurrent) throw new MediaProcessingError("Media processor is at capacity; retry later", "resource_limit");
   activeJobs++;
@@ -240,7 +274,7 @@ export async function canonicalizeMedia(input: Uint8Array, mime: SupportedMediaM
     const progress = await run(config.ffmpeg, [
       "-hide_banner", "-loglevel", "error", "-nostdin", "-nostats", "-y", "-xerror", "-filter_threads", "1", "-filter_complex_threads", "1",
       "-timelimit", String(Math.ceil(config.timeoutMs / 1000)), "-progress", "pipe:1", "-stats_period", "0.25",
-      ...inputArguments(mime, inputPath), ...encodingArguments(mime, source),
+      ...inputArguments(mime, inputPath), ...encodingArguments(mime, source, watermark ? config.watermarkFont : undefined),
       // -fs bounds disk; size and complete frame counts below forbid truncated success.
       "-fs", String(maxBytes + 1), outputPath,
     ], { cwd: directory, deadline, progress: { frames: maxFrames, seconds: maxSeconds }, outputPath, maxOutputBytes: maxBytes });
@@ -267,4 +301,24 @@ export async function canonicalizeMedia(input: Uint8Array, mime: SupportedMediaM
     catch { throw new MediaProcessingError("Private media workspace cleanup failed", "processor_unavailable"); }
     finally { activeJobs--; }
   }
+}
+
+/** Fully decodes/re-encodes. No stream copy, metadata copy or partial success. */
+export async function canonicalizeMedia(input: Uint8Array, mime: SupportedMediaMimeType, source: StructuredMedia): Promise<StructuredMedia> {
+  return processMedia(input, mime, source, false);
+}
+
+/**
+ * Produces a separate, visibly marked representation. The canonical evidence
+ * passed by the caller is never mutated or replaced.
+ */
+export async function renderMediaWatermark(
+  input: Uint8Array,
+  mime: SupportedMediaMimeType
+): Promise<StructuredMedia> {
+  if (MEDIA_POLICY[mime].kind === "audio") {
+    throw new MediaProcessingError("Audio evidence cannot receive a visual watermark", "resource_limit");
+  }
+  const source = inspectMediaStructure(input, mime);
+  return processMedia(input, mime, source, true);
 }

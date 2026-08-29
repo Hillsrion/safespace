@@ -2,7 +2,7 @@
 FROM node:22.22.3-trixie-slim AS base
 WORKDIR /app
 RUN apt-get update \
-    && apt-get install --yes --no-install-recommends ca-certificates openssl ffmpeg tini \
+    && apt-get install --yes --no-install-recommends ca-certificates openssl ffmpeg fonts-dejavu-core tini \
     && rm -rf /var/lib/apt/lists/*
 
 FROM base AS dependencies

@@ -94,7 +94,24 @@ export function MediaDialog({
             </>
           )}
         </div>
-        <div className="px-4 pb-4 text-sm"><p className="text-muted-foreground">{evidenceCategoryLabel(currentMedia.evidenceCategory)}</p>{currentMedia.caption && <p className="whitespace-pre-wrap break-words">{currentMedia.caption}</p>}</div>
+        <div className="space-y-3 px-4 pb-4 text-sm">
+          <p className="text-muted-foreground">{evidenceCategoryLabel(currentMedia.evidenceCategory)}</p>
+          {currentMedia.caption && <p className="whitespace-pre-wrap break-words">{currentMedia.caption}</p>}
+          {currentMedia.type !== "audio" ? (
+            <Button asChild size="sm" variant="outline">
+              <a
+                href={`${currentMedia.url}${currentMedia.url.includes("?") ? "&" : "?"}watermark=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ouvrir une version filigranée
+              </a>
+            </Button>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            Le filigrane est appliqué à une copie privée ; la preuve originale reste intacte.
+          </p>
+        </div>
       </DialogContent>
     </Dialog>
   );

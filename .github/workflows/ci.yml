@@ -50,7 +50,7 @@ jobs:
       - name: Install media processing runtime
         run: |
           apt-get update
-          apt-get install --yes --no-install-recommends ffmpeg
+          apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core
 
       - name: Generate Prisma client
         run: yarn prisma:generate

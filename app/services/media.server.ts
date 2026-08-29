@@ -7,9 +7,11 @@ import {
   MEDIA_MAX_FILES_PER_POST,
   MEDIA_MAX_TOTAL_BYTES_PER_POST,
   MediaValidationError,
+  normalizeDeclaredMimeType,
   sanitizeOriginalFileName,
   validateMediaBytes,
 } from "~/lib/media/media-policy.server";
+import { renderMediaWatermark } from "~/lib/media/media-decoder.server";
 import {
   MediaProcessingError,
   stripMediaMetadata,
@@ -375,6 +377,77 @@ export async function getAuthorizedMediaObject(
     mimeType: media.mimeType,
     status: object.status === 206 ? 206 : 200,
   };
+}
+
+async function readBoundedPrivateObject(
+  body: ReadableStream<Uint8Array>,
+  maximumBytes: number
+): Promise<Uint8Array> {
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maximumBytes) {
+        await reader.cancel().catch(() => undefined);
+        throw errors.internalServerError("Stored media exceeds its recorded size");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (total < 1) throw errors.internalServerError("Stored media returned an empty body");
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return bytes;
+}
+
+/**
+ * Explicit private derivative. The persisted canonical evidence and its hash
+ * remain untouched; range requests stay on the original streaming endpoint.
+ */
+export async function getAuthorizedWatermarkedMediaObject(
+  actor: Actor,
+  mediaId: string,
+  options: ServiceOptions = {}
+) {
+  const client = options.client ?? prisma;
+  const media = await client.$transaction(
+    (tx) => requireDownloadAccess(tx, actor.id, mediaId),
+    { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }
+  );
+  const mimeType = normalizeDeclaredMimeType(media.mimeType);
+  if (!mimeType || mimeType.startsWith("audio/")) {
+    throw errors.badRequest("A visual watermark is available only for image and video evidence");
+  }
+  const storage = options.storage ?? getMediaStorage();
+  const object = await storage.getObject(media.storageKey);
+  if (!object.body) throw errors.internalServerError("Stored media returned an empty body");
+  const canonicalBytes = await readBoundedPrivateObject(object.body, media.fileSize);
+  try {
+    const marked = await renderMediaWatermark(canonicalBytes, mimeType);
+    return {
+      body: marked.bytes,
+      contentDisposition: mediaContentDisposition(`filigrane-${media.fileName}`),
+      contentLength: marked.bytes.byteLength,
+      contentRange: null,
+      fileSize: marked.bytes.byteLength,
+      mediaId: media.id,
+      mimeType,
+      status: 200,
+      watermark: "visual-v1" as const,
+    };
+  } catch (error) {
+    if (error instanceof MediaProcessingError) {
+      throw new HttpError(503, "Watermark generation is temporarily unavailable", "server_error:api");
+    }
+    throw error;
+  }
 }
 
 export async function deleteMedia(

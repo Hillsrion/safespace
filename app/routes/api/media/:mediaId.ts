@@ -7,7 +7,7 @@ import {
   MediaStorageConfigurationError,
   MediaStorageError,
 } from "~/services/media-storage.server";
-import { deleteMedia, getAuthorizedMediaObject, updateMediaEvidence } from "~/services/media.server";
+import { deleteMedia, getAuthorizedMediaObject, getAuthorizedWatermarkedMediaObject, updateMediaEvidence } from "~/services/media.server";
 import { updateEvidenceSchema } from "~/lib/evidence";
 import { requireUser } from "~/services/auth.server";
 import { captureServerException } from "~/services/observability.server";
@@ -50,14 +50,22 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     }
     const actor = await requireUser(request);
     const mediaId = mediaIdFrom(params);
+    const url = new URL(request.url);
+    const watermarkValue = url.searchParams.get("watermark");
+    if (watermarkValue !== null && watermarkValue !== "1") {
+      throw errors.badRequest("Invalid watermark option");
+    }
+    const watermark = watermarkValue === "1";
     const range = request.headers.get("Range") ?? undefined;
     if (range && (!singleByteRangePattern.test(range) || range.includes(","))) {
       throw errors.badRequest("Only one valid byte range may be requested");
     }
+    if (watermark && range) throw errors.badRequest("Watermarked media does not support byte ranges");
 
-    const media = await getAuthorizedMediaObject(actor, mediaId, { range });
+    const media = watermark
+      ? await getAuthorizedWatermarkedMediaObject(actor, mediaId)
+      : await getAuthorizedMediaObject(actor, mediaId, { range });
     const headers = new Headers({
-      "Accept-Ranges": "bytes",
       "Cache-Control": "private, no-store",
       "Content-Disposition": media.contentDisposition,
       "Content-Type": media.mimeType,
@@ -65,8 +73,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
     });
+    if (!("watermark" in media)) headers.set("Accept-Ranges", "bytes");
     if (media.contentLength !== null) headers.set("Content-Length", String(media.contentLength));
     if (media.contentRange) headers.set("Content-Range", media.contentRange);
+    if ("watermark" in media) headers.set("X-SafeSpace-Watermark", media.watermark);
     return new Response(media.body, { status: media.status, headers });
   } catch (error) {
     if (error instanceof HttpError) return error.toResponse();

@@ -28,6 +28,10 @@ les écarts de contrat et ce qui doit être vérifié sur l’environnement rée
   filtres, périmètre de l’URL contrôlé, anonymat et méthodes de mutation
   strictes. La suppression de compte conserve la confirmation renforcée et le
   choix explicite du devenir des contributions.
+- Option de filigrane visuel pour les images, animations et vidéos : une
+  dérivée privée « SafeSpace - CONFIDENTIEL » est entièrement décodée et
+  réencodée à la demande, sans modifier l’original canonique ni son empreinte.
+  Elle conserve les mêmes autorisations et n’accepte pas les requêtes partielles.
 
 La CI exécute les tests applicatifs, serveur et PostgreSQL réel, construit les
 images web/migration/worker et teste leur démarrage avec des droits limités.
@@ -38,7 +42,7 @@ complète dans un navigateur connecté à des services de production.
 
 | Sujet | Situation et prochain critère de sortie |
 | --- | --- |
-| Filigranes — PRD « Media Management » | Absents. Prévoir un vrai rendu serveur, conserver l’intégrité de la preuve et les contrôles privés ; un texte CSS ne protège pas le fichier. Aucun partage public ne doit être introduit implicitement. |
+| Filigranes — PRD « Media Management » | Réalisés côté serveur pour images/GIF/vidéos, comme dérivées privées bornées et vérifiées. L’original reste la preuve de référence ; aucun partage public ni filigrane CSS n’est introduit. L’audio reste inchangé : l’API refuse explicitement un filigrane visuel sur ce type. |
 | Vérification des identifiants — PRD « Reporting System » | Normalisation, syntaxe, multi-identifiants et conflits sont contrôlés ; aucune vérification externe d’existence ou de propriété n’est attestée. Définir explicitement ce que signifie une revue interne d’identifiant. Les recherches via API Instagram sont classées futures par le PRD. |
 | Contrat API — section « API Routes » | `auth/me`, `users/current` et les collections/éléments de rapports par espace sont maintenant fournis (`users/current` et les rapports restent sous le préfixe interne intentionnel `/resources/api`). Les preuves continuent d’être téléversées après la création du rapport : `mediaIds` n’accepte jamais de rattachement arbitraire. Il reste à formaliser les listes d’entités accessibles aux simples membres et, si un envoi atomique rapport+preuves est requis, à concevoir des jetons de téléversement temporaires plutôt que des identifiants réutilisables. |
 | Recherche et performance | Les résultats sont filtrés par les droits, mais les objectifs de latence/charge et l’usage réel des index doivent être mesurés ; la seule présence d’un index n’en est pas la preuve. |
