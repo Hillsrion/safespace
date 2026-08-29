@@ -53,7 +53,7 @@ describe("reported entity internal handle review", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
-      "/resources/api/spaces/22222222-2222-4222-8222-222222222222/entities/33333333-3333-4333-8333-333333333333/handles/44444444-4444-4444-8444-444444444444/review",
+      "/resources/api/admin/spaces/22222222-2222-4222-8222-222222222222/reported-entities/33333333-3333-4333-8333-333333333333/handles/44444444-4444-4444-8444-444444444444/review",
       expect.objectContaining({
         method: "PATCH",
         credentials: "include",

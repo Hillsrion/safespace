@@ -82,7 +82,7 @@ describe("reported entity admin HTTP boundaries", () => {
     const update = await mutateReportedEntityAction({
       request: request(
         `/resources/api/spaces/${SPACE_ID}/entities/${ENTITY_ID}`,
-        "PATCH",
+        "PUT",
         { name: "Changed" },
         { origin: "https://evil.test" }
       ),
@@ -129,7 +129,30 @@ describe("reported entity admin HTTP boundaries", () => {
       context: undefined,
     } as never);
     expect(invalidQuery.status).toBe(400);
+
+    const duplicateQuery = await listReportedEntitiesLoader({
+      request: request(
+        `/resources/api/admin/spaces/${SPACE_ID}/reported-entities?limit=10&limit=20`
+      ),
+      params: { spaceId: SPACE_ID },
+      context: undefined,
+    } as never);
+    expect(duplicateQuery.status).toBe(400);
     expect(listReportedEntitiesForAdmin).not.toHaveBeenCalled();
+  });
+
+  it("rejects the historical PATCH update method", async () => {
+    const response = await mutateReportedEntityAction({
+      request: request(
+        `/resources/api/admin/spaces/${SPACE_ID}/reported-entities/${ENTITY_ID}`,
+        "PATCH",
+        { name: "Changed" }
+      ),
+      params: { spaceId: SPACE_ID, entityId: ENTITY_ID },
+      context: undefined,
+    } as never);
+    expect(response.status).toBe(405);
+    expect(response.headers.get("Allow")).toBe("PUT, DELETE");
   });
 
   it("requires POST JSON with no mass-assignment fields", async () => {

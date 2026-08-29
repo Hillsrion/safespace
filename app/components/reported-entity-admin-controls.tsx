@@ -47,7 +47,7 @@ function normalizeHandles(value: string) {
   )].map((handle) => ({ platform: "Instagram", handle }));
 }
 
-async function entityRequest(url: string, method: "POST" | "PATCH" | "DELETE", body?: object) {
+async function entityRequest(url: string, method: "POST" | "PUT" | "PATCH" | "DELETE", body?: object) {
   const response = await fetch(url, {
     method,
     credentials: "include",
@@ -94,7 +94,7 @@ function HandleReviewEditor({
     setSaved(false);
     try {
       await entityRequest(
-        `/resources/api/spaces/${spaceId}/entities/${entityId}/handles/${handle.id}/review`,
+        `/resources/api/admin/spaces/${spaceId}/reported-entities/${entityId}/handles/${handle.id}/review`,
         "PATCH",
         status === "unreviewed" ? { status } : { status, note: normalizedNote }
       );
@@ -190,7 +190,7 @@ export function CreateReportedEntityControl({ spaces }: { spaces: SpaceOption[] 
     setPending(true);
     setError(null);
     try {
-      await entityRequest(`/resources/api/spaces/${spaceId}/entities`, "POST", {
+      await entityRequest(`/resources/api/admin/spaces/${spaceId}/reported-entities`, "POST", {
         name: name.trim(),
         handles: normalizedHandles,
       });
@@ -270,7 +270,7 @@ export function ReportedEntityAdminActions({
   const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const endpoint = `/resources/api/spaces/${entity.spaceId}/entities/${entity.id}`;
+  const endpoint = `/resources/api/admin/spaces/${entity.spaceId}/reported-entities/${entity.id}`;
 
   const close = () => {
     if (pending) return;
@@ -288,7 +288,7 @@ export function ReportedEntityAdminActions({
     setPending(true);
     setError(null);
     try {
-      await entityRequest(endpoint, "PATCH", {
+      await entityRequest(endpoint, "PUT", {
         name: name.trim(),
         handles: normalizedHandles,
       });

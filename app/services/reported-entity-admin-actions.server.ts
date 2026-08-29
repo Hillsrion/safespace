@@ -26,7 +26,7 @@ import { z } from "zod";
 
 const handleReviewParamsSchema = z.object({
   spaceId: z.string().uuid(), entityId: z.string().uuid(), handleId: z.string().uuid(),
-});
+}).strict();
 const handleReviewSchema = z.union([
   z.object({
     status: z.literal("unreviewed"),
@@ -82,7 +82,14 @@ async function readJson(request: Request): Promise<unknown> {
 }
 
 function parseQuery(request: Request): Record<string, string> {
-  return Object.fromEntries(new URL(request.url).searchParams);
+  const values: Record<string, string> = {};
+  for (const [key, value] of new URL(request.url).searchParams) {
+    if (Object.hasOwn(values, key)) {
+      throw errors.badRequest("Duplicate reported entity query parameter");
+    }
+    values[key] = value;
+  }
+  return values;
 }
 
 export async function reviewReportedEntityHandleAction({ request, params }: ActionFunctionArgs) {
@@ -199,14 +206,14 @@ export async function mutateReportedEntityAction({
   try {
     requireSameOrigin(request);
     const method = request.method.toUpperCase();
-    if (method !== "PATCH" && method !== "DELETE") {
-      return methodNotAllowed("PATCH, DELETE");
+    if (method !== "PUT" && method !== "DELETE") {
+      return methodNotAllowed("PUT, DELETE");
     }
     const actor = await requireActor(request);
     const parsedParams = reportedEntityItemParamsSchema.safeParse(params);
     if (!parsedParams.success) throw errors.badRequest("Invalid reported entity path");
 
-    if (method === "PATCH") {
+    if (method === "PUT") {
       const parsedBody = updateReportedEntitySchema.safeParse(await readJson(request));
       if (!parsedBody.success) {
         throw errors.badRequest(
