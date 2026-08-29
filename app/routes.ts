@@ -47,7 +47,7 @@ export default [
     route("spaces/:spaceId", routePath("dashboard/spaces/:spaceId.tsx")),
     route("posts/new", routePath("dashboard/posts/new.tsx")),
     route("posts/:id/edit", routePath("dashboard/posts/:id/edit.tsx")),
-    route("entities/:id", routePath("dashboard/entities/:id.tsx")),
+    route("entities/:id", routePath("dashboard/entities/detail.tsx")),
     route("entities", routePath("dashboard/entities/index.tsx")),
   ]),
   layout(layoutPath("api.tsx"), [
