@@ -54,6 +54,17 @@ async function readJsonObject(request: Request): Promise<unknown> {
   }
 }
 
+function parseUniqueQuery(request: Request): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const [key, value] of new URL(request.url).searchParams) {
+    if (Object.hasOwn(values, key)) {
+      throw errors.badRequest("Duplicate moderation queue query parameter");
+    }
+    values[key] = value;
+  }
+  return values;
+}
+
 export async function createPostFlagAction({
   request,
   params,
@@ -114,9 +125,8 @@ export async function moderationFlagsLoader({
       );
     }
 
-    const url = new URL(request.url);
     const parsedQuery = moderationFlagsQuerySchema.safeParse(
-      Object.fromEntries(url.searchParams)
+      parseUniqueQuery(request)
     );
     if (!parsedQuery.success) {
       throw errors.badRequest(

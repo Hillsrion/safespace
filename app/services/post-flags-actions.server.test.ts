@@ -144,6 +144,13 @@ describe("post flag resource boundaries", () => {
       context: undefined,
     } as never);
     expect(invalid.status).toBe(400);
+
+    const duplicate = await moderationFlagsLoader({
+      request: request("/moderation/flags?status=resolved&status=rejected", "GET"),
+      params: { spaceId },
+      context: undefined,
+    } as never);
+    expect(duplicate.status).toBe(400);
   });
 
   it("requires PATCH, same-origin JSON, and a final decision status", async () => {
