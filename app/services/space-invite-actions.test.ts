@@ -99,6 +99,9 @@ describe("space invitation HTTP boundary", () => {
   });
 
   it("normalizes input and returns the minimized created invitation", async () => {
+    const expectedOrigin = process.env.APP_URL?.trim()
+      ? new URL(process.env.APP_URL).origin
+      : "https://safe.test";
     vi.mocked(createSpaceInvite).mockResolvedValue({
       id: "00000000-0000-4000-8000-000000000003",
       email: "new@example.test",
@@ -119,7 +122,7 @@ describe("space invitation HTTP boundary", () => {
       expect.objectContaining({ id: actorId }),
       spaceId,
       { email: "new@example.test", role: "EDITOR" },
-      "https://safe.test"
+      expectedOrigin
     );
   });
 });
