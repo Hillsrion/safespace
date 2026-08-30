@@ -75,6 +75,13 @@ jobs:
           BACKUP_TEST_RESTORE_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/safespace_restore_ci
           BACKUP_TEST_RESTORE_DATABASE_NAME: safespace_restore_ci
 
+      - name: Verify PostgreSQL search query plans
+        run: yarn db:verify-search-plans
+        env:
+          SEARCH_PERF_TEST_ALLOW_SETUP: "1"
+          SEARCH_PERF_TEST_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/safespace
+          SEARCH_PERF_TEST_DATABASE_NAME: safespace
+
       - name: Typecheck and test
         run: yarn run check
 

@@ -1,14 +1,16 @@
 import { data, type LoaderFunctionArgs } from "react-router";
 
 import { prisma } from "~/db/client.server";
-import { Prisma } from "~/generated/prisma";
 import { HttpError, errors } from "~/lib/api/http-error";
 import { parseUniqueSearchParams } from "~/lib/api/query-params";
 import { redactAnonymousPost } from "~/lib/post-privacy";
 import { advancedSearchQuerySchema } from "~/lib/search";
+import {
+  buildEntitySearchQuery,
+  buildPostSearchQuery,
+  type SearchQueryScope,
+} from "~/lib/search-query";
 import { requireUser } from "~/services/auth.server";
-
-const SEARCH_RESULT_LIMIT = 20;
 
 type SearchPostRow = {
   id: string;
@@ -35,11 +37,7 @@ type SearchEntityRow = {
   handles: Array<{ id: string; handle: string; platform: string }>;
 };
 
-type SearchScope = {
-  accessibleSpaceIds: string[] | null;
-  elevatedSpaceIds: string[] | null;
-  isSuperAdmin: boolean;
-};
+type SearchScope = SearchQueryScope;
 
 export function toSearchResults<
   P extends { id: string; isAnonymous: boolean },
@@ -136,46 +134,6 @@ function parseSearchQuery(request: Request) {
   return parsed.data;
 }
 
-function spaceScopeSql(
-  column: Prisma.Sql,
-  accessibleSpaceIds: string[] | null
-) {
-  if (accessibleSpaceIds === null) return Prisma.empty;
-  return Prisma.sql`AND ${column} IN (${Prisma.join(
-    accessibleSpaceIds.map((spaceId) => Prisma.sql`${spaceId}::uuid`)
-  )})`;
-}
-
-function postFilterSql(
-  filters: ReturnType<typeof parseSearchQuery>,
-  scope: SearchScope
-) {
-  return Prisma.sql`
-    ${spaceScopeSql(Prisma.sql`post."spaceId"`, scope.accessibleSpaceIds)}
-    ${
-      scope.isSuperAdmin
-        ? Prisma.empty
-        : Prisma.sql`
-            AND post.status::text = 'active'
-            AND (
-              post."isAdminOnly" = false
-              ${
-                scope.elevatedSpaceIds?.length
-                  ? Prisma.sql`OR post."spaceId" IN (${Prisma.join(
-                      scope.elevatedSpaceIds.map(
-                        (spaceId) => Prisma.sql`${spaceId}::uuid`
-                      )
-                    )})`
-                  : Prisma.empty
-              }
-            )
-          `
-    }
-    ${filters.severity ? Prisma.sql`AND post.severity::text = ${filters.severity}` : Prisma.empty}
-    ${filters.verification ? Prisma.sql`AND post."verificationStatus"::text = ${filters.verification}` : Prisma.empty}
-  `;
-}
-
 async function resolveSearchScope(
   user: { id: string; isSuperAdmin: boolean },
   explicitSpaceId?: string
@@ -210,41 +168,9 @@ async function searchPosts(
   scope: SearchScope
 ) {
   if (filters.type === "entities" || scope.accessibleSpaceIds?.length === 0) return [];
-  const rows = await prisma.$queryRaw<SearchPostRow[]>(Prisma.sql`
-    SELECT
-      post.id,
-      post.description,
-      post."isAnonymous",
-      post."isAdminOnly",
-      post.status::text AS status,
-      post.severity::text AS severity,
-      post."verificationStatus"::text AS "verificationStatus",
-      post."createdAt",
-      post."updatedAt",
-      entity.id AS "entityId",
-      entity.name AS "entityName",
-      entity."createdAt" AS "entityCreatedAt",
-      entity."updatedAt" AS "entityUpdatedAt",
-      COALESCE(handles.items, '[]'::jsonb) AS "entityHandles"
-    FROM "Post" post
-    JOIN "ReportedEntity" entity ON entity.id = post."reportedEntityId"
-    LEFT JOIN LATERAL (
-      SELECT jsonb_agg(
-        jsonb_build_object(
-          'id', handle.id,
-          'handle', handle.handle,
-          'platform', handle.platform
-        ) ORDER BY handle."createdAt", handle.id
-      ) AS items
-      FROM "ReportedEntityHandle" handle
-      WHERE handle."reportedEntityId" = entity.id
-    ) handles ON true
-    WHERE to_tsvector('simple', COALESCE(post.description, ''))
-      @@ websearch_to_tsquery('simple', ${filters.q})
-      ${postFilterSql(filters, scope)}
-    ORDER BY post."createdAt" DESC, post.id DESC
-    LIMIT ${SEARCH_RESULT_LIMIT}
-  `);
+  const rows = await prisma.$queryRaw<SearchPostRow[]>(
+    buildPostSearchQuery(filters, scope),
+  );
 
   return rows.map((row) => ({
     id: row.id,
@@ -271,44 +197,9 @@ async function searchEntities(
   scope: SearchScope
 ) {
   if (filters.type === "posts" || scope.accessibleSpaceIds?.length === 0) return [];
-  return prisma.$queryRaw<SearchEntityRow[]>(Prisma.sql`
-    SELECT
-      entity.id,
-      entity.name,
-      entity."createdAt",
-      entity."updatedAt",
-      COALESCE(handles.items, '[]'::jsonb) AS handles
-    FROM "ReportedEntity" entity
-    LEFT JOIN LATERAL (
-      SELECT jsonb_agg(
-        jsonb_build_object(
-          'id', handle.id,
-          'handle', handle.handle,
-          'platform', handle.platform
-        ) ORDER BY handle."createdAt", handle.id
-      ) AS items
-      FROM "ReportedEntityHandle" handle
-      WHERE handle."reportedEntityId" = entity.id
-    ) handles ON true
-    WHERE (
-      to_tsvector('simple', COALESCE(entity.name, ''))
-        @@ websearch_to_tsquery('simple', ${filters.q})
-      OR EXISTS (
-        SELECT 1
-        FROM "ReportedEntityHandle" matching_handle
-        WHERE matching_handle."reportedEntityId" = entity.id
-          AND (
-            to_tsvector('simple', COALESCE(matching_handle.handle, ''))
-              @@ websearch_to_tsquery('simple', ${filters.q})
-            OR lower(matching_handle.handle) LIKE '%' || lower(${filters.q}) || '%'
-          )
-      )
-      OR lower(entity.name) LIKE '%' || lower(${filters.q}) || '%'
-    )
-    ${spaceScopeSql(Prisma.sql`entity."spaceId"`, scope.accessibleSpaceIds)}
-    ORDER BY entity."updatedAt" DESC, entity.id DESC
-    LIMIT ${SEARCH_RESULT_LIMIT}
-  `);
+  return prisma.$queryRaw<SearchEntityRow[]>(
+    buildEntitySearchQuery(filters, scope),
+  );
 }
 
 export async function searchLoader({ request }: LoaderFunctionArgs) {

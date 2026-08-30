@@ -155,6 +155,12 @@ Vérifier aussi le login HTTPS, la lecture d'un espace autorisé et le refus d'u
 autre espace, un upload puis sa suppression R2, et un redéploiement avec requête
 en cours. `npm run test:server` couvre les headers, cookies, chemins statiques,
 origine canonique, plafonds HTTP et drainage sur un vrai socket loopback.
+La CI exécute aussi `npm run db:verify-search-plans` sur 20 000 lignes
+synthétiques par table et vérifie les plans des requêtes applicatives exactes.
+Ce script exige `NODE_ENV=test`, une URL et un nom de base explicites ainsi que
+`SEARCH_PERF_TEST_ALLOW_SETUP=1` ; il ne doit être lancé que sur une base jetable.
+Son budget généreux détecte les régressions d'index, mais ne remplace ni un SLO
+produit ni un test de charge concurrente sur l'environnement cible.
 Le test RLS CI emploie un rôle non propriétaire sur PostgreSQL réel ; il ne
 remplace pas la vérification des secrets/ACL de l'environnement de production.
 Le script `npm run db:verify-restore` est destructif uniquement pour une base
