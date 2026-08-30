@@ -159,11 +159,16 @@ autre espace, un upload puis sa suppression R2, et un redéploiement avec requê
 en cours. `npm run test:server` couvre les headers, cookies, chemins statiques,
 origine canonique, plafonds HTTP et drainage sur un vrai socket loopback.
 La CI exécute aussi `npm run db:verify-search-plans` sur 20 000 lignes
-synthétiques par table et vérifie les plans des requêtes applicatives exactes.
+synthétiques par table, vérifie les plans des requêtes applicatives exactes puis
+exécute 60 paires de recherches avec une concurrence de 12.
 Ce script exige `NODE_ENV=test`, une URL et un nom de base explicites ainsi que
 `SEARCH_PERF_TEST_ALLOW_SETUP=1` ; il ne doit être lancé que sur une base jetable.
 Son budget généreux détecte les régressions d'index, mais ne remplace ni un SLO
 produit ni un test de charge concurrente sur l'environnement cible.
+L'image web construite reçoit séparément 300 requêtes loopback avec 20 workers ;
+`npm run test:load-http` refuse toute cible non locale, contrôle les réponses
+privées et impose un p95 inférieur à 2,5 secondes. Ce smoke test ne mesure pas
+le rendu navigateur, le réseau public, PostgreSQL/R2 managés ni les uploads.
 Le test RLS CI emploie un rôle non propriétaire sur PostgreSQL réel ; il ne
 remplace pas la vérification des secrets/ACL de l'environnement de production.
 Le script `npm run db:verify-restore` est destructif uniquement pour une base

@@ -170,6 +170,10 @@ jobs:
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:3000/dashboard)" = 302
           docker exec safespace-web node server/healthcheck.mjs
           test "$(docker exec safespace-web id -u)" != 0
+      - name: Verify bounded concurrent HTTP load
+        run: yarn test:load-http http://127.0.0.1:3000
+        env:
+          HTTP_LOAD_TEST_ALLOW_LOCAL: "1"
       - name: Show safe startup diagnostics on failure
         if: failure()
         run: docker logs safespace-web

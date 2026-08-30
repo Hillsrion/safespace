@@ -5,6 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
+import { performance } from "node:perf_hooks";
 import { Prisma, PrismaClient } from "../app/generated/prisma";
 import { buildEntitySearchQuery, buildPostSearchQuery } from "../app/lib/search-query";
 
@@ -26,6 +27,8 @@ type ExplainRow = {
 
 const fixtureSize = 20_000;
 const maximumExecutionTimeMs = 2_000;
+const concurrentWorkers = 12;
+const iterationsPerWorker = 5;
 const runId = randomBytes(8).toString("hex");
 const ids = {
   user: randomUUID(),
@@ -78,6 +81,44 @@ function inspectPlan(
   return {
     indexes: [...indexes].filter((index) => expectedIndexes.includes(index)).sort(),
     executionTimeMs: document["Execution Time"],
+  };
+}
+
+function percentile(values: number[], fraction: number): number {
+  assert.ok(values.length > 0, "at least one timing sample is required");
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)];
+}
+
+async function verifyConcurrentSearch(
+  admin: PrismaClient,
+  scope: {
+    accessibleSpaceIds: string[];
+    elevatedSpaceIds: string[];
+    isSuperAdmin: false;
+  },
+) {
+  const timings: number[] = [];
+  await Promise.all(Array.from({ length: concurrentWorkers }, async () => {
+    for (let iteration = 0; iteration < iterationsPerWorker; iteration += 1) {
+      const startedAt = performance.now();
+      await Promise.all([
+        admin.$queryRaw(buildPostSearchQuery({ q: "needle" }, scope)),
+        admin.$queryRaw(buildEntitySearchQuery({ q: "needle" }, scope)),
+      ]);
+      timings.push(performance.now() - startedAt);
+    }
+  }));
+  const p95Ms = percentile(timings, 0.95);
+  assert.ok(
+    p95Ms <= maximumExecutionTimeMs,
+    `concurrent search p95 exceeded ${maximumExecutionTimeMs}ms (${p95Ms}ms)`,
+  );
+  return {
+    queryPairs: timings.length,
+    concurrency: concurrentWorkers,
+    medianMs: Number(percentile(timings, 0.5).toFixed(2)),
+    p95Ms: Number(p95Ms.toFixed(2)),
   };
 }
 
@@ -181,7 +222,7 @@ async function main(): Promise<void> {
     const scope = {
       accessibleSpaceIds: [ids.space],
       elevatedSpaceIds: [ids.space],
-      isSuperAdmin: false,
+      isSuperAdmin: false as const,
     };
     const [postPlanRow] = await admin.$queryRaw<ExplainRow[]>(Prisma.sql`
       EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
@@ -209,8 +250,9 @@ async function main(): Promise<void> {
       ],
       ["ReportedEntity", "ReportedEntityHandle"],
     );
+    const concurrent = await verifyConcurrentSearch(admin, scope);
 
-    console.log(JSON.stringify({ fixtureSize, post, entity }));
+    console.log(JSON.stringify({ fixtureSize, post, entity, concurrent }));
   } finally {
     if (spaceCreated) await admin.space.deleteMany({ where: { id: ids.space } });
     if (userCreated) await admin.user.deleteMany({ where: { id: ids.user } });
