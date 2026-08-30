@@ -87,10 +87,13 @@ administratifs privilégiés doivent eux aussi rester séparés des réplicas we
 ## Disques, limites et réplication
 
 La CI réalise un dump PostgreSQL logique puis le restaure dans une base jetable
-distincte. Elle compare migrations, tables, activation RLS, politiques et
-fonctions privées avant de détruire cette base. Ce test prouve la restaurabilité
-du schéma courant ; il ne remplace pas un exercice périodique à partir d’une
-sauvegarde réelle du fournisseur ni la mesure du RPO/RTO de production.
+distincte. Elle compare migrations, tables, index, extensions, activation RLS,
+politiques et fonctions privées avant de détruire cette base. La restauration
+tolère uniquement le réglage de session `transaction_timeout` ajouté par un
+client PostgreSQL plus récent à destination d'un serveur plus ancien ; toute
+autre erreur SQL reste fatale. Ce test prouve la restaurabilité du schéma courant ;
+il ne remplace pas un exercice périodique à partir d’une sauvegarde réelle du
+fournisseur ni la mesure du RPO/RTO de production.
 
 Aucun volume persistant n'est nécessaire pour le web : les données durables sont
 dans PostgreSQL et les preuves dans R2 privé. Prévoir des sauvegardes PostgreSQL,

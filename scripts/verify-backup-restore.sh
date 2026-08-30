@@ -66,18 +66,28 @@ if [[ "$actual_restore" != "$restore_database" ]]; then
   exit 2
 fi
 
+# Debian can ship a newer PostgreSQL client than the target server. Newer dumps
+# may include a harmless session setting unknown to an older server (PG17's
+# transaction_timeout is one example). Render the custom archive through the
+# matching psql client, removing only that exact compatibility-only SET line;
+# pipefail and ON_ERROR_STOP still make archive or restore errors fatal.
 pg_restore \
-  --dbname="$restore_url" \
   --no-owner \
   --no-privileges \
   --exit-on-error \
-  "$dump_path"
+  --file=- \
+  "$dump_path" \
+  | sed '/^SET transaction_timeout = 0;$/d' \
+  | psql "$restore_url" --set ON_ERROR_STOP=1 --single-transaction >/dev/null
 
 schema_fingerprint_sql="
 SELECT json_build_object(
   'migrations', (SELECT count(*) FROM public._prisma_migrations WHERE finished_at IS NOT NULL),
   'migrationFingerprint', (SELECT md5(coalesce(string_agg(migration_name || ':' || checksum, ',' ORDER BY migration_name), '')) FROM public._prisma_migrations WHERE finished_at IS NOT NULL),
   'tables', (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'r'),
+  'indexes', (SELECT count(*) FROM pg_indexes WHERE schemaname = 'public'),
+  'indexFingerprint', (SELECT md5(coalesce(string_agg(indexname || ':' || indexdef, ',' ORDER BY indexname), '')) FROM pg_indexes WHERE schemaname = 'public'),
+  'extensionFingerprint', (SELECT md5(coalesce(string_agg(e.extname || ':' || e.extversion || ':' || n.nspname, ',' ORDER BY e.extname), '')) FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace),
   'rlsTables', (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relrowsecurity),
   'policies', (SELECT count(*) FROM pg_policies WHERE schemaname = 'public'),
   'privateFunctions', (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname IN ('safespace_private', 'safespace_worker'))
