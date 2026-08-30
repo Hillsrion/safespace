@@ -50,7 +50,7 @@ jobs:
       - name: Install media processing runtime
         run: |
           apt-get update
-          apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core
+          apt-get install --yes --no-install-recommends ffmpeg fonts-dejavu-core postgresql-client
 
       - name: Generate Prisma client
         run: yarn prisma:generate
@@ -65,6 +65,15 @@ jobs:
           # All tested operations connect as that NOBYPASSRLS, non-owner role.
           RLS_TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/safespace
           RLS_TEST_ALLOW_SETUP: "1"
+
+      - name: Verify PostgreSQL backup and restore
+        run: yarn db:verify-restore
+        env:
+          BACKUP_TEST_ALLOW_SETUP: "1"
+          BACKUP_TEST_SOURCE_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/safespace
+          BACKUP_TEST_MAINTENANCE_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+          BACKUP_TEST_RESTORE_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/safespace_restore_ci
+          BACKUP_TEST_RESTORE_DATABASE_NAME: safespace_restore_ci
 
       - name: Typecheck and test
         run: yarn run check

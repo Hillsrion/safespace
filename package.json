@@ -17,6 +17,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "db:verify-restore": "bash scripts/verify-backup-restore.sh",
     "typecheck": "react-router typegen && tsc",
     "check": "npm run typecheck && vitest --run && npm run test:server",
     "test:server": "node --test server/*.test.mjs",

@@ -86,9 +86,16 @@ administratifs privilégiés doivent eux aussi rester séparés des réplicas we
 
 ## Disques, limites et réplication
 
+La CI réalise un dump PostgreSQL logique puis le restaure dans une base jetable
+distincte. Elle compare migrations, tables, activation RLS, politiques et
+fonctions privées avant de détruire cette base. Ce test prouve la restaurabilité
+du schéma courant ; il ne remplace pas un exercice périodique à partir d’une
+sauvegarde réelle du fournisseur ni la mesure du RPO/RTO de production.
+
 Aucun volume persistant n'est nécessaire pour le web : les données durables sont
 dans PostgreSQL et les preuves dans R2 privé. Prévoir des sauvegardes PostgreSQL,
-tester leur restauration et surveiller l'outbox. Ne jamais stocker les preuves
+tester leur restauration sur une infrastructure isolée et surveiller l'outbox.
+Ne jamais stocker les preuves
 dans `build/client` ni dans un volume servi publiquement.
 
 Le transcodage utilise le répertoire temporaire système. Garder `/tmp` inscriptible
@@ -150,3 +157,7 @@ en cours. `npm run test:server` couvre les headers, cookies, chemins statiques,
 origine canonique, plafonds HTTP et drainage sur un vrai socket loopback.
 Le test RLS CI emploie un rôle non propriétaire sur PostgreSQL réel ; il ne
 remplace pas la vérification des secrets/ACL de l'environnement de production.
+Le script `npm run db:verify-restore` est destructif uniquement pour une base
+dont le nom commence par `safespace_restore_` et exige quatre variables
+`BACKUP_TEST_*` explicites ; ne jamais lui fournir l’URL de la base source comme
+destination.
