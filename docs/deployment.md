@@ -25,6 +25,9 @@ et [paquet FFmpeg Trixie](https://packages.debian.org/trixie/ffmpeg).
 Le build ne reçoit aucun secret. `.dockerignore` exclut notamment `.env*`, `.git`,
 les clients Prisma générés et les artefacts locaux. Prisma est généré pour la
 plateforme Linux de l'image ; ne pas copier un moteur natif macOS dans le serveur.
+L'installation production reconstruit un `node_modules` sans dépendances de
+développement à partir du cache complet de l'étage initial, en mode hors ligne :
+elle ne retélécharge pas les mêmes archives pendant un seul build Docker.
 
 Variables runtime à fournir dans Coolify, pas dans les build arguments :
 

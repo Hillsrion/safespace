@@ -176,7 +176,7 @@ jobs:
           HTTP_LOAD_TEST_ALLOW_LOCAL: "1"
       - name: Show safe startup diagnostics on failure
         if: failure()
-        run: docker logs safespace-web
+        run: docker logs safespace-web 2>/dev/null || true
       - name: Stop CI web container
         if: always()
         run: docker rm --force safespace-web || true

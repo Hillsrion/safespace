@@ -26,7 +26,11 @@ CMD ["node", "node_modules/prisma/build/index.js", "migrate", "deploy"]
 
 FROM base AS production-dependencies
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --non-interactive --production=true \
+# The complete dependency stage already fetched every production tarball.
+# Reuse that verified cache so this clean runtime install has no second registry
+# dependency and still excludes build/dev packages from the final images.
+COPY --from=dependencies /usr/local/share/.cache/yarn /usr/local/share/.cache/yarn
+RUN yarn install --frozen-lockfile --non-interactive --production=true --offline \
     && yarn cache clean
 
 # Independent job: no HTTP server, client assets, web credentials or healthcheck.
