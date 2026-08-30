@@ -49,6 +49,7 @@ async function main(): Promise<void> {
     await admin.$executeRawUnsafe(`GRANT EXECUTE ON FUNCTION safespace_worker.claim_media_deletion_jobs(integer) TO ${role}`);
     await admin.$executeRawUnsafe(`GRANT EXECUTE ON FUNCTION safespace_worker.complete_media_deletion_job(uuid, uuid) TO ${role}`);
     await admin.$executeRawUnsafe(`GRANT EXECUTE ON FUNCTION safespace_worker.fail_media_deletion_job(uuid, uuid, text) TO ${role}`);
+    await admin.$executeRawUnsafe(`GRANT EXECUTE ON FUNCTION safespace_worker.media_deletion_backlog_status() TO ${role}`);
     parsed.username = role;
     parsed.password = password;
     parsed.searchParams.set("connection_limit", "1");
@@ -71,6 +72,15 @@ async function main(): Promise<void> {
       INSERT INTO public."MediaDeletionJob" ("storageKey") VALUES (${key}) RETURNING id
     `);
     jobIds.push(job.id);
+    const [queuedStatus] = await worker.$queryRaw<Array<{
+      due_count: bigint; leased_count: bigint; max_attempts: number;
+      oldest_age_seconds: bigint; pending_count: bigint;
+    }>>`SELECT * FROM safespace_worker.media_deletion_backlog_status()`;
+    assert.ok(queuedStatus.pending_count >= 1n);
+    assert.ok(queuedStatus.due_count >= 1n);
+    assert.equal(queuedStatus.leased_count, 0n);
+    assert.equal(queuedStatus.max_attempts, 0);
+    assert.ok(queuedStatus.oldest_age_seconds >= 0n);
     const claimed = await worker.$queryRaw<Array<{ job_id: string; lease_token: string }>>`
       SELECT * FROM safespace_worker.claim_media_deletion_jobs(1)
     `;
@@ -92,6 +102,12 @@ async function main(): Promise<void> {
     assert.equal(retry.attempts, 1);
     assert.equal(retry.lastError, "storage_timeout");
     assert.equal(retry.leaseToken, null);
+    const [retryStatus] = await worker.$queryRaw<Array<{
+      due_count: bigint; leased_count: bigint; max_attempts: number; pending_count: bigint;
+    }>>`SELECT pending_count, due_count, leased_count, max_attempts FROM safespace_worker.media_deletion_backlog_status()`;
+    assert.ok(retryStatus.pending_count >= 1n);
+    assert.equal(retryStatus.leased_count, 0n);
+    assert.ok(retryStatus.max_attempts >= 1);
     assert.equal((await worker.$queryRaw<Array<unknown>>`SELECT * FROM safespace_worker.claim_media_deletion_jobs(1)`).length, 0, "failure backoff must postpone the next claim");
     await admin.mediaDeletionJob.update({ where: { id: job.id }, data: { nextAttemptAt: new Date(0) } });
     const [retryLease] = await worker.$queryRaw<Array<{ job_id: string; lease_token: string }>>`SELECT * FROM safespace_worker.claim_media_deletion_jobs(1)`;

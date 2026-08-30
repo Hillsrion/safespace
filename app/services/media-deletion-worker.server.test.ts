@@ -6,7 +6,7 @@ vi.mock("../services/media-storage.server", async (importOriginal) => {
 });
 
 import { getMediaStorage } from "./media-storage.server";
-import { main, processBatch, wait, workerConfig, type WorkerConfig } from "../../server/media-deletion-worker";
+import { main, processBatch, readBacklogStatus, wait, workerConfig, type WorkerConfig } from "../../server/media-deletion-worker";
 
 const baseEnvironment = {
   MEDIA_DELETION_WORKER_DATABASE_URL: "postgresql://worker@localhost/safespace?schema=public",
@@ -72,5 +72,22 @@ describe("media deletion worker CLI boundary", () => {
     expect(removeListener).toHaveBeenCalledWith("abort", expect.any(Function));
     active.abort();
     vi.useRealTimers();
+  });
+
+  it("maps aggregate backlog counters without exposing queued identifiers", async () => {
+    const client = { $queryRaw: vi.fn(async () => [{
+      pending_count: 8n,
+      due_count: 3n,
+      leased_count: 2n,
+      oldest_age_seconds: 91n,
+      max_attempts: 4,
+    }]) } as never;
+    await expect(readBacklogStatus(client)).resolves.toEqual({
+      pending: 8,
+      due: 3,
+      leased: 2,
+      oldestAgeSeconds: 91,
+      maxAttempts: 4,
+    });
   });
 });

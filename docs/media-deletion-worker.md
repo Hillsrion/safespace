@@ -46,6 +46,8 @@ GRANT EXECUTE ON FUNCTION safespace_worker.complete_media_deletion_job(uuid, uui
   TO safespace_media_deletion_worker;
 GRANT EXECUTE ON FUNCTION safespace_worker.fail_media_deletion_job(uuid, uuid, text)
   TO safespace_media_deletion_worker;
+GRANT EXECUTE ON FUNCTION safespace_worker.media_deletion_backlog_status()
+  TO safespace_media_deletion_worker;
 ```
 
 Grant nothing on `public` tables or `safespace_private`, and do not grant role
@@ -83,17 +85,20 @@ docker run --rm --env-file /secure/path/media-worker.env safespace-media-worker 
 
 The environment file is separate from web and migration secrets. Set the R2
 variables documented in `secure-media-pipeline.md`. No HTTP port or web
-healthcheck is part of this target. Supervise process exits and cycle counters;
-monitor outbox age with a separately authorized operator connection. A running
-process alone does not prove R2 availability or that the queue is draining.
+healthcheck is part of this target. Supervise process exits and cycle counters.
+Chaque cycle publie uniquement les agrégats `pending`, `due`, `leased`,
+`oldestAgeSeconds` et `maxAttempts`, sans clé d'objet ni identifiant utilisateur.
+Déclencher des alertes sur leur progression et leur âge. Un processus actif et
+des compteurs momentanément bas ne prouvent toutefois pas la disponibilité R2.
 
 Allow more time for container shutdown than the configured worker deadline
 (160 seconds for the default 150 seconds). Leases expire after three minutes;
 an interrupted delete may run again safely. Failed jobs use a 30-second
 exponential delay capped at 7,680 seconds, without silently discarding jobs.
 
-CI runs the real PostgreSQL boundary verifier, builds the worker container and
-runs `--once` against an empty outbox as its restricted role. Local unit tests
-cover failed deletion, lost completion, polling, cancellation, and safe logs.
+CI runs the real PostgreSQL boundary verifier, including the aggregate backlog
+function, builds the worker container and runs `--once` against an empty outbox
+as its restricted role. Local unit tests cover failed deletion, lost completion,
+polling, cancellation, aggregate metrics, and safe logs.
 Actual provider deletion and production scheduling still require an operational
 smoke test with the deployed bucket and credentials.

@@ -6,6 +6,13 @@ import { getMediaStorage } from "../app/services/media-storage.server";
 type Mode = "once" | "loop";
 export type WorkerConfig = { batchSize: number; cadenceMs: number; errorBackoffMs: number; mode: Mode; shutdownTimeoutMs: number; storageTimeoutMs: number; url: string };
 type ClaimedJob = { job_id: string; storage_key: string; lease_token: string };
+type BacklogStatusRow = {
+  due_count: bigint;
+  leased_count: bigint;
+  max_attempts: number;
+  oldest_age_seconds: bigint;
+  pending_count: bigint;
+};
 
 function boundedInteger(name: string, value: string | undefined, fallback: number, min: number, max: number): number {
   const resolved = value?.trim() ? Number(value) : fallback;
@@ -40,6 +47,30 @@ export function workerConfig(argv: readonly string[], env: NodeJS.ProcessEnv = p
 
 function log(code: string, counters: Record<string, number> = {}): void {
   console.log(JSON.stringify({ event: code, ...counters }));
+}
+
+function safeMetric(value: bigint): number {
+  return Number(value > BigInt(Number.MAX_SAFE_INTEGER) ? BigInt(Number.MAX_SAFE_INTEGER) : value);
+}
+
+export async function readBacklogStatus(client: PrismaClient): Promise<{
+  due: number;
+  leased: number;
+  maxAttempts: number;
+  oldestAgeSeconds: number;
+  pending: number;
+}> {
+  const [status] = await client.$queryRaw<BacklogStatusRow[]>`
+    SELECT * FROM safespace_worker.media_deletion_backlog_status()
+  `;
+  if (!status) throw new Error("media deletion backlog status unavailable");
+  return {
+    due: safeMetric(status.due_count),
+    leased: safeMetric(status.leased_count),
+    maxAttempts: status.max_attempts,
+    oldestAgeSeconds: safeMetric(status.oldest_age_seconds),
+    pending: safeMetric(status.pending_count),
+  };
 }
 
 export async function verifyWorkerRole(client: PrismaClient): Promise<void> {
@@ -130,7 +161,8 @@ export async function main(argv = process.argv, env = process.env): Promise<void
       let delayMs = config.cadenceMs;
       try {
         const result = await processBatch(client, config, () => stopping);
-        log("media_deletion_worker_cycle", result);
+        const backlog = await readBacklogStatus(client);
+        log("media_deletion_worker_cycle", { ...result, ...backlog });
         if (config.mode === "once" && result.failed > 0) process.exitCode = 1;
       } catch { log("media_deletion_worker_cycle_failed"); delayMs = config.errorBackoffMs; if (config.mode === "once") process.exitCode = 1; }
       if (config.mode === "loop" && !stopping) await wait(delayMs, shutdown.signal);

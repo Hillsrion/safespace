@@ -115,7 +115,8 @@ immédiates du serveur web sont bornées par `requestedByUserId` et `spaceId` ;
 les retries planifiés et les anciennes lignes sans propriétaire passent par
 `safespace_worker` avec `MEDIA_DELETION_WORKER_DATABASE_URL`. Le worker ne reçoit
 ni `SYSTEM_DATABASE_URL`, ni les secrets du web. Voir `media-deletion-worker.md`
-pour le rôle exact, les trois fonctions autorisées et les leases. Aucun contexte
+pour le rôle exact, les quatre fonctions autorisées — dont les métriques agrégées
+sans identifiants — et les leases. Aucun contexte
 utilisateur forgé à partir de l’outbox n’est utilisé.
 
 ## Test d'intégration PostgreSQL en CI
